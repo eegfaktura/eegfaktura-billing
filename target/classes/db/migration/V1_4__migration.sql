@@ -1,0 +1,1 @@
+alter table if exists billing_document_item add column ppu_unit varchar;

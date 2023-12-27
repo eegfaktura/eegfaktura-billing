@@ -1,0 +1,1 @@
+alter table if exists billing_document add column recipient_sepa_mandate_issue_date date;
