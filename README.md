@@ -1,4 +1,4 @@
-![eegfaktura Logo](https://github.com/vfeeg-development/eegfaktura-billingj/blob/main/eegfaktura-logo.PNG)
+![eegfaktura Logo](https://github.com/eegfaktura/eegfaktura-billing/blob/master/eegfaktura-logo.PNG)
 
 # eegfaktura-billingj
 > Do the actual billing
@@ -28,7 +28,7 @@ In order to run this container you'll need docker installed.
 ## Developing
 
 ```shell
-git clone https://github.com/vfeeg-development/eegfaktura-billingj.git
+git clone https://github.com/eegfaktura/eegfaktura-billing.git
 mvn clean package
 ```
 
@@ -90,9 +90,8 @@ branch. Pull requests are warmly welcome."
 
 - Project homepage: https://github.com/eegfaktura
 - Repositories
-  -- Docker: https://github.com/vfeeg-development/eegfaktura-billingj
+  -- Docker: https://github.com/eegfaktura/eegfaktura-billing-docker
   -- Sources: https://github.com/eegfaktura/eegfaktura-billing/
-- Issue tracker: [https://vfeeg-development.atlassian.net/jira/software/c/projects/VD/boards/1]
 - In case of sensitive bugs like security vulnerabilities, please contact
     peterO@vfeeg.org directly instead of using issue tracker. We value your effort
     to improve the security and privacy of this project!
