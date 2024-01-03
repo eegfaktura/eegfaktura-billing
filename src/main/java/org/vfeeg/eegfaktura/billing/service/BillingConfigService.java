@@ -152,6 +152,7 @@ public class BillingConfigService {
         billingConfigDTO.setTenantId(billingConfig.getTenantId());
         billingConfigDTO.setHeaderImageFileDataId(billingConfig.getHeaderImageFileDataId());
         billingConfigDTO.setFooterImageFileDataId(billingConfig.getFooterImageFileDataId());
+        billingConfigDTO.setCreateCreditNotesForAllProducers(billingConfig.isCreateCreditNotesForAllProducers());
         billingConfigDTO.setBeforeItemsTextInvoice(billingConfig.getBeforeItemsTextInvoice());
         billingConfigDTO.setBeforeItemsTextCreditNote(billingConfig.getBeforeItemsTextCreditNote());
         billingConfigDTO.setBeforeItemsTextInfo(billingConfig.getBeforeItemsTextInfo());
@@ -176,6 +177,7 @@ public class BillingConfigService {
         billingConfig.setTenantId(billingConfigDTO.getTenantId());
         billingConfig.setHeaderImageFileDataId(billingConfigDTO.getHeaderImageFileDataId());
         billingConfig.setFooterImageFileDataId(billingConfigDTO.getFooterImageFileDataId());
+        billingConfig.setCreateCreditNotesForAllProducers(billingConfigDTO.isCreateCreditNotesForAllProducers());
 
         billingConfig.setBeforeItemsTextInvoice(billingConfigDTO.getBeforeItemsTextInvoice());
         billingConfig.setBeforeItemsTextCreditNote(billingConfigDTO.getBeforeItemsTextCreditNote());
