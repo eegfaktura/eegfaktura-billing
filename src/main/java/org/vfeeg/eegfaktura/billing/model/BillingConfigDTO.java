@@ -17,6 +17,7 @@ public class BillingConfigDTO {
     private String tenantId;
     private UUID headerImageFileDataId;
     private UUID footerImageFileDataId;
+    private boolean isCreateCreditNotesForAllProducers;
     private String beforeItemsTextInvoice;
     private String beforeItemsTextCreditNote;
     private String beforeItemsTextInfo;

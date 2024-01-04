@@ -168,7 +168,7 @@ public class BillingDocument {
     public static String getDocumentTypeName(BillingDocumentType billingDocumentType) {
         return switch(billingDocumentType) {
             case INVOICE -> "Rechnung";
-            case CREDIT_NOTE -> "Gutschrift";
+            case CREDIT_NOTE, CREDIT_NOTE_RC -> "Gutschrift";
             case INFO -> "Information";
             default -> "Dokument";
         };

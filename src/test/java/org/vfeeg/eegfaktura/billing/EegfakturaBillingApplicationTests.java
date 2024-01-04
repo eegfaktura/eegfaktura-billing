@@ -86,7 +86,7 @@ class EegfakturaBillingApplicationTests {
        assertThat(postgreSQLContainer.isRunning(), is(true));
     }
 
-    UUID createBillingConfig() {
+    UUID createBillingConfig(boolean createCreditNotesForAllProducers) {
 
         UUID headerImageFileDataId;
         try {
@@ -104,8 +104,8 @@ class EegfakturaBillingApplicationTests {
         BillingConfigDTO billingConfigDTO = new BillingConfigDTO();
         billingConfigDTO.setTenantId("TE100100");
         billingConfigDTO.setHeaderImageFileDataId(headerImageFileDataId);
-        //private UUID headerImageFileDataId;
         //private UUID footerImageFileDataId; // NOT USED!!
+        billingConfigDTO.setCreateCreditNotesForAllProducers(createCreditNotesForAllProducers);
         billingConfigDTO.setBeforeItemsTextInvoice("Text vor den Positionen (Rechnung)");
         billingConfigDTO.setBeforeItemsTextCreditNote("Text vor den Positionen (Gutschrift)");
         billingConfigDTO.setBeforeItemsTextInfo("Text vor den Positionen (Rechnungsimformation)");
@@ -235,7 +235,8 @@ class EegfakturaBillingApplicationTests {
 
     }
 
-    void assertBillingRunValid(UUID billingRunId, boolean isPreview, LocalDate fixedDate) {
+    void assertBillingRunValid(UUID billingRunId, boolean isPreview, LocalDate fixedDate,
+                               boolean createCreditNotesForAllProducers) {
 
         List<BillingDocumentDTO> billingDocumentDTOList = billingDocumentService.findByBillingRunId(
                 billingRunId);
@@ -258,7 +259,8 @@ class EegfakturaBillingApplicationTests {
             } else if (billingDocumentDTO.getRecipientName().equals("Sonne GmbH")
                     && billingDocumentDTO.getBillingDocumentType()==BillingDocumentType.INFO){
                 //Prüfe Gutschrift Vorschau für Teilnehmer "Sonne GmbH"
-                assertThat(assertIsInfoSonneGmbH(billingDocumentDTO, billingDocumentItemList)
+                assertThat(assertIsInfoOrCreditNoteRcSonneGmbH(billingDocumentDTO, billingDocumentItemList,
+                                createCreditNotesForAllProducers)
                         , is(true));
             } else if (billingDocumentDTO.getRecipientName().equals("Felix Glück")
                     && billingDocumentDTO.getBillingDocumentType()==BillingDocumentType.INVOICE){
@@ -331,9 +333,17 @@ class EegfakturaBillingApplicationTests {
         return true;
     }
 
-    boolean assertIsInfoSonneGmbH(BillingDocumentDTO billingDocumentDTO,
-                                     List<BillingDocumentItem> billingDocumentItemList) {
-        assertThat(billingDocumentDTO.getDocumentNumber(), is("-"));
+    boolean assertIsInfoOrCreditNoteRcSonneGmbH(BillingDocumentDTO billingDocumentDTO,
+                                                List<BillingDocumentItem> billingDocumentItemList,
+                                                boolean createCreditNotesForAllProducers) {
+
+        if (createCreditNotesForAllProducers) {
+            assertThat(billingDocumentDTO.getBillingDocumentType(), is(BillingDocumentType.CREDIT_NOTE_RC));
+            assertThat(billingDocumentDTO.getDocumentNumber(), startsWith("TGUT"));
+        } else {
+            assertThat(billingDocumentDTO.getBillingDocumentType(), is(BillingDocumentType.INFO));
+            assertThat(billingDocumentDTO.getDocumentNumber(), is("-"));
+        }
         assertIssuerDataValid(billingDocumentDTO);
         assertSonneGmbHDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
@@ -484,7 +494,7 @@ class EegfakturaBillingApplicationTests {
     @Test
     @Sql("/billing_master_data.sql")
     void testBillingServicePreview() {
-        createBillingConfig();
+        createBillingConfig(false);
         DoBillingParams doBillingParams = new DoBillingParams();
         doBillingParams.setTenantId("TE100100");
         doBillingParams.setClearingPeriodType("QUARTERLY");
@@ -511,7 +521,7 @@ class EegfakturaBillingApplicationTests {
 //                hasProperty("numberOfCreditNotes", is(2))
         ));
 
-        assertBillingRunValid(doBillingResults.getBillingRunId(), true, null);
+        assertBillingRunValid(doBillingResults.getBillingRunId(), true, null, false);
 
         storeDocuments("testBillingServicePreview");
     }
@@ -519,7 +529,7 @@ class EegfakturaBillingApplicationTests {
     @Test
     @Sql("/billing_master_data.sql")
     void testBillingServiceFinal() {
-        createBillingConfig();
+        createBillingConfig(false);
         DoBillingParams doBillingParams = new DoBillingParams();
         doBillingParams.setTenantId("TE100100");
         doBillingParams.setClearingPeriodType("QUARTERLY");
@@ -548,7 +558,7 @@ class EegfakturaBillingApplicationTests {
 //                hasProperty("numberOfCreditNotes", is(2))
         ));
 
-        assertBillingRunValid(doBillingResults.getBillingRunId(), false, null);
+        assertBillingRunValid(doBillingResults.getBillingRunId(), false, null, false);
 
         storeDocuments("testBillingServiceFinal");
     }
@@ -556,7 +566,7 @@ class EegfakturaBillingApplicationTests {
     @Test
     @Sql("/billing_master_data.sql")
     void testBillingServiceFinalWithDocumentDate()  {
-        createBillingConfig();
+        createBillingConfig(false);
         LocalDate documentDate = LocalDate.parse("2022-12-31");
         DoBillingParams doBillingParams = new DoBillingParams();
         doBillingParams.setTenantId("TE100100");
@@ -585,9 +595,48 @@ class EegfakturaBillingApplicationTests {
 //                hasProperty("numberOfCreditNotes", is(2))
         ));
 
-        assertBillingRunValid(doBillingResults.getBillingRunId(), false, documentDate);
+        assertBillingRunValid(doBillingResults.getBillingRunId(), false, documentDate,
+                false);
         storeDocuments("testBillingServiceFinalWithDocumentDate");
     }
+
+    @Test
+    @Sql("/billing_master_data.sql")
+    void testBillingServiceFinalWithDocumentDate_reverseChargeCreditNotes()  {
+        createBillingConfig(true);
+        LocalDate documentDate = LocalDate.parse("2022-12-31");
+        DoBillingParams doBillingParams = new DoBillingParams();
+        doBillingParams.setTenantId("TE100100");
+        doBillingParams.setClearingPeriodType("QUARTERLY");
+        doBillingParams.setClearingPeriodIdentifier("2023-YQ-3");
+        doBillingParams.setPreview(false);
+        doBillingParams.setClearingDocumentDate(documentDate);
+        ArrayList<Allocation> allocations = new ArrayList<>();
+        for (String[] meteringPointId : TEST_ALLOCATIONS) {
+            Allocation allocation = new Allocation();
+            allocation.setMeteringPoint(meteringPointId[0]);
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.valueOf(meteringPointId[1])));
+            allocations.add(allocation);
+        }
+        doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
+        DoBillingResults doBillingResults = billingService.doBilling(doBillingParams);
+        assertThat(doBillingResults.getBillingRunId(), notNullValue());
+        assertThat(doBillingResults.getParticipantAmounts(), not(empty()));
+
+        BillingRunDTO billingRunDTO = billingRunService.get(doBillingResults.getBillingRunId());
+        assertThat(billingRunDTO, allOf(
+                hasProperty("tenantId", is("TE100100")),
+                hasProperty("runStatus", is(BillingRunStatus.DONE))
+//@TODO: numberOfxxx not set at the moment include again when done
+//                hasProperty("numberOfInvoices", is(3)),
+//                hasProperty("numberOfCreditNotes", is(2))
+        ));
+
+        assertBillingRunValid(doBillingResults.getBillingRunId(), false, documentDate,
+                true);
+        storeDocuments("testBillingServiceFinalWithDocumentDate_reverseChargeCreditNotes");
+    }
+
 
 
     // @TODO testBillingXlsxService

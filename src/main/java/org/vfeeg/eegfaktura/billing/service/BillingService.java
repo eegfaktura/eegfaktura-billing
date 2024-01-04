@@ -230,25 +230,34 @@ public class BillingService {
             List<BillingMasterdata> producersOnly = billingMasterdataList.stream().filter(
                     e -> e.getMeteringPointType().equals(MeteringPointType.PRODUCER)).toList();
 
-            // Wenn der Empfänger eine UID hat, dann bekommt er keine Gutschrift, sondern nur ein Informationsschreiben!
-            final BillingDocument creditNote = createBillingDocument(billingMasterdataList.get(0),
-                    StringUtils.isNotEmpty(billingMasterdataList.get(0).getParticipantVatId())
-                            ? BillingDocumentType.INFO : BillingDocumentType.CREDIT_NOTE,
+            // Wenn der Erzeuger keine UID hat,
+            //     dann bekommt er eine normale Gutschrift (ohne UST) mit Fixtexten zu Gutschriften
+            // Wenn der Erzeuger eine UID hat UND die EEG nur Erzeugern ohne UID eine Gutschrift schickt
+            //     dann wird ein Info Dokument erstellt mit UST und den Fixtexten
+            //     gem. BillingConfig INFO Dokumenten
+            // Wenn der Erzeuger eine UID hat UND die EEG allen Erzeugern Gutschriften schickt,
+            //     dann wird eine Reverse Charge Gutschrift erstellt mit UST UND den
+            //     Fixtexten gem. BillingConfig INFO Dokumenten
+            final BillingDocument producerDocument = createBillingDocument(billingMasterdataList.get(0),
+                    StringUtils.isNotEmpty(billingMasterdataList.get(0).getParticipantVatId()) ?
+                            (doBillingParams.getBillingConfig().isCreateCreditNotesForAllProducers() ?
+                                    BillingDocumentType.CREDIT_NOTE_RC : BillingDocumentType.INFO)
+                            : BillingDocumentType.CREDIT_NOTE,
                     doBillingParams);
             List<BillingDocumentItem> creditNotesItems = new ArrayList<>();
-            producersOnly.forEach(e -> createBillingDocumentItem(creditNote, creditNotesItems, e, allocationMap));
+            producersOnly.forEach(e -> createBillingDocumentItem(producerDocument, creditNotesItems, e, allocationMap));
 
-            calculateGrossValues(creditNote, creditNotesItems);
+            calculateGrossValues(producerDocument, creditNotesItems);
 
-            if (!BigDecimalTools.isNullOrZero(creditNote.getGrossAmountInEuro())) {
-                createAndAddDocumentNumber(creditNote, firstBillingMasterdata, doBillingParams);
-                billingPdfService.createAndSavePDF(creditNote, creditNotesItems,
+            if (!BigDecimalTools.isNullOrZero(producerDocument.getGrossAmountInEuro())) {
+                createAndAddDocumentNumber(producerDocument, firstBillingMasterdata, doBillingParams);
+                billingPdfService.createAndSavePDF(producerDocument, creditNotesItems,
                         doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
                         doBillingParams.getBillingConfig().getFooterImageFileDataId(), doBillingParams.isPreview());
-                creditNote.setBillingRun(billingRun);
-                billingDocumentRepository.save(creditNote);
+                producerDocument.setBillingRun(billingRun);
+                billingDocumentRepository.save(producerDocument);
             }
-            participantAmountService.addParticipantAmountData(participantAmount, creditNote,
+            participantAmountService.addParticipantAmountData(participantAmount, producerDocument,
                     creditNotesItems);
         }
 
@@ -273,17 +282,17 @@ public class BillingService {
         billingDocument.setBeforeItemsText(switch(billingDocumentType){
             case INVOICE -> doBillingParams.getBillingConfig().getBeforeItemsTextInvoice();
             case CREDIT_NOTE -> doBillingParams.getBillingConfig().getBeforeItemsTextCreditNote();
-            case INFO -> doBillingParams.getBillingConfig().getBeforeItemsTextInfo();
+            case CREDIT_NOTE_RC, INFO -> doBillingParams.getBillingConfig().getBeforeItemsTextInfo();
         });
         billingDocument.setAfterItemsText(switch(billingDocumentType){
             case INVOICE -> doBillingParams.getBillingConfig().getAfterItemsTextInvoice();
             case CREDIT_NOTE -> doBillingParams.getBillingConfig().getAfterItemsTextCreditNote();
-            case INFO -> doBillingParams.getBillingConfig().getAfterItemsTextInfo();
+            case CREDIT_NOTE_RC, INFO -> doBillingParams.getBillingConfig().getAfterItemsTextInfo();
         });
         billingDocument.setTermsText(switch(billingDocumentType){
             case INVOICE -> doBillingParams.getBillingConfig().getTermsTextInvoice();
             case CREDIT_NOTE -> doBillingParams.getBillingConfig().getTermsTextCreditNote();
-            case INFO -> doBillingParams.getBillingConfig().getTermsTextInfo();
+            case CREDIT_NOTE_RC, INFO -> doBillingParams.getBillingConfig().getTermsTextInfo();
         });
 
         final String footerText = doBillingParams.getBillingConfig().getFooterText();

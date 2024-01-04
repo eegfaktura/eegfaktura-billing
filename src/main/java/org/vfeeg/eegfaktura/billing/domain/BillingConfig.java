@@ -35,6 +35,9 @@ public class BillingConfig {
     private UUID footerImageFileDataId;
 
     @Column
+    private boolean isCreateCreditNotesForAllProducers;
+
+    @Column
     private String beforeItemsTextInvoice;
 
     @Column
