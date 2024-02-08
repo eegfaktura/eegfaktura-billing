@@ -10,14 +10,12 @@
     {
       "name": "app.jwt-public-key-file",
       "type": "java.lang.String",
-      "sourceType": "org.vfeeg.eegfaktura.billing.util.AppProperties",
-      "defaultValue": ""
+      "sourceType": "org.vfeeg.eegfaktura.billing.util.AppProperties"
     },
     {
       "name": "app.no-reply-to",
       "type": "java.lang.String",
-      "sourceType": "org.vfeeg.eegfaktura.billing.util.AppProperties",
-      "defaultValue": "no-reply@eegfaktura.at"
+      "sourceType": "org.vfeeg.eegfaktura.billing.util.AppProperties"
     }
   ],
   "hints": []

@@ -298,6 +298,9 @@ public class BillingService {
         final String footerText = doBillingParams.getBillingConfig().getFooterText();
         billingDocument.setFooterText(StringUtils.isNotEmpty(footerText)
             ? footerText.replace("##", "\n") : footerText);
+        billingDocument.setBeforeItemsText(billingDocument.getBeforeItemsText().replace("##", "\n"));
+        billingDocument.setAfterItemsText(billingDocument.getAfterItemsText().replace("##", "\n"));
+        billingDocument.setTermsText(billingDocument.getTermsText().replace("##", "\n"));
 
         billingDocument.setIssuerName(billingMasterdata.getEecName());
         billingDocument.setIssuerAddressLine1(billingMasterdata.getEecStreet());

@@ -106,15 +106,15 @@ class EegfakturaBillingApplicationTests {
         billingConfigDTO.setHeaderImageFileDataId(headerImageFileDataId);
         //private UUID footerImageFileDataId; // NOT USED!!
         billingConfigDTO.setCreateCreditNotesForAllProducers(createCreditNotesForAllProducers);
-        billingConfigDTO.setBeforeItemsTextInvoice("Text vor den Positionen (Rechnung)");
-        billingConfigDTO.setBeforeItemsTextCreditNote("Text vor den Positionen (Gutschrift)");
-        billingConfigDTO.setBeforeItemsTextInfo("Text vor den Positionen (Rechnungsimformation)");
-        billingConfigDTO.setAfterItemsTextInvoice("Text NACH den Positionen (Rechnung)");
-        billingConfigDTO.setAfterItemsTextCreditNote("Text NACH den Positionen (Gutschrift)");
-        billingConfigDTO.setAfterItemsTextInfo("Text NACH den Positionen (Rechnungsimformation)");
-        billingConfigDTO.setTermsTextInvoice("Textbereich für Bedingungen (Rechnung)");
-        billingConfigDTO.setTermsTextCreditNote("Textbereich für Bedingungen (Gutschrift)");
-        billingConfigDTO.setTermsTextInfo("Textbereich für Bedingungen (Rechnungsimformation)");
+        billingConfigDTO.setBeforeItemsTextInvoice("Text vor den Positionen (Rechnung) ## 2. Zeile dazu");
+        billingConfigDTO.setBeforeItemsTextCreditNote("Text vor den Positionen (Gutschrift) ## 2. Zeile dazu");
+        billingConfigDTO.setBeforeItemsTextInfo("Text vor den Positionen (Rechnungsimformation) ## 2. Zeile dazu");
+        billingConfigDTO.setAfterItemsTextInvoice("Text NACH den Positionen (Rechnung) ## 2. Zeile dazu");
+        billingConfigDTO.setAfterItemsTextCreditNote("Text NACH den Positionen (Gutschrift) ## 2. Zeile dazu");
+        billingConfigDTO.setAfterItemsTextInfo("Text NACH den Positionen (Rechnungsimformation) ## 2. Zeile dazu");
+        billingConfigDTO.setTermsTextInvoice("Textbereich für Bedingungen (Rechnung) ## 2. Zeile dazu");
+        billingConfigDTO.setTermsTextCreditNote("Textbereich für Bedingungen (Gutschrift) ## 2. Zeile dazu");
+        billingConfigDTO.setTermsTextInfo("Textbereich für Bedingungen (Rechnungsimformation) ## 2. Zeile dazu");
         billingConfigDTO.setFooterText("Text für Fußzeile ## 2. Zeile mit etwas längerem Text ## 3. Zeile mit weiterem Text");
         billingConfigDTO.setDocumentNumberSequenceLength(5);
         //billingConfigDTO.setCustomTemplateFileDataId; // NOT USED!!
