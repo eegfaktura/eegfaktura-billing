@@ -72,4 +72,6 @@ public class BillingMasterdata {
     private BigDecimal tariffWorkingFeePerConsumedkwh;
     private BigDecimal tariffCreditAmountPerProducedkwh;
     private BigDecimal tariffFreekwh;
+    private Boolean tariffUseMeteringPointFee;
+    private BigDecimal tariffMeteringPointFee;
 }

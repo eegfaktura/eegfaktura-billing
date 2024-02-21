@@ -199,6 +199,12 @@ public class BillingService {
                     firstBillingMasterdata.getTariffParticipantFeeVatInPercent()
             );
 
+            // Zählpunktgebühren werden erstellt
+            billingMasterdataList.stream().filter(
+                    BillingMasterdata::getTariffUseMeteringPointFee
+            ).forEach(m -> createMeteringPointFeeDocumentItem(invoice, invoiceItems, m));
+
+
             // Wenn Grundgebühr (tariffBasicFee) not null, dann als Position hinzufügen
 //            createCustomBillingDocumentItem(
 //                    invoice,
@@ -298,9 +304,15 @@ public class BillingService {
         final String footerText = doBillingParams.getBillingConfig().getFooterText();
         billingDocument.setFooterText(StringUtils.isNotEmpty(footerText)
             ? footerText.replace("##", "\n") : footerText);
-        billingDocument.setBeforeItemsText(billingDocument.getBeforeItemsText().replace("##", "\n"));
-        billingDocument.setAfterItemsText(billingDocument.getAfterItemsText().replace("##", "\n"));
-        billingDocument.setTermsText(billingDocument.getTermsText().replace("##", "\n"));
+
+        final String beforeItemsText = billingDocument.getBeforeItemsText();
+        billingDocument.setBeforeItemsText(StringUtils.isNotEmpty(beforeItemsText) ? beforeItemsText.replace("##", "\n"): beforeItemsText);
+
+        final String afterItemsText = billingDocument.getAfterItemsText();
+        billingDocument.setAfterItemsText(StringUtils.isNotEmpty(afterItemsText) ? afterItemsText.replace("##", "\n") : afterItemsText);
+
+        final String itemsText = billingDocument.getTermsText();
+        billingDocument.setTermsText(StringUtils.isNotEmpty(itemsText) ? itemsText.replace("##", "\n") : itemsText);
 
         billingDocument.setIssuerName(billingMasterdata.getEecName());
         billingDocument.setIssuerAddressLine1(billingMasterdata.getEecStreet());
@@ -481,6 +493,49 @@ public class BillingService {
         newBillingDocumentItem.setPpuUnit("€");
         newBillingDocumentItem.setDiscountPercent(discountPercentSafe);
         newBillingDocumentItem.setNetValue(netValue);
+        newBillingDocumentItem.setVatPercent(vatPercent);
+        newBillingDocumentItem.setVatValueInEuro(vatEuro);
+        newBillingDocumentItem.setGrossValue(grossValue);
+        newBillingDocumentItem.setBillingDocument(billingDocument);
+
+        billingDocumentItems.add(
+                billingDocumentItemRepository.save(newBillingDocumentItem));
+
+    }
+
+    /**
+     * Creates Meteringpoint fee items for customer invoices.
+     * Regardless of the energy direction, all meteringpoint fees are shown in the invoice.
+     *
+     * @param billingDocument
+     * @param billingDocumentItems
+     * @param billingMasterdata
+     */
+    private void createMeteringPointFeeDocumentItem(BillingDocument billingDocument,
+                                                    List<BillingDocumentItem> billingDocumentItems,
+                                                    BillingMasterdata billingMasterdata) {
+        BigDecimal pricePerMeter = billingMasterdata.getTariffMeteringPointFee();
+        if (BigDecimalTools.isNullOrZero(pricePerMeter)) return;
+
+        boolean useVat = billingMasterdata.getTariffUseVat();
+        BigDecimal vatPercent = billingMasterdata.getTariffVatInPercent();
+
+        BillingDocumentItem newBillingDocumentItem = new BillingDocumentItem();
+
+        BigDecimal vatPercentSafe = BigDecimalTools.makeZeroIfNull(vatPercent);
+        BigDecimal vatEuro = useVat ? pricePerMeter
+                .multiply(vatPercentSafe.divide(BigDecimal.valueOf(100.0)))
+                : BigDecimal.valueOf(0);
+        BigDecimal grossValue = pricePerMeter.add(vatEuro);
+
+        if (BigDecimalTools.isNullOrZero(grossValue)) return; // Keine Nullposition!
+
+        newBillingDocumentItem.setText(String.format("Zählpunktgebühr: %s", billingMasterdata.getMeteringPointId()));
+        newBillingDocumentItem.setAmount(BigDecimal.ONE);
+        newBillingDocumentItem.setPricePerUnit(pricePerMeter);
+        newBillingDocumentItem.setDiscountPercent(BigDecimal.ZERO);
+        newBillingDocumentItem.setPpuUnit("€");
+        newBillingDocumentItem.setNetValue(pricePerMeter);
         newBillingDocumentItem.setVatPercent(vatPercent);
         newBillingDocumentItem.setVatValueInEuro(vatEuro);
         newBillingDocumentItem.setGrossValue(grossValue);
