@@ -1,14 +1,17 @@
 package org.vfeeg.eegfaktura.billing.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.Subselect;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Objects;
 
 @Entity
 @Immutable
@@ -74,4 +77,20 @@ public class BillingMasterdata {
     private BigDecimal tariffFreekwh;
     private Boolean tariffUseMeteringPointFee;
     private BigDecimal tariffMeteringPointFee;
+
+    public Boolean getTariffUseVat() {
+        return Objects.requireNonNullElse(tariffUseVat, Boolean.FALSE);
+    }
+
+    public Boolean getTariffParticipantFeeUseVat() {
+        return Objects.requireNonNullElse(tariffParticipantFeeUseVat, Boolean.FALSE);
+    }
+
+    public Boolean getEecSubjectToVat() {
+        return Objects.requireNonNullElse(eecSubjectToVat, Boolean.FALSE);
+    }
+
+    public Boolean getTariffUseMeteringPointFee() {
+        return Objects.requireNonNullElse(tariffUseMeteringPointFee, Boolean.FALSE);
+    }
 }
