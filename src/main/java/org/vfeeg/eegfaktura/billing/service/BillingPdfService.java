@@ -13,10 +13,8 @@ import org.vfeeg.eegfaktura.billing.util.BigDecimalTools;
 import org.vfeeg.eegfaktura.billing.util.StringTools;
 
 import java.io.InputStream;
-import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional

@@ -1,6 +1,5 @@
 package org.vfeeg.eegfaktura.billing.model;
 
-import jakarta.persistence.Column;
 import lombok.Getter;
 import lombok.Setter;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentType;
