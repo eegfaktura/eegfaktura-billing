@@ -340,6 +340,8 @@ public class BillingService {
         billingDocument.setRecipientSepaMandateReference(billingMasterdata.getParticipantSepaMandateReference());
         billingDocument.setRecipientSepaMandateIssueDate(billingMasterdata.getParticipantSepaMandateIssueDate());
         billingDocument.setRecipientEmail(billingMasterdata.getParticipantEmail());
+        billingDocument.setRecipientTaxId(billingMasterdata.getParticipantTaxId());
+        billingDocument.setRecipientVatId(billingMasterdata.getParticipantVatId());
         billingDocument.setRecipientAddressLine1(billingMasterdata.getParticipantStreet());
         billingDocument.setRecipientAddressLine2(StringTools.nullSafeJoin(" ",
                 billingMasterdata.getParticipantZipCode(), billingMasterdata.getParticipantCity()));

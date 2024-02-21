@@ -258,25 +258,35 @@ class EegfakturaBillingApplicationTests {
                         , is(true));
             } else if (billingDocumentDTO.getRecipientName().equals("Sonne GmbH")
                     && billingDocumentDTO.getBillingDocumentType()==BillingDocumentType.INFO){
-                //Prüfe Gutschrift Vorschau für Teilnehmer "Sonne GmbH"
+                //Prüfe Info für Teilnehmer "Sonne GmbH"
                 assertThat(assertIsInfoOrCreditNoteRcSonneGmbH(billingDocumentDTO, billingDocumentItemList,
                                 createCreditNotesForAllProducers)
                         , is(true));
-            } else if (billingDocumentDTO.getRecipientName().equals("Felix Glück")
+            } else if (billingDocumentDTO.getRecipientName().equals("Sonne GmbH")
+                    && billingDocumentDTO.getBillingDocumentType()==BillingDocumentType.CREDIT_NOTE_RC){
+                //Prüfe Gutschrift (RC) für Teilnehmer "Sonne GmbH"
+                assertThat(assertIsInfoOrCreditNoteRcSonneGmbH(billingDocumentDTO, billingDocumentItemList,
+                                createCreditNotesForAllProducers)
+                        , is(true));
+            } else if (billingDocumentDTO.getRecipientName().equals("Mag. Felix Glück Msc")
                     && billingDocumentDTO.getBillingDocumentType()==BillingDocumentType.INVOICE){
                 //Prüfe Rechnungs Vorschau für Teilnehmer "Felix Glück"
                 assertThat(assertIsInvoiceGlueck(billingDocumentDTO, billingDocumentItemList, isPreview)
                         , is(true));
-            } else if (billingDocumentDTO.getRecipientName().equals("Fridolin Fröhlich")
-                    && billingDocumentDTO.getBillingDocumentType()==BillingDocumentType.INFO){
+            } else if (billingDocumentDTO.getRecipientName().equals("Fridolin Fröhlich MBA")
+                    && billingDocumentDTO.getBillingDocumentType()==BillingDocumentType.INVOICE){
                 //Prüfe Rechnungs Vorschau für Teilnehmer "Fridolin Fröhlich"
                 assertThat(assertIsInvoiceFroehlich(billingDocumentDTO, billingDocumentItemList, isPreview)
                         , is(true));
-            } else if (billingDocumentDTO.getRecipientName().equals("Fridolin Fröhlich")
+            } else if (billingDocumentDTO.getRecipientName().equals("Fridolin Fröhlich MBA")
                     && billingDocumentDTO.getBillingDocumentType()==BillingDocumentType.CREDIT_NOTE){
                 //Prüfe Gutschrift-Vorschau für Teilnehmer "Fridolin Fröhlich"
                 assertThat(assertIsCreditNoteFroehlich(billingDocumentDTO, billingDocumentItemList, isPreview)
                         , is(true));
+            } else {
+                throw new RuntimeException("Expected document to test not found. RecipientName is " +
+                        billingDocumentDTO.getRecipientName() +
+                        ", billingDocumentType is "+billingDocumentDTO.getBillingDocumentType());
             }
         }
 
@@ -299,7 +309,7 @@ class EegfakturaBillingApplicationTests {
 
     void assertSonneGmbHDataValid(BillingDocumentDTO billingDocumentDTO) {
         assertThat(billingDocumentDTO.getRecipientName(), is("Sonne GmbH"));
-        assertThat(billingDocumentDTO.getRecipientAddressLine1(), is("Meisenweg 15"));
+        assertThat(billingDocumentDTO.getRecipientAddressLine1(), is("Sonnenweg 42"));
         assertThat(billingDocumentDTO.getRecipientAddressLine2(), is("1234 Fuxholzen"));
         assertThat(billingDocumentDTO.getRecipientEmail(), is("harald.lacherstorfer@gmail.com"));
         assertThat(billingDocumentDTO.getRecipientSepaMandateReference(), is("REF3333"));
@@ -308,6 +318,32 @@ class EegfakturaBillingApplicationTests {
         assertThat(billingDocumentDTO.getRecipientBankName(), is("Postsparkasse"));
         assertThat(billingDocumentDTO.getRecipientBankOwner(), is("Sonne GmbH"));
         assertThat(billingDocumentDTO.getRecipientBankIban(), is("AT01-3333-3333-333"));
+    }
+
+    void assertFelixGlueckDataValid(BillingDocumentDTO billingDocumentDTO) {
+        assertThat(billingDocumentDTO.getRecipientName(), is("Mag. Felix Glück Msc"));
+        assertThat(billingDocumentDTO.getRecipientAddressLine1(), is("Glücksweg 13"));
+        assertThat(billingDocumentDTO.getRecipientAddressLine2(), is("1234 Fuxholzen"));
+        assertThat(billingDocumentDTO.getRecipientEmail(), is("harald.lacherstorfer@gmail.com"));
+        assertThat(billingDocumentDTO.getRecipientSepaMandateReference(), is("REF1234"));
+        assertThat(billingDocumentDTO.getRecipientSepaMandateIssueDate(),
+                is( LocalDate.of(2022,1, 1)));
+        assertThat(billingDocumentDTO.getRecipientBankName(), is("Raiffeisen Landesbank"));
+        assertThat(billingDocumentDTO.getRecipientBankOwner(), is("Felix Glück"));
+        assertThat(billingDocumentDTO.getRecipientBankIban(), is("AT01-1234-1234-1234"));
+    }
+
+    void assertFridolinFroehlichDataValid(BillingDocumentDTO billingDocumentDTO) {
+        assertThat(billingDocumentDTO.getRecipientName(), is("Fridolin Fröhlich MBA"));
+        assertThat(billingDocumentDTO.getRecipientAddressLine1(), is("Fröhlichweg 15"));
+        assertThat(billingDocumentDTO.getRecipientAddressLine2(), is("1234 Fuxholzen"));
+        assertThat(billingDocumentDTO.getRecipientEmail(), is("harald.lacherstorfer@gmail.com"));
+        assertThat(billingDocumentDTO.getRecipientSepaMandateReference(), is("REF2222"));
+        assertThat(billingDocumentDTO.getRecipientSepaMandateIssueDate(),
+                is( LocalDate.of(2022,12, 31)));
+        assertThat(billingDocumentDTO.getRecipientBankName(), is("Postsparkasse"));
+        assertThat(billingDocumentDTO.getRecipientBankOwner(), is("Fridolin Fröhlich"));
+        assertThat(billingDocumentDTO.getRecipientBankIban(), is("AT01-2222-2222-2222"));
     }
 
     boolean assertIsInvoiceSonneGmbH(BillingDocumentDTO billingDocumentDTO,
@@ -378,7 +414,7 @@ class EegfakturaBillingApplicationTests {
             assertThat(billingDocumentDTO.getDocumentNumber(), startsWith("TRECH"));
         }
         assertIssuerDataValid(billingDocumentDTO);
-        assertSonneGmbHDataValid(billingDocumentDTO);
+        assertFelixGlueckDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("15,20"));
@@ -390,17 +426,17 @@ class EegfakturaBillingApplicationTests {
         assertThat(billingDocumentItemList, hasSize(3));
 
         BillingDocumentItem item2234 = billingDocumentItemList.stream()
-                .filter(item -> item.getText().contains("item2234")).findFirst().get();
+                .filter(item -> item.getText().contains("2234")).findFirst().get();
         assertThat(item2234.getText(), allOf(
                 containsString("Anlage-Name: Anlage Fix-Foxi"),
                 containsString("Anlage-Nr.: Anlagenr 2234"))
         );
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getAmount()), is("22,34"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getPricePerUnit()), is("15,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getPpuUnit()), is("kWh"));
+        assertThat(item2234.getPpuUnit(), nullValue()); // left empty (default is kWh)
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getNetValue()), is("3,35"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getVatPercent()), nullValue());
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getVatValueInEuro()), nullValue());
+        assertThat(item2234.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(item2234.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         BillingDocumentItem item1234 = billingDocumentItemList.stream()
                 .filter(item -> item.getText().contains("C0000000000000000000001234")).findFirst().get();
@@ -410,18 +446,19 @@ class EegfakturaBillingApplicationTests {
         );
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getAmount()), is("12,34"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getPricePerUnit()), is("15,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getPpuUnit()), is("kWh"));
+        assertThat(item1234.getPpuUnit(), nullValue()); // left empty (default is kWh)
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getNetValue()), is("1,85"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getVatPercent()), nullValue());
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getVatValueInEuro()), nullValue());
+        assertThat(item1234.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(item1234.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         BillingDocumentItem itemMitgliedsgebuehr = billingDocumentItemList.stream()
                 .filter(item -> item.getText().contains("Mitgliedsgebühr")).findFirst().get();
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getAmount()), is("1,00"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getPricePerUnit()), is("10,00"));
+        assertThat(itemMitgliedsgebuehr.getPpuUnit(), is("€"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getNetValue()), is("10,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getVatPercent()), nullValue());
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getVatValueInEuro()), nullValue());
+        assertThat(itemMitgliedsgebuehr.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(itemMitgliedsgebuehr.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         return true;
     }
@@ -435,23 +472,23 @@ class EegfakturaBillingApplicationTests {
             assertThat(billingDocumentDTO.getDocumentNumber(), startsWith("TRECH"));
         }
         assertIssuerDataValid(billingDocumentDTO);
-        assertSonneGmbHDataValid(billingDocumentDTO);
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getClearingPeriodType()), is("QUARTERLY"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getClearingPeriodIdentifier()), is("2023-YQ-3"));
+        assertFridolinFroehlichDataValid(billingDocumentDTO);
+        assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
+        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("10,00"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("10,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat1Percent()), nullValue());
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat1SumInEuro()), nullValue());
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat2Percent()), nullValue());
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat2SumInEuro()), nullValue());
+        assertThat(billingDocumentDTO.getVat1Percent(), nullValue());
+        assertThat(billingDocumentDTO.getVat1SumInEuro(), nullValue());
+        assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
+        assertThat(billingDocumentDTO.getVat2SumInEuro(), nullValue());
         assertThat(billingDocumentItemList, hasSize(1));
         BillingDocumentItem itemMitgliedsgebuehr = billingDocumentItemList.get(0);
         assertThat(itemMitgliedsgebuehr.getText(), is("Mitgliedsgebühr"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getAmount()), is("1,00"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getPricePerUnit()), is("10,00"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getNetValue()), is("10,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getVatPercent()), nullValue());
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getVatValueInEuro()), nullValue());
+        assertThat(itemMitgliedsgebuehr.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(itemMitgliedsgebuehr.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         return true;
     }
@@ -465,11 +502,11 @@ class EegfakturaBillingApplicationTests {
             assertThat(billingDocumentDTO.getDocumentNumber(), startsWith("TGUT"));
         }
         assertIssuerDataValid(billingDocumentDTO);
-        assertSonneGmbHDataValid(billingDocumentDTO);
+        assertFridolinFroehlichDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("3,33"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("3,33"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("4,22"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("4,22"));
         assertThat(billingDocumentDTO.getVat1Percent(), nullValue());
         assertThat(billingDocumentDTO.getVat1SumInEuro(), nullValue());
         assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
@@ -484,9 +521,9 @@ class EegfakturaBillingApplicationTests {
         ));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getAmount()), is("22,22"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getPricePerUnit()), is("19,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getNetValue()), is("3,33"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getVatPercent()), nullValue());
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getVatValueInEuro()), nullValue());
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getNetValue()), is("4,22"));
+        assertThat(item.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(item.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         return true;
     }

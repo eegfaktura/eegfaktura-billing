@@ -106,6 +106,8 @@ public class BillingDocumentService {
         billingDocumentDTO.setRecipientSepaMandateReference(billingDocument.getRecipientSepaMandateReference());
         billingDocumentDTO.setRecipientSepaMandateIssueDate(billingDocument.getRecipientSepaMandateIssueDate());
         billingDocumentDTO.setRecipientEmail(billingDocument.getRecipientEmail());
+        billingDocumentDTO.setRecipientTaxId(billingDocument.getRecipientTaxId());
+        billingDocumentDTO.setRecipientVatId(billingDocument.getRecipientVatId());
         billingDocumentDTO.setIssuerName(billingDocument.getIssuerName());
         billingDocumentDTO.setIssuerAddressLine1(billingDocument.getIssuerAddressLine1());
         billingDocumentDTO.setIssuerAddressLine2(billingDocument.getIssuerAddressLine2());
@@ -154,6 +156,8 @@ public class BillingDocumentService {
         billingDocument.setRecipientSepaMandateReference(billingDocumentDTO.getRecipientSepaMandateReference());
         billingDocument.setRecipientSepaMandateIssueDate(billingDocumentDTO.getRecipientSepaMandateIssueDate());
         billingDocument.setRecipientEmail(billingDocumentDTO.getRecipientEmail());
+        billingDocument.setRecipientTaxId(billingDocumentDTO.getRecipientTaxId());
+        billingDocument.setRecipientVatId(billingDocumentDTO.getRecipientVatId());
         billingDocument.setIssuerName(billingDocumentDTO.getIssuerName());
         billingDocument.setIssuerAddressLine1(billingDocumentDTO.getIssuerAddressLine1());
         billingDocument.setIssuerAddressLine2(billingDocumentDTO.getIssuerAddressLine2());

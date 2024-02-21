@@ -36,6 +36,8 @@ public class BillingDocumentDTO {
     private String recipientSepaMandateReference;
     private LocalDate recipientSepaMandateIssueDate;
     private String recipientEmail;
+    private String recipientTaxId;
+    private String recipientVatId;
     private String issuerName;
     private String issuerAddressLine1;
     private String issuerAddressLine2;

@@ -75,6 +75,8 @@ public class BillingPdfService {
         parameters.put("recipientBankName", document.getRecipientBankName());
         parameters.put("recipientBankIban", document.getRecipientBankIban());
         parameters.put("recipientBankOwner", document.getRecipientBankOwner());
+        parameters.put("recipientTaxId", document.getRecipientTaxId());
+        parameters.put("recipientVatId", document.getRecipientVatId());
         parameters.put("recipientAddressLine1", document.getRecipientAddressLine1());
         parameters.put("recipientAddressLine2", document.getRecipientAddressLine2());
         parameters.put("recipientAddressLine3", document.getRecipientAddressLine3());

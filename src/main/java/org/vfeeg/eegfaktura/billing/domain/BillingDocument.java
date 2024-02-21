@@ -91,6 +91,12 @@ public class BillingDocument {
     private String recipientEmail;
 
     @Column
+    private String recipientTaxId;
+
+    @Column
+    private String recipientVatId;
+
+    @Column
     private String issuerName;
 
     @Column
