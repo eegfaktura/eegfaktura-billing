@@ -11,7 +11,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.Set;
 import java.util.UUID;
 
 
@@ -89,6 +88,12 @@ public class BillingDocument {
 
     @Column
     private String recipientEmail;
+
+    @Column
+    private String recipientTaxId;
+
+    @Column
+    private String recipientVatId;
 
     @Column
     private String issuerName;

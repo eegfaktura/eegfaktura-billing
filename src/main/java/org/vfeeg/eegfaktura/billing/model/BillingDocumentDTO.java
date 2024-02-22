@@ -1,6 +1,5 @@
 package org.vfeeg.eegfaktura.billing.model;
 
-import jakarta.persistence.Column;
 import lombok.Getter;
 import lombok.Setter;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentType;
@@ -36,6 +35,8 @@ public class BillingDocumentDTO {
     private String recipientSepaMandateReference;
     private LocalDate recipientSepaMandateIssueDate;
     private String recipientEmail;
+    private String recipientTaxId;
+    private String recipientVatId;
     private String issuerName;
     private String issuerAddressLine1;
     private String issuerAddressLine2;

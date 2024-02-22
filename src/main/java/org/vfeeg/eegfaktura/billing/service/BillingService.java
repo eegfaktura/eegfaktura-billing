@@ -340,6 +340,8 @@ public class BillingService {
         billingDocument.setRecipientSepaMandateReference(billingMasterdata.getParticipantSepaMandateReference());
         billingDocument.setRecipientSepaMandateIssueDate(billingMasterdata.getParticipantSepaMandateIssueDate());
         billingDocument.setRecipientEmail(billingMasterdata.getParticipantEmail());
+        billingDocument.setRecipientTaxId(billingMasterdata.getParticipantTaxId());
+        billingDocument.setRecipientVatId(billingMasterdata.getParticipantVatId());
         billingDocument.setRecipientAddressLine1(billingMasterdata.getParticipantStreet());
         billingDocument.setRecipientAddressLine2(StringTools.nullSafeJoin(" ",
                 billingMasterdata.getParticipantZipCode(), billingMasterdata.getParticipantCity()));
@@ -457,12 +459,6 @@ public class BillingService {
 
     /**
      * NOTE that custom billing document items do not support amount nor discount! Also ppuUnit is always €.
-     * @param billingDocument
-     * @param billingDocumentItems
-     * @param text
-     * @param pricePerUnit
-     * @param useVat
-     * @param vatPercent
      */
     private void createCustomBillingDocumentItem(BillingDocument billingDocument,
                                            List<BillingDocumentItem> billingDocumentItems,
@@ -506,10 +502,6 @@ public class BillingService {
     /**
      * Creates Meteringpoint fee items for customer invoices.
      * Regardless of the energy direction, all meteringpoint fees are shown in the invoice.
-     *
-     * @param billingDocument
-     * @param billingDocumentItems
-     * @param billingMasterdata
      */
     private void createMeteringPointFeeDocumentItem(BillingDocument billingDocument,
                                                     List<BillingDocumentItem> billingDocumentItems,

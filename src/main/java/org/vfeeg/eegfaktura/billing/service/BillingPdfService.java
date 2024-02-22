@@ -13,10 +13,8 @@ import org.vfeeg.eegfaktura.billing.util.BigDecimalTools;
 import org.vfeeg.eegfaktura.billing.util.StringTools;
 
 import java.io.InputStream;
-import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -75,6 +73,8 @@ public class BillingPdfService {
         parameters.put("recipientBankName", document.getRecipientBankName());
         parameters.put("recipientBankIban", document.getRecipientBankIban());
         parameters.put("recipientBankOwner", document.getRecipientBankOwner());
+        parameters.put("recipientTaxId", document.getRecipientTaxId());
+        parameters.put("recipientVatId", document.getRecipientVatId());
         parameters.put("recipientAddressLine1", document.getRecipientAddressLine1());
         parameters.put("recipientAddressLine2", document.getRecipientAddressLine2());
         parameters.put("recipientAddressLine3", document.getRecipientAddressLine3());

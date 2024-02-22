@@ -1,20 +1,18 @@
 package org.vfeeg.eegfaktura.billing.service;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
-import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
 
 import static java.time.temporal.TemporalAdjusters.firstDayOfYear;
 import static java.time.temporal.TemporalAdjusters.lastDayOfYear;
@@ -106,6 +104,8 @@ public class BillingDocumentService {
         billingDocumentDTO.setRecipientSepaMandateReference(billingDocument.getRecipientSepaMandateReference());
         billingDocumentDTO.setRecipientSepaMandateIssueDate(billingDocument.getRecipientSepaMandateIssueDate());
         billingDocumentDTO.setRecipientEmail(billingDocument.getRecipientEmail());
+        billingDocumentDTO.setRecipientTaxId(billingDocument.getRecipientTaxId());
+        billingDocumentDTO.setRecipientVatId(billingDocument.getRecipientVatId());
         billingDocumentDTO.setIssuerName(billingDocument.getIssuerName());
         billingDocumentDTO.setIssuerAddressLine1(billingDocument.getIssuerAddressLine1());
         billingDocumentDTO.setIssuerAddressLine2(billingDocument.getIssuerAddressLine2());
@@ -154,6 +154,8 @@ public class BillingDocumentService {
         billingDocument.setRecipientSepaMandateReference(billingDocumentDTO.getRecipientSepaMandateReference());
         billingDocument.setRecipientSepaMandateIssueDate(billingDocumentDTO.getRecipientSepaMandateIssueDate());
         billingDocument.setRecipientEmail(billingDocumentDTO.getRecipientEmail());
+        billingDocument.setRecipientTaxId(billingDocumentDTO.getRecipientTaxId());
+        billingDocument.setRecipientVatId(billingDocumentDTO.getRecipientVatId());
         billingDocument.setIssuerName(billingDocumentDTO.getIssuerName());
         billingDocument.setIssuerAddressLine1(billingDocumentDTO.getIssuerAddressLine1());
         billingDocument.setIssuerAddressLine2(billingDocumentDTO.getIssuerAddressLine2());

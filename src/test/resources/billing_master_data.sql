@@ -53,7 +53,9 @@ create table if not exists base.billing_masterdata
     tariff_discount                       numeric,
     tariff_working_fee_per_consumedkwh    numeric,
     tariff_credit_amount_per_producedkwh  numeric,
-    tariff_freekwh                        numeric
+    tariff_freekwh                        numeric,
+    tariff_metering_point_fee             numeric,
+    tariff_use_metering_point_fee         boolean default false
 );
 
 insert into base.billing_masterdata (
@@ -144,7 +146,7 @@ insert into base.billing_masterdata (
     'Sparkasse OÖ', --eec_bank_name
     'AT01-4321-4321-4321', -- eec_bank_iban
     'Energiegemeinschaft Holy Grail', --eec_bank_owner
-    'Meisenweg 15', -- participant_street
+    'Glücksweg 13', -- participant_street
     '1234', -- participant_zip_code
     'Fuxholzen', --participant_city
     'Verbraucher', --tariff_type
@@ -361,7 +363,7 @@ insert into base.billing_masterdata (
              'Sparkasse OÖ', --eec_bank_name
              'AT01-4321-4321-4321', -- eec_bank_iban
              'Energiegemeinschaft Holy Grail', --eec_bank_owner
-             'Meisenweg 15', -- participant_street
+             'Fröhlichweg 15', -- participant_street
              '1234', -- participant_zip_code
              'Fuxholzen', --participant_city
              'Erzeuger', --tariff_type
@@ -469,7 +471,7 @@ insert into base.billing_masterdata (
              'Sparkasse OÖ', --eec_bank_name
              'AT01-4321-4321-4321', -- eec_bank_iban
              'Energiegemeinschaft Holy Grail', --eec_bank_owner
-             'Meisenweg 15', -- participant_street
+             'Sonnenweg 42', -- participant_street
              '1234', -- participant_zip_code
              'Fuxholzen', --participant_city
              'Erzeuger', --tariff_type
