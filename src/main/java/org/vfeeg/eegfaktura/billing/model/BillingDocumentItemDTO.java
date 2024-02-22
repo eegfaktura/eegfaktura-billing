@@ -30,6 +30,8 @@ public class BillingDocumentItemDTO {
 
     private String text;
 
+    private String documentText;
+
     private String unit;
 
     private BigDecimal pricePerUnit;

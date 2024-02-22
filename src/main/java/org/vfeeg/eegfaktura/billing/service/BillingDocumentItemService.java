@@ -68,6 +68,7 @@ public class BillingDocumentItemService {
         billingDocumentItemDTO.setMeteringPointId(billingDocumentItem.getMeteringPointId());
         billingDocumentItemDTO.setMeteringPointType(billingDocumentItem.getMeteringPointType());
         billingDocumentItemDTO.setText(billingDocumentItem.getText());
+        billingDocumentItemDTO.setDocumentText(billingDocumentItem.getDocumentText());
         billingDocumentItemDTO.setUnit(billingDocumentItem.getUnit());
         billingDocumentItemDTO.setPricePerUnit(billingDocumentItem.getPricePerUnit());
         billingDocumentItemDTO.setPpuUnit(billingDocumentItem.getPpuUnit());
@@ -89,6 +90,7 @@ public class BillingDocumentItemService {
         billingDocumentItem.setMeteringPointId(billingDocumentItemDTO.getMeteringPointId());
         billingDocumentItem.setMeteringPointType(billingDocumentItemDTO.getMeteringPointType());
         billingDocumentItem.setText(billingDocumentItemDTO.getText());
+        billingDocumentItem.setDocumentText(billingDocumentItemDTO.getDocumentText());
         billingDocumentItem.setUnit(billingDocumentItemDTO.getUnit());
         billingDocumentItem.setPricePerUnit(billingDocumentItemDTO.getPricePerUnit());
         billingDocumentItem.setPpuUnit(billingDocumentItemDTO.getPpuUnit());
