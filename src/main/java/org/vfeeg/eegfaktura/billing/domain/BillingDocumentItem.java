@@ -51,7 +51,10 @@ public class BillingDocumentItem {
     private MeteringPointType meteringPointType;
 
     @Column
-    private String text;
+    private String text; // text for this very item
+
+    @Column
+    private String documentText; // text to be printed once on billing document
 
     @Column
     private String unit;

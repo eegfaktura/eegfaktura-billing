@@ -188,11 +188,15 @@ public class BillingService {
             consumersOnly.forEach(e -> createBillingDocumentItem(invoice, invoiceItems, e, allocationMap));
 
             // Wenn Mitgliedsbeitrag (tariffParticipantFee) not null, dann als Position hinzufügen
+            final String documentText = firstBillingMasterdata.getTariffParticipantFeeText();
             createCustomBillingDocumentItem(
                     invoice,
                     invoiceItems,
                     StringUtils.defaultIfBlank(firstBillingMasterdata.getTariffParticipantFeeName(),
                             "Mitgliedsbeitrag"),
+                    StringUtils.isNotEmpty(documentText)
+                            ? documentText.replace("##", "\n")
+                            : documentText,
                     firstBillingMasterdata.getTariffParticipantFee(),
                     firstBillingMasterdata.getTariffParticipantFeeDiscount(),
                     firstBillingMasterdata.getTariffParticipantFeeUseVat(),
@@ -203,18 +207,6 @@ public class BillingService {
             billingMasterdataList.stream().filter(
                     BillingMasterdata::getTariffUseMeteringPointFee
             ).forEach(m -> createMeteringPointFeeDocumentItem(invoice, invoiceItems, m));
-
-
-            // Wenn Grundgebühr (tariffBasicFee) not null, dann als Position hinzufügen
-//            createCustomBillingDocumentItem(
-//                    invoice,
-//                    invoiceItems,
-//                    "Grundgebühr",
-//                    firstBillingMasterdata.getTariffBasicFee(),
-//                    firstBillingMasterdata.getTariffParticipantFeeDiscount(),
-//                    firstBillingMasterdata.getTariffParticipantFeeUseVat(),
-//                    firstBillingMasterdata.getTariffParticipantFeeVatInPercent()
-//            );
 
             calculateGrossValues(invoice, invoiceItems);
 
@@ -405,6 +397,9 @@ public class BillingService {
         newBillingDocumentItem.setMeteringPointId(billingMasterdata.getMeteringPointId());
         newBillingDocumentItem.setMeteringPointType(billingMasterdata.getMeteringPointType());
         newBillingDocumentItem.setText(buildItemText(billingMasterdata));
+        final String documentText = billingMasterdata.getTariffText();
+        newBillingDocumentItem.setDocumentText(StringUtils.isNotEmpty(documentText) ?
+                documentText.replace("##", "\n"): documentText);
 
         BigDecimal amount = BigDecimalTools.makeZeroIfNull(allocationMap.get(billingMasterdata.getMeteringPointId()));
         BigDecimal tariffFreekwh = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffFreekwh());
@@ -463,6 +458,7 @@ public class BillingService {
     private void createCustomBillingDocumentItem(BillingDocument billingDocument,
                                            List<BillingDocumentItem> billingDocumentItems,
                                            String text,
+                                           String documentText,
                                            BigDecimal pricePerUnit,
                                            BigDecimal discountPercent,
                                            boolean useVat,
@@ -484,6 +480,7 @@ public class BillingService {
         if (BigDecimalTools.isNullOrZero(grossValue)) return; // Keine Nullposition!
 
         newBillingDocumentItem.setText(text);
+        newBillingDocumentItem.setDocumentText(documentText);
         newBillingDocumentItem.setAmount(BigDecimal.ONE);
         newBillingDocumentItem.setPricePerUnit(pricePerUnit);
         newBillingDocumentItem.setPpuUnit("€");
@@ -523,6 +520,10 @@ public class BillingService {
         if (BigDecimalTools.isNullOrZero(grossValue)) return; // Keine Nullposition!
 
         newBillingDocumentItem.setText(String.format("Zählpunktgebühr: %s", billingMasterdata.getMeteringPointId()));
+        final String documentText = billingMasterdata.getTariffMeteringPointFeeText();
+        newBillingDocumentItem.setDocumentText(StringUtils.isNotEmpty(documentText) ?
+                documentText.replace("##", "\n"): documentText);
+
         newBillingDocumentItem.setAmount(BigDecimal.ONE);
         newBillingDocumentItem.setPricePerUnit(pricePerMeter);
         newBillingDocumentItem.setDiscountPercent(BigDecimal.ZERO);

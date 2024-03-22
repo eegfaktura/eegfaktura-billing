@@ -1,0 +1,1 @@
+alter table if exists billing_document_item add column document_text varchar default false;

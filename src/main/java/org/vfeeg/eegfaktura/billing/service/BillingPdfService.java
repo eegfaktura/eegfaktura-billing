@@ -6,6 +6,7 @@ import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 import org.vfeeg.eegfaktura.billing.domain.*;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
@@ -15,6 +16,7 @@ import org.vfeeg.eegfaktura.billing.util.StringTools;
 import java.io.InputStream;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -89,7 +91,6 @@ public class BillingPdfService {
         parameters.put("grossAmountInEuro", BigDecimalTools.makeGermanString(document.getGrossAmountInEuro(), "€"));
         parameters.put("netAmountInEuro", BigDecimalTools.makeGermanString(document.getNetAmountInEuro(), "€"));
         parameters.put("beforeItemsText", document.getBeforeItemsText());
-        parameters.put("afterItemsText", document.getAfterItemsText());
         parameters.put("termsText", document.getTermsText());
         parameters.put("footerText", document.getFooterText());
 
@@ -102,11 +103,22 @@ public class BillingPdfService {
             footerImageFileData.ifPresent(fileData -> parameters.put("footerImage", fileData.getData()));
         }
         ArrayList<Map<String,?>> itemsParameters = new ArrayList<>();
-        for (BillingDocumentItem billingDocumentItem : items) {
-            HashMap<String,String> itemParameters = createParamMapForItems(billingDocumentItem);
+        ArrayList<String> documentTextsFromTariffs = new ArrayList<>();
+        for (BillingDocumentItem billingDocumentItem : items.stream().sorted(
+                Comparator.comparing(BillingDocumentItem::getText)).toList()) {
+            HashMap<String,String> itemParameters = createParamMapForItem(billingDocumentItem);
             itemsParameters.add(itemParameters);
+            String billingDocumentItemDocumentText = billingDocumentItem.getDocumentText();
+            if (!ObjectUtils.isEmpty(billingDocumentItemDocumentText)
+                    && !documentTextsFromTariffs.contains(billingDocumentItemDocumentText)) {
+                documentTextsFromTariffs.add(billingDocumentItemDocumentText);
+            }
         }
         itemsParameters.sort(Comparator.comparing(o -> ((String) o.get("text"))));
+        parameters.put("afterItemsText", StringTools.nullSafeJoin("\n"
+                , String.join("\n", documentTextsFromTariffs)
+                , document.getAfterItemsText()));
+
         parameters.put("items", new JRMapCollectionDataSource(itemsParameters));
 
         byte[] pdfDataBytes;
@@ -143,7 +155,7 @@ public class BillingPdfService {
 
     }
 
-    private HashMap<String,String> createParamMapForItems(BillingDocumentItem billingDocumentItem) {
+    private HashMap<String,String> createParamMapForItem(BillingDocumentItem billingDocumentItem) {
         HashMap<String, String> parameterMap = new HashMap<>();
         String ppuUnit = billingDocumentItem.getPpuUnit();
         parameterMap.put("text", billingDocumentItem.getText());

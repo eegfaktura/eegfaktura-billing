@@ -1,13 +1,11 @@
 package org.vfeeg.eegfaktura.billing.domain;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.Subselect;
-import org.springframework.boot.context.properties.bind.DefaultValue;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -62,11 +60,13 @@ public class BillingMasterdata {
     private String participantCity;
     private String tariffType;
     private String tariffName;
+    private String tariffText;
     private String tariffBillingPeriod;
     private Boolean tariffUseVat;
     private BigDecimal tariffVatInPercent;
     private BigDecimal tariffParticipantFee;
     private String tariffParticipantFeeName;
+    private String tariffParticipantFeeText;
     private Boolean tariffParticipantFeeUseVat;
     private BigDecimal tariffParticipantFeeVatInPercent;
     private BigDecimal tariffParticipantFeeDiscount;
@@ -77,6 +77,7 @@ public class BillingMasterdata {
     private BigDecimal tariffFreekwh;
     private Boolean tariffUseMeteringPointFee;
     private BigDecimal tariffMeteringPointFee;
+    private String tariffMeteringPointFeeText;
 
     public Boolean getTariffUseVat() {
         return Objects.requireNonNullElse(tariffUseVat, Boolean.FALSE);

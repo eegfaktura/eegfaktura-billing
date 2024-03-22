@@ -41,11 +41,13 @@ create table if not exists base.billing_masterdata
     participant_city                      varchar,
     tariff_type                           varchar,
     tariff_name                           varchar,
+    tariff_text                           varchar,
     tariff_billing_period                 varchar,
     tariff_use_vat                        boolean,
     tariff_vat_in_percent                 numeric,
     tariff_participant_fee                numeric,
     tariff_participant_fee_name           varchar,
+    tariff_participant_fee_text           varchar,
     tariff_participant_fee_use_vat        boolean,
     tariff_participant_fee_vat_in_percent numeric,
     tariff_participant_fee_discount       numeric,
@@ -53,7 +55,10 @@ create table if not exists base.billing_masterdata
     tariff_discount                       numeric,
     tariff_working_fee_per_consumedkwh    numeric,
     tariff_credit_amount_per_producedkwh  numeric,
-    tariff_freekwh                        numeric
+    tariff_freekwh                        numeric,
+    tariff_metering_point_fee             numeric,
+    tariff_metering_point_fee_text        varchar,
+    tariff_use_metering_point_fee         boolean default false
 );
 
 insert into base.billing_masterdata (
@@ -96,11 +101,13 @@ insert into base.billing_masterdata (
     participant_city,
     tariff_type,
     tariff_name,
+    tariff_text,
     tariff_billing_period,
     tariff_use_vat,
     tariff_vat_in_percent,
     tariff_participant_fee,
     tariff_participant_fee_name,
+    tariff_participant_fee_text,
     tariff_participant_fee_use_vat,
     tariff_participant_fee_vat_in_percent,
     tariff_participant_fee_discount,
@@ -144,16 +151,18 @@ insert into base.billing_masterdata (
     'Sparkasse OÖ', --eec_bank_name
     'AT01-4321-4321-4321', -- eec_bank_iban
     'Energiegemeinschaft Holy Grail', --eec_bank_owner
-    'Meisenweg 15', -- participant_street
+    'Glücksweg 13', -- participant_street
     '1234', -- participant_zip_code
     'Fuxholzen', --participant_city
     'Verbraucher', --tariff_type
     'Standard', --tariff_name
+    'Text zu Tarif Standard', --tariff_text
     'Q', -- tariff_billing_period
     false, -- tariff_use_vat,
     0.0, -- tariff_vat_in_percent,
     10.0, -- tariff_participant_fee,
     'Mitgliedsgebühr', --tariff_participant_fee_name
+    'Text zu Tarif Mitgliedsgebühr', --tariff_participant_fee_text
     false, -- tariff_participant_fee_use_vat,
     0.0, -- tariff_participant_fee_vat_in_percent,
     0.0, -- tariff_participant_fee_discount,
@@ -162,7 +171,6 @@ insert into base.billing_masterdata (
     15, -- tariff_working_fee_per_consumedkwh,
     19, -- tariff_credit_amount_per_producedkwh,
     0 -- tariff_freekwh
-
 );
 
 insert into base.billing_masterdata (
@@ -205,11 +213,13 @@ insert into base.billing_masterdata (
     participant_city,
     tariff_type,
     tariff_name,
+    tariff_text,
     tariff_billing_period,
     tariff_use_vat,
     tariff_vat_in_percent,
     tariff_participant_fee,
     tariff_participant_fee_name,
+    tariff_participant_fee_text,
     tariff_participant_fee_use_vat,
     tariff_participant_fee_vat_in_percent,
     tariff_participant_fee_discount,
@@ -258,11 +268,13 @@ insert into base.billing_masterdata (
              'Fuxholzen', --participant_city
              'Verbraucher', --tariff_type
              'Standard', --tariff_name
+             'Text zu Tarif Standard', --tariff_text
              'Q', -- tariff_billing_period
              false, -- tariff_use_vat,
              0.0, -- tariff_vat_in_percent,
              10.0, -- tariff_participant_fee,
              'Mitgliedsgebühr', --tariff_participant_fee_name
+             'Text zu Tarif Mitgliedsgebühr', --tariff_text
              false, -- tariff_participant_fee_use_vat,
              0.0, -- tariff_participant_fee_vat_in_percent,
              0.0, -- tariff_participant_fee_discount,
@@ -361,7 +373,7 @@ insert into base.billing_masterdata (
              'Sparkasse OÖ', --eec_bank_name
              'AT01-4321-4321-4321', -- eec_bank_iban
              'Energiegemeinschaft Holy Grail', --eec_bank_owner
-             'Meisenweg 15', -- participant_street
+             'Fröhlichweg 15', -- participant_street
              '1234', -- participant_zip_code
              'Fuxholzen', --participant_city
              'Erzeuger', --tariff_type
@@ -469,7 +481,7 @@ insert into base.billing_masterdata (
              'Sparkasse OÖ', --eec_bank_name
              'AT01-4321-4321-4321', -- eec_bank_iban
              'Energiegemeinschaft Holy Grail', --eec_bank_owner
-             'Meisenweg 15', -- participant_street
+             'Sonnenweg 42', -- participant_street
              '1234', -- participant_zip_code
              'Fuxholzen', --participant_city
              'Erzeuger', --tariff_type
