@@ -10,7 +10,7 @@
     </parent>
     <groupId>org.vfeeg</groupId>
     <artifactId>eegfaktura-billing</artifactId>
-    <version>0.1.7</version>
+    <version>0.1.8</version>
     <name>eegfaktura-billing</name>
     <description>eegfaktura-billing</description>
     <properties>
