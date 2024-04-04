@@ -44,7 +44,7 @@ mvn clean package
 ### Testing
 
 Please note, that the current state of tests is not yet fine and is to be extended, cleaned-up a lot still.
-The current tests ensures, that the most important billing use cases do work. It definitely a good idea
+The current tests ensure, that the most important billing use cases do work. It is definitely a good idea
 to have a look on the generated billing documents (PDF) to see if this service is creating them correctly.
 
 (!) Be sure to adopt the prop "app.test.store-documents-path" located in /test/resources/applications.properties
