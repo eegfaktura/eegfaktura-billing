@@ -554,7 +554,7 @@ class EegfakturaBillingApplicationTests {
         for (String meteringPointData[] : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
             allocation.setMeteringPoint(meteringPointData[0]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.valueOf(meteringPointData[1])));
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[1])));
             allocations.add(allocation);
         }
         doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
@@ -592,7 +592,7 @@ class EegfakturaBillingApplicationTests {
         for (String meteringPointData[] : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
             allocation.setMeteringPoint(meteringPointData[0]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.valueOf(meteringPointData[1])));
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[1])));
             allocations.add(allocation);
         }
 
@@ -630,7 +630,7 @@ class EegfakturaBillingApplicationTests {
         for (String[] meteringPointId : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
             allocation.setMeteringPoint(meteringPointId[0]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.valueOf(meteringPointId[1])));
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointId[1])));
             allocations.add(allocation);
         }
         doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
@@ -667,7 +667,7 @@ class EegfakturaBillingApplicationTests {
         for (String[] meteringPointId : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
             allocation.setMeteringPoint(meteringPointId[0]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.valueOf(meteringPointId[1])));
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointId[1])));
             allocations.add(allocation);
         }
         doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));

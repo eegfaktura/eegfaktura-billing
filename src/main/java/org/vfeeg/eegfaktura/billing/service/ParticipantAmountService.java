@@ -1,17 +1,20 @@
 package org.vfeeg.eegfaktura.billing.service;
 
-import org.apache.commons.math3.analysis.function.Add;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.vfeeg.eegfaktura.billing.domain.*;
+import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
+import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
+import org.vfeeg.eegfaktura.billing.domain.BillingRun;
+import org.vfeeg.eegfaktura.billing.domain.MeteringPointType;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentFileDTO;
 import org.vfeeg.eegfaktura.billing.model.MeteringPoint;
 import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
-import org.vfeeg.eegfaktura.billing.repos.*;
+import org.vfeeg.eegfaktura.billing.repos.BillingDocumentItemRepository;
+import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
+import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -52,9 +55,7 @@ public class ParticipantAmountService {
 
         // Jenes Item ohne einer MeteringPointId ist (aktuell) die Mitgliedsgebühr
         billingDocumentItems.stream().filter(billingDocumentItem -> billingDocumentItem.getMeteringPointId()==null)
-                .forEach(billingDocumentItem -> {
-                    participantAmount.setParticipantFee(billingDocumentItem.getGrossValue());
-                });
+                .forEach(billingDocumentItem -> participantAmount.setParticipantFee(billingDocumentItem.getGrossValue()));
 
         // Jene Items die mit dem Text "Zaehlpunktgebuehr" beginnen, sind eben solche
         // und werden hier aufsummiert
@@ -67,7 +68,7 @@ public class ParticipantAmountService {
         List<BillingDocumentFileDTO> billingDocumentList = billingDocumentFileService
                 .findByBillingDocumentId(billingDocument.getId());
 
-        if (billingDocumentList.size()>0) {
+        if (!billingDocumentList.isEmpty()) {
             participantAmount.getBillingDocumentFileDTOs().add(billingDocumentList.get(0));
         }
     }
