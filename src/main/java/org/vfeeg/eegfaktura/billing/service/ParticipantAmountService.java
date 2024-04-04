@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.service;
 
+import org.apache.commons.math3.analysis.function.Add;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.vfeeg.eegfaktura.billing.domain.*;
@@ -9,6 +10,7 @@ import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
 import org.vfeeg.eegfaktura.billing.repos.*;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -53,6 +55,14 @@ public class ParticipantAmountService {
                 .forEach(billingDocumentItem -> {
                     participantAmount.setParticipantFee(billingDocumentItem.getGrossValue());
                 });
+
+        // Jene Items die mit dem Text "Zaehlpunktgebuehr" beginnen, sind eben solche
+        // und werden hier aufsummiert
+        BigDecimal meteringPointFeeSum = billingDocumentItems.stream()
+                .filter(billingDocumentItem -> billingDocumentItem.getText().startsWith(
+                        BillingService.ZAEHLPUNKTGEBUEHR_TEXT)).map(BillingDocumentItem::getGrossValue)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        participantAmount.setMeteringPointFeeSum(meteringPointFeeSum);
 
         List<BillingDocumentFileDTO> billingDocumentList = billingDocumentFileService
                 .findByBillingDocumentId(billingDocument.getId());

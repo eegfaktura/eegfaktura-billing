@@ -492,7 +492,7 @@ insert into base.billing_masterdata (
              10.0, -- tariff_participant_fee,
              'Mitgliedsgebühr', --tariff_participant_fee_name
              false, -- tariff_participant_fee_use_vat,
-             10.0, -- tariff_participant_fee_vat_in_percent,
+             0.0, -- tariff_participant_fee_vat_in_percent,
              0.0, -- tariff_participant_fee_discount,
              0.0, -- tariff_basic_fee,
              0.0, -- tariff_discount,

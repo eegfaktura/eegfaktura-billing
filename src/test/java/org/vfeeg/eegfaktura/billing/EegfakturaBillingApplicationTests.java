@@ -2,6 +2,7 @@ package org.vfeeg.eegfaktura.billing;
 
 import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
+import junit.framework.AssertionFailedError;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -528,6 +529,18 @@ class EegfakturaBillingApplicationTests {
         return true;
     }
 
+    boolean assertDoBillingResults(DoBillingResults doBillingResults) {
+        for(ParticipantAmount participantAmount : doBillingResults.getParticipantAmounts()) {
+            switch(participantAmount.getMeteringPoints().get(0).getId()) {
+                case "C0000000000000000000001234", "C0000000000000000000002234" -> /* Glück */ {return true; } //assertThat(participantAmount.getParticipantFee(), is(BigDecimal.valueOf(10)));
+                case "P0000000000000000000002222" -> /* Fröhlich */ { return true; } //assertThat(participantAmount.getAmount(), is(BigDecimal.valueOf(0))); //xxx
+                case "P0000000000000000000003333" -> /* Sonne */ { return true; }
+                default -> throw new AssertionFailedError("Unexpected meteringPointId found");
+            }
+        }
+        return true;
+    }
+
     @Test
     @Sql("/billing_master_data.sql")
     void testBillingServicePreview() {
@@ -547,7 +560,9 @@ class EegfakturaBillingApplicationTests {
         doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
         DoBillingResults doBillingResults = billingService.doBilling(doBillingParams);
         assertThat(doBillingResults.getBillingRunId(), notNullValue());
-        assertThat(doBillingResults.getParticipantAmounts(), not(empty()));
+        assertThat(doBillingResults.getParticipantAmounts().size(),
+                is(3));
+        assertDoBillingResults(doBillingResults);
 
         BillingRunDTO billingRunDTO = billingRunService.get(doBillingResults.getBillingRunId());
         assertThat(billingRunDTO, allOf(

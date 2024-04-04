@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class BillingService {
 
+    public static final String ZAEHLPUNKTGEBUEHR_TEXT = "Zählpunktgebühr";
     private final BillingMasterdataRepository billingMasterdataRepository;
     private final BillingDocumentNumberGenerator billingDocumentNumberGenerator;
     private final BillingRunRepository billingRunRepository;
@@ -519,7 +520,7 @@ public class BillingService {
 
         if (BigDecimalTools.isNullOrZero(grossValue)) return; // Keine Nullposition!
 
-        newBillingDocumentItem.setText(String.format("Zählpunktgebühr: %s", billingMasterdata.getMeteringPointId()));
+        newBillingDocumentItem.setText(String.format(ZAEHLPUNKTGEBUEHR_TEXT + ": %s", billingMasterdata.getMeteringPointId()));
         final String documentText = billingMasterdata.getTariffMeteringPointFeeText();
         newBillingDocumentItem.setDocumentText(StringUtils.isNotEmpty(documentText) ?
                 documentText.replace("##", "\n"): documentText);

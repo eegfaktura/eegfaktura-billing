@@ -14,6 +14,7 @@ public class ParticipantAmount {
 
     private UUID id;
     private BigDecimal participantFee = BigDecimal.ZERO;
+    private BigDecimal meteringPointFeeSum = BigDecimal.ZERO;
     private BigDecimal amount = BigDecimal.ZERO;
     private List<MeteringPoint> meteringPoints = new ArrayList<>();
     private List<BillingDocumentFileDTO> billingDocumentFileDTOs = new ArrayList<>();

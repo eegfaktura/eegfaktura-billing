@@ -9,5 +9,5 @@ import java.math.BigDecimal;
 @Setter
 public class MeteringPoint {
     private String id;
-    private BigDecimal amount = BigDecimal.valueOf(0);
+    private BigDecimal amount = BigDecimal.ZERO;
 }
