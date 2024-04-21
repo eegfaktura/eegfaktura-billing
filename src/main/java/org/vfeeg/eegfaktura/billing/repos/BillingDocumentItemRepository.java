@@ -20,4 +20,8 @@ public interface BillingDocumentItemRepository extends JpaRepository<BillingDocu
 
     List<BillingDocumentItem> findByBillingDocument_Id(UUID billingDocumentId);
 
+    @Query(value="SELECT bdi.* FROM billing_document_item bdi WHERE bdi.billing_document_id IN (SELECT bd.id " +
+            " FROM billing_document bd WHERE bd.billing_run_id = :billingRunId) ORDER BY bdi.billing_document_id", nativeQuery = true)
+    List<BillingDocumentItem> findByBillingRunId(@Param("billingRunId") UUID billingRunId);
+
 }

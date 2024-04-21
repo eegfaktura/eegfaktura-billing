@@ -1,7 +1,6 @@
 package org.vfeeg.eegfaktura.billing.rest;
 
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import jakarta.validation.Valid;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -87,10 +86,9 @@ public class BillingRunResource {
             @PathVariable(name = "id") final UUID id) throws IOException {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
-        List<BillingDocumentDTO> billingDocumentDTOs = billingDocumentService.findByBillingRunId(id);
 
         ByteArrayResource resource = new ByteArrayResource(
-                billingDocumentXlsxService.createXlsx(billingDocumentDTOs));
+                billingDocumentXlsxService.createXlsx(billingRunDTO.getId()));
 
         return ResponseEntity.ok()
                 .contentType(MediaType.valueOf("application/octet-stream"))

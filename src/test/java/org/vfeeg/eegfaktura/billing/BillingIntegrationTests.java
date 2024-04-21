@@ -7,6 +7,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -37,7 +38,7 @@ import static org.hamcrest.Matchers.*;
 @SpringBootTest
 @Testcontainers
 @Transactional
-class EegfakturaBillingApplicationTests {
+class BillingIntegrationTests {
 
     public final static String[][] TEST_ALLOCATIONS = new String[][] {
         {"C0000000000000000000001234", "12.34"},
@@ -71,6 +72,9 @@ class EegfakturaBillingApplicationTests {
 
     @Autowired
     BillingDocumentItemRepository billingDocumentItemRepository;
+
+    @Autowired
+    BillingDocumentXlsxService billingDocumentXlsxService;
 
     @Container
     public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
@@ -125,61 +129,6 @@ class EegfakturaBillingApplicationTests {
         billingConfigDTO.setCreditNoteNumberStart(73L);
 
         return billingConfigService.create(billingConfigDTO);
-    }
-
-    @Test
-    void testBillingDocumentNumberGenerator_BeginWithZero() {
-
-        BillingDocumentNumber billingDocumentNumber = billingDocumentNumberGenerator.getNext(
-                "ABC", 2023, null, 0L, 5);
-        assertThat(billingDocumentNumber.getDocumentNumber(), is("202300000"));
-    }
-
-    @Test
-    void testBillingDocumentNumberGenerator_BeginWithOne() {
-        BillingDocumentNumber billingDocumentNumber = billingDocumentNumberGenerator.getNext(
-                "ABC", 2023, null, 1L, 5);
-        assertThat(billingDocumentNumber.getDocumentNumber(), is("202300001"));
-    }
-
-    @Test
-    void testBillingDocumentNumberGenerator_ExceedingSequenceLength() {
-        BillingDocumentNumber billingDocumentNumber = billingDocumentNumberGenerator.getNext(
-                "ABC", 2023, null, 999999L, 5);
-        assertThat(billingDocumentNumber.getDocumentNumber(), is("2023999999"));
-    }
-
-    @Test
-    void testBillingDocumentNumberGenerator_TenInARow() {
-        for (int i = 42; i < 52; i++) {
-            BillingDocumentNumber billingDocumentNumber = billingDocumentNumberGenerator.getNext(
-                    "XYZ", 2023, "T", 42L, 5);
-            assertThat(billingDocumentNumber.getDocumentNumber(), is("T2023000" + i));
-        }
-    }
-
-    @Test
-    void testBillingDocumentNumberGenerator_YearMix() {
-        for (int i = 42; i < 52; i++) {
-            BillingDocumentNumber billingDocumentNumber = billingDocumentNumberGenerator.getNext(
-                    "XYZ", 2023, "T", 42L, 5);
-            assertThat(billingDocumentNumber.getDocumentNumber(), is("T2023000" + i));
-        }
-        for (int i = 42; i < 52; i++) {
-            BillingDocumentNumber billingDocumentNumber = billingDocumentNumberGenerator.getNext(
-                    "XYZ", 2022, "T", 42L, 5);
-            assertThat(billingDocumentNumber.getDocumentNumber(), is("T2022000" + i));
-        }
-        for (int i = 52; i < 62; i++) {
-            BillingDocumentNumber billingDocumentNumber = billingDocumentNumberGenerator.getNext(
-                    "XYZ", 2023, "T", 42L, 5);
-            assertThat(billingDocumentNumber.getDocumentNumber(), is("T2023000" + i));
-        }
-        for (int i = 52; i < 62; i++) {
-            BillingDocumentNumber billingDocumentNumber = billingDocumentNumberGenerator.getNext(
-                    "XYZ", 2022, "T", 42L, 5);
-            assertThat(billingDocumentNumber.getDocumentNumber(), is("T2022000" + i));
-        }
     }
 
     @Test
@@ -243,7 +192,6 @@ class EegfakturaBillingApplicationTests {
                 billingRunId);
         assertThat(billingDocumentDTOList, hasSize(5));
 
-        HashMap<BillingDocumentDTO, List<BillingDocumentItem>> map = new HashMap<>();
         for (BillingDocumentDTO billingDocumentDTO : billingDocumentDTOList) {
 
             assertThat(billingDocumentDTO.getDocumentDate(),
@@ -690,10 +638,44 @@ class EegfakturaBillingApplicationTests {
     }
 
 
+    @Test
+    @Sql("/billing_master_data.sql")
+    void testBillingXlsxService() throws IOException {
+        createBillingConfig(false);
+        DoBillingParams doBillingParams = new DoBillingParams();
+        doBillingParams.setTenantId("TE100100");
+        doBillingParams.setClearingPeriodType("QUARTERLY");
+        doBillingParams.setClearingPeriodIdentifier("2023-YQ-3");
+        doBillingParams.setPreview(false);
+        ArrayList<Allocation> allocations = new ArrayList<>();
+
+        for (String meteringPointData[] : TEST_ALLOCATIONS) {
+            Allocation allocation = new Allocation();
+            allocation.setMeteringPoint(meteringPointData[0]);
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[1])));
+            allocations.add(allocation);
+        }
+
+        doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
+        DoBillingResults doBillingResults = billingService.doBilling(doBillingParams);
+        assertThat(doBillingResults.getBillingRunId(), notNullValue());
+        assertThat(doBillingResults.getParticipantAmounts(), not(empty()));
+
+        ByteArrayResource resource = new ByteArrayResource(
+                billingDocumentXlsxService.createXlsx(doBillingResults.getBillingRunId()));
+
+        if (!StringUtils.isEmpty(testAppProperties.getStoreDocumentsPath())) {
+            String path = testAppProperties.getStoreDocumentsPath();
+            path = (path.endsWith("/") ? path : path+"/") + "testBillingXlsxService_" +
+                    new java.util.Date().getTime()+ ".xlsx";
+            Files.write(Paths.get(path), resource.getContentAsByteArray());
+        }
+
+    }
+
 
     // @TODO testBillingXlsxService
     // @TODO testBillingDocumentArchiveService
-    // @TODO testBillingDocumentNumberService
 
     @DynamicPropertySource
     static void postgresqlProperties(DynamicPropertyRegistry registry) {
