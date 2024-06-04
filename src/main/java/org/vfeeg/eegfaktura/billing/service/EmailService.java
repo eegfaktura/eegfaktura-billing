@@ -30,7 +30,7 @@ public class EmailService {
         MimeMessage message = emailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
         helper.setFrom(from);
-        helper.setTo(to);
+        helper.setTo(to.split(";"));
         if (!StringHelper.isNullOrEmptyString(cc)) {
             helper.setCc(cc);
         }
