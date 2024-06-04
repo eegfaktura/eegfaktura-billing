@@ -44,6 +44,8 @@ public class BillingConfigService {
         DEFAULT.setTermsTextInfo("Wir bitten, diesen Betrag uns in Rechnung zu stellen.");
 
         DEFAULT.setDocumentNumberSequenceLength(5);
+
+        DEFAULT.createCreditNotesForAllProducers(true);
     }
 
     private final FileDataRepository fileDataRepository;
