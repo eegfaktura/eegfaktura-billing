@@ -3,7 +3,6 @@ package org.vfeeg.eegfaktura.billing.domain;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.GenericGenerator;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -21,8 +20,7 @@ public class BillingDocumentItem {
 
     @Id
     @Column(nullable = false, updatable = false)
-    @GenericGenerator(name = "uuid", strategy = "org.hibernate.id.UUIDGenerator")
-    @GeneratedValue(generator = "uuid")
+    @GeneratedValue
     private UUID id;
 
     @Column

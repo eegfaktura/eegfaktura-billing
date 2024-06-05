@@ -1,17 +1,9 @@
 package org.vfeeg.eegfaktura.billing.service;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.UUID;
-
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.util.MimeType;
-import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingConfig;
 import org.vfeeg.eegfaktura.billing.domain.FileData;
@@ -20,6 +12,9 @@ import org.vfeeg.eegfaktura.billing.model.BillingConfigImageType;
 import org.vfeeg.eegfaktura.billing.repos.BillingConfigRepository;
 import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
+
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -45,7 +40,7 @@ public class BillingConfigService {
 
         DEFAULT.setDocumentNumberSequenceLength(5);
 
-        DEFAULT.createCreditNotesForAllProducers(true);
+        DEFAULT.setCreateCreditNotesForAllProducers(true);
     }
 
     private final FileDataRepository fileDataRepository;

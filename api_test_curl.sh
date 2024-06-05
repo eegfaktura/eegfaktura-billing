@@ -1,0 +1,2 @@
+curl -v -H 'Tenant: TE100100' -H 'Authorization: <Bearer Token einfuegen>' http://localhost:8080/api/billingRuns/5d667157-416f-4fbe-9e8f-bd75c55e4e8f/participantAmounts
+curl -v -H 'Tenant: TE100100' -H 'Authorization: <Bearer Token einfuegen>' http://localhost:8080/api/billingRuns/5d667157-416f-4fbe-9e8f-bd75c55e4e8f/billingDocuments/xlsx

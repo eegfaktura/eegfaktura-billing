@@ -1,0 +1,25 @@
+{
+  "clearingPeriodType": "QUARTERLY",
+  "clearingPeriodIdentifier": "2023-YQ-3",
+  "tenantId": "TE100100",
+  "clearingDocumentDate": "2022-12-31",
+  "allocations": [
+    {
+      "meteringPoint": "C0000000000000000000001234",
+      "allocationKWh": 12.34
+    },
+    {
+      "meteringPoint": "C0000000000000000000002234",
+      "allocationKWh": 22.34
+    },
+    {
+      "meteringPoint": "P0000000000000000000002222",
+      "allocationKWh": 22.22
+    },
+    {
+      "meteringPoint": "P0000000000000000000003333",
+      "allocationKWh": 33.33
+    }
+  ],
+  "preview": true
+}
