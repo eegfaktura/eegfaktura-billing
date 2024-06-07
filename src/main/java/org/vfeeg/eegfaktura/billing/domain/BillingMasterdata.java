@@ -2,8 +2,7 @@ package org.vfeeg.eegfaktura.billing.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.Subselect;
 
@@ -16,6 +15,9 @@ import java.util.Objects;
 @Subselect("select md5(random()::text || clock_timestamp()::text)::uuid as id, m.* from base.billing_masterdata m")
 @Getter
 @Setter
+@Builder(toBuilder = true)
+@NoArgsConstructor
+@AllArgsConstructor
 public class BillingMasterdata {
 
     @Id
