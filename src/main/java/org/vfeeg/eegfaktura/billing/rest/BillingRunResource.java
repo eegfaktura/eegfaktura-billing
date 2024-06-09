@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
-
 @RestController
 @RequestMapping(value = "/api/billingRuns", produces = MediaType.APPLICATION_JSON_VALUE)
 public class BillingRunResource {

@@ -105,8 +105,9 @@ public class BillingDocumentXlsxService {
         createCell(xssfSheet, row, columnNumber++, "Pos. UST Betrag", style);
         createCell(xssfSheet, row, columnNumber++, "Pos. Bruttobetrag", style);
     }
+
     private void createCell(XSSFSheet xssfSheet, Row row, int columnNumber, Object valueOfCell, CellStyle style) {
-        xssfSheet.autoSizeColumn(columnNumber);
+        //xssfSheet.autoSizeColumn(columnNumber);
         Cell cell = row.createCell(columnNumber);
         if (valueOfCell instanceof Integer) {
             cell.setCellValue((Integer) valueOfCell);
@@ -122,21 +123,9 @@ public class BillingDocumentXlsxService {
         }
         cell.setCellStyle(style);
     }
-    private void createRowsList(XSSFWorkbook xssfWorkbook, XSSFSheet xssfSheet,
+    private void createRowsList(CellStyle style, CellStyle dateStyle, XSSFSheet xssfSheet,
                                 List<BillingDocument> billingDocuments) {
         int rowCount = 1;
-        CellStyle style = xssfWorkbook.createCellStyle();
-        XSSFFont font = xssfWorkbook.createFont();
-        font.setFontHeight(10);
-        style.setFont(font);
-
-        CellStyle dateStyle = xssfWorkbook.createCellStyle();
-        CreationHelper createHelper = xssfWorkbook.getCreationHelper();
-        short format = createHelper.createDataFormat().getFormat("dd.mm.yy");
-        XSSFFont dateStylefont = xssfWorkbook.createFont();
-        dateStylefont.setFontHeight(10);
-        dateStyle.setDataFormat(format);
-        dateStyle.setFont(dateStylefont);
 
         for (BillingDocument billingDocument : billingDocuments) {
             Row row = xssfSheet.createRow(rowCount++);
@@ -167,21 +156,9 @@ public class BillingDocumentXlsxService {
         }
     }
 
-    private void createRowsDetails(XSSFWorkbook xssfWorkbook, XSSFSheet xssfSheet,
+    private void createRowsDetails(CellStyle style, CellStyle dateStyle, XSSFSheet xssfSheet,
                                 List<BillingDocumentItem> billingDocumentItems) {
         int rowCount = 1;
-        CellStyle style = xssfWorkbook.createCellStyle();
-        XSSFFont font = xssfWorkbook.createFont();
-        font.setFontHeight(10);
-        style.setFont(font);
-
-        CellStyle dateStyle = xssfWorkbook.createCellStyle();
-        CreationHelper createHelper = xssfWorkbook.getCreationHelper();
-        short format = createHelper.createDataFormat().getFormat("dd.mm.yy");
-        XSSFFont dateStylefont = xssfWorkbook.createFont();
-        dateStylefont.setFontHeight(10);
-        dateStyle.setDataFormat(format);
-        dateStyle.setFont(dateStylefont);
 
         for (BillingDocumentItem billingDocumentItem : billingDocumentItems) {
             Row row = xssfSheet.createRow(rowCount++);
@@ -227,13 +204,26 @@ public class BillingDocumentXlsxService {
 
         XSSFWorkbook xssfWorkbook = new XSSFWorkbook();
 
+        CellStyle style = xssfWorkbook.createCellStyle();
+        XSSFFont font = xssfWorkbook.createFont();
+        font.setFontHeight(10);
+        style.setFont(font);
+
+        CellStyle dateStyle = xssfWorkbook.createCellStyle();
+        CreationHelper createHelper = xssfWorkbook.getCreationHelper();
+        short format = createHelper.createDataFormat().getFormat("dd.mm.yy");
+        XSSFFont dateStylefont = xssfWorkbook.createFont();
+        dateStylefont.setFontHeight(10);
+        dateStyle.setDataFormat(format);
+        dateStyle.setFont(dateStylefont);
+
         XSSFSheet xssfSheetList = xssfWorkbook.createSheet("Liste");
         createXlsxHeaderList(xssfWorkbook, xssfSheetList);
-        createRowsList(xssfWorkbook, xssfSheetList, billingDocuments);
+        createRowsList(style, dateStyle, xssfSheetList, billingDocuments);
 
         XSSFSheet xssfSheetDetails = xssfWorkbook.createSheet("Details");
         createXlsxHeaderDetails(xssfWorkbook, xssfSheetDetails);
-        createRowsDetails(xssfWorkbook, xssfSheetDetails, billingDocumentItems);
+        createRowsDetails(style, dateStyle, xssfSheetDetails, billingDocumentItems);
 
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         xssfWorkbook.write(byteArrayOutputStream);

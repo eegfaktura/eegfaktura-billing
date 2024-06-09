@@ -1,0 +1,11 @@
+-- Helper script to get rid of all billing data
+-- Intended use: Development only!
+-- Uncomment and use with care!
+
+--delete from base.billing_masterdata;
+--delete from billingj.billing_config;
+--delete from billingj.file_data;
+--delete from billingj.billing_document_file;
+--delete from billingj.billing_document_item;
+--delete from billingj.billing_document;
+--delete from billingj.billing_run;

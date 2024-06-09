@@ -7,6 +7,8 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 public class MassDataGenerator {
@@ -88,10 +90,12 @@ public class MassDataGenerator {
                         .invoiceNumberStart(42L)
                         .creditNoteNumberPrefix("GT")
                         .creditNoteNumberStart(73L)
+                        .dateCreated(OffsetDateTime.now())
+                        .lastUpdated(OffsetDateTime.now())
                         .build();
                 billingConfigList.add(billingConfig);
 
-            for (int participantIdx = 1; participantIdx <= getRandomParticipantNumber(); participantIdx++) {
+            for (int participantIdx = 1, max = getRandomParticipantNumber(); participantIdx <= max; participantIdx++) {
                 String participantId = String.format("%04d%04d", eegIdx, participantIdx);
                 String firstName = faker.name().firstName();
                 String lastName = faker.name().lastName();
@@ -117,7 +121,8 @@ public class MassDataGenerator {
                         .participantBankOwner(billingMasterdata.getParticipantLastname())
                         .participantSepaMandateReference("SEPA"+participantId)
                         .participantSepaMandateIssueDate(LocalDate.now()
-                                .minusDays((long)(Math.random()*1000)+1)).build();
+                                .minusDays((long)(Math.random()*1000)+1))
+                        .build();
 
                 for (int meteringPointIdx = 1; meteringPointIdx <= (int) (Math.random() * 3) + 1; meteringPointIdx++) {
                     String meteringPointId = String.format("%04d%04d%01d", eegIdx, participantIdx, meteringPointIdx);
@@ -126,8 +131,9 @@ public class MassDataGenerator {
                             .meteringPointType(isConsumer ? MeteringPointType.CONSUMER : MeteringPointType.PRODUCER)
                             .meteringPointId((isConsumer ? "VERB" : "ERZ" )+"1234000000000"+meteringPointId)
                             .equipmentNumber(meteringPointId)
-                            .meteringEquipmentName(faker.company().name()
-                                            + (isConsumer ? " Verbraucher" : " Anlage Süd")).build();
+                            .meteringEquipmentName(faker.company().name().replace(',', '-')
+                                            + (isConsumer ? " Verbraucher" : " Anlage Süd"))
+                            .build();
                     billingMasterdataList.add(mpBillingMasterdata);
                 }
             }
@@ -142,15 +148,15 @@ public class MassDataGenerator {
 
         for (BillingConfig billingConfig : billingConfigList) {
 
-            if (eegCount++ % 10 == 0) {
-                int progress = (int)(eegCount * 1.0 / numberOfEegs * 10.0);
-                System.out.printf("Generating Data %03d [%s%s]\r", progress,
-                        "=".repeat(progress), " ".repeat(10-progress));
-            }
+            int progress = (int)(eegCount++ * 1.0 / numberOfEegs * 10.0);
+            System.out.printf("Generating Data %d%% [%s%s]\r", progress*10,
+                    "=".repeat(progress), " ".repeat(10-progress));
 
             for (int i=0; i<12; i++) {
                 LocalDate runStatusDate = LocalDate.now().minusMonths(13-i);
                 LocalDateTime runStatusDateTime = runStatusDate.atTime(8,0,0);
+                ZoneId zoneId = ZoneId.systemDefault();
+                OffsetDateTime offsetDateTime = runStatusDateTime.atZone(zoneId).toOffsetDateTime();
                 String clearingPeriodIdentifier = String.format("%s%02d%02d", billingConfig.getInvoiceNumberPrefix(),
                         runStatusDate.getYear(), runStatusDate.getMonthValue());
                 BillingRun billingRun = BillingRun.builder()
@@ -160,6 +166,8 @@ public class MassDataGenerator {
                         .clearingPeriodIdentifier(clearingPeriodIdentifier)
                         .runStatusDateTime(runStatusDateTime)
                         .runStatus(BillingRunStatus.DONE)
+                        .dateCreated(offsetDateTime)
+                        .lastUpdated(offsetDateTime)
                         .build();
                 billingRunList.add(billingRun);
 
@@ -210,6 +218,7 @@ public class MassDataGenerator {
             }
         }
 
+        System.out.println("Generating Data 100% [==========] done.");
         System.out.println("Data generation complete. Writing csv files:");
         writeBillingMasterdataCsv(billingMasterdataList);
         writeBillingConfigCsv(billingConfigList);
@@ -252,6 +261,8 @@ public class MassDataGenerator {
                 .vat2SumInEuro(BigDecimal.ZERO)
                 .netAmountInEuro(BigDecimal.ZERO)
                 .grossAmountInEuro(BigDecimal.ZERO)
+                .dateCreated(billingRun.getDateCreated())
+                .lastUpdated(billingRun.getDateCreated())
                 .build();
         billingDocumentList.add(billingDocument);
         masterdataList.forEach(
@@ -260,11 +271,14 @@ public class MassDataGenerator {
                         .id(UUID.randomUUID())
                         .tenantId(billingConfig.getTenantId())
                         .billingDocument(billingDocument)
+                        .meteringPointType(isInvoice ? MeteringPointType.CONSUMER : MeteringPointType.PRODUCER)
                         .text(masterdata.getMeteringPointId())
                         .amount(BigDecimal.valueOf((long) (Math.random()*100+50)))
                         .pricePerUnit(isInvoice ? masterdata.getTariffWorkingFeePerConsumedkwh()
                                 : masterdata.getTariffCreditAmountPerProducedkwh())
                         .unit("kWh")
+                        .dateCreated(billingRun.getDateCreated())
+                        .lastUpdated(billingRun.getDateCreated())
                         .build();
                 billingDocumentItemList.add(billingDocumentItem);
         });
@@ -281,10 +295,10 @@ public class MassDataGenerator {
                     "tariff_vat_in_percent,tariff_participant_fee,tariff_participant_fee_name," +
                     "tariff_participant_fee_text,tariff_participant_fee_use_vat," +
                     "tariff_participant_fee_vat_in_percent,tariff_participant_fee_discount,tariff_basic_fee," +
-                    "tariff_discount,tariff_working_fee_per_consumed_kwh,tariff_credit_amount_per_produced_kwh," +
-                    "tariff_free_kwh,tariff_use_metering_point_fee,tariff_metering_point_fee," +
+                    "tariff_discount,tariff_working_fee_per_consumedkwh,tariff_credit_amount_per_producedkwh," +
+                    "tariff_freekwh,tariff_use_metering_point_fee,tariff_metering_point_fee," +
                     "tariff_metering_point_fee_text,participant_id,participant_title_before," +
-                    "participant_first_name,participant_last_name,participant_title_after," +
+                    "participant_firstname,participant_lastname,participant_title_after," +
                     "participant_company_register_number,participant_tax_id,participant_vat_id," +
                     "participant_email,participant_street,participant_zip_code,participant_city," +
                     "participant_number,participant_bank_name,participant_bank_iban,participant_bank_owner," +
@@ -397,7 +411,7 @@ public class MassDataGenerator {
                 sb.append(",");
                 sb.append(billingMasterdata.getParticipantSepaMandateIssueDate());
                 sb.append(",");
-                sb.append(billingMasterdata.getMeteringPointType());
+                sb.append(billingMasterdata.getMeteringPointType().ordinal());
                 sb.append(",");
                 sb.append(billingMasterdata.getMeteringPointId());
                 sb.append(",");
@@ -424,7 +438,7 @@ public class MassDataGenerator {
                     "after_items_text_credit_note,after_items_text_info,terms_text_invoice," +
                     "terms_text_credit_note,terms_text_info,footer_text,document_number_sequence_length," +
                     "invoice_number_prefix,invoice_number_start," +
-                    "credit_note_number_prefix,credit_note_number_start");
+                    "credit_note_number_prefix,credit_note_number_start, date_created, last_updated");
 
             StringBuilder sb = new StringBuilder();
             for (BillingConfig billingConfig : billingConfigList) {
@@ -445,7 +459,10 @@ public class MassDataGenerator {
                         .append(billingConfig.getInvoiceNumberPrefix()).append(",")
                         .append(billingConfig.getInvoiceNumberStart()).append(",")
                         .append(billingConfig.getCreditNoteNumberPrefix()).append(",")
-                        .append(billingConfig.getCreditNoteNumberStart());
+                        .append(billingConfig.getCreditNoteNumberStart()).append(",")
+                        .append(billingConfig.getDateCreated()).append(",")
+                        .append(billingConfig.getLastUpdated())
+                ;
                 writer.println(sb);
                 sb.setLength(0);
             }
@@ -459,20 +476,19 @@ public class MassDataGenerator {
 
         try (PrintWriter writer = new PrintWriter(new FileWriter("billing_document_item.csv"))) {
 
-            writer.println("id,tenantId,clearingPeriodType,clearingPeriodIdentifier,amount,meteringPointId," +
-                    "meteringPointType,text,documentText,unit,pricePerUnit,ppuUnit,netValue,discountPercent," +
-                    "vatPercent,vatValueInEuro,grossValue");
+            writer.println("id,tenant_id,clearing_period_type,clearing_period_identifier,amount,metering_point_id," +
+                    "metering_point_type,text,document_text,unit,price_per_unit,ppu_unit,net_value,discount_percent," +
+                    "vat_percent,vat_value_in_euro,gross_value,date_created,last_updated");
 
             StringBuilder sb = new StringBuilder();
             for (BillingDocumentItem billingDocumentItem : billingDocumentItemList) {
                 sb.append(billingDocumentItem.getId()).append(",")
-                        .append(billingDocumentItem.getId()).append(",")
                         .append(billingDocumentItem.getTenantId()).append(",")
                         .append(billingDocumentItem.getClearingPeriodType()).append(",")
                         .append(billingDocumentItem.getClearingPeriodIdentifier()).append(",")
                         .append(billingDocumentItem.getAmount()).append(",")
                         .append(billingDocumentItem.getMeteringPointId()).append(",")
-                        .append(billingDocumentItem.getMeteringPointType()).append(",")
+                        .append(billingDocumentItem.getMeteringPointType().ordinal()).append(",")
                         .append(billingDocumentItem.getText()).append(",")
                         .append(billingDocumentItem.getDocumentText()).append(",")
                         .append(billingDocumentItem.getUnit()).append(",")
@@ -482,7 +498,9 @@ public class MassDataGenerator {
                         .append(billingDocumentItem.getDiscountPercent()).append(",")
                         .append(billingDocumentItem.getVatPercent()).append(",")
                         .append(billingDocumentItem.getVatValueInEuro()).append(",")
-                        .append(billingDocumentItem.getGrossValue());
+                        .append(billingDocumentItem.getGrossValue()).append(",")
+                        .append(billingDocumentItem.getDateCreated()).append(",")
+                        .append(billingDocumentItem.getLastUpdated());
                 writer.println(sb);
                 sb.setLength(0);
             }
@@ -495,15 +513,16 @@ public class MassDataGenerator {
     private static void writeBillingDocumentCsv(ArrayList<BillingDocument> billingDocumentList) {
         try (PrintWriter writer = new PrintWriter(new FileWriter("billing_document.csv"))) {
 
-            writer.println("id,documentNumber,documentDate,status,clearingPeriodType,beforeItemsText," +
-                    "afterItemsText,termsText,footerText,tenantId,participantId,recipientName," +
-                    "recipientParticipantNumber,recipientAddressLine1,recipientAddressLine2,recipientAddressLine3," +
-                    "recipientBankName,recipientBankIban,recipientBankOwner,recipientSepaMandateReference," +
-                    "recipientSepaMandateIssueDate,recipientEmail,recipientTaxId,recipientVatId,issuerName," +
-                    "issuerAddressLine1,issuerAddressLine2,issuerAddressLine3,issuerPhone,issuerMail," +
-                    "issuerWebsite,issuerTaxId,issuerVatId,issuerCompanyRegisterNumber,issuerBankName," +
-                    "issuerBankIBAN,issuerBankOwner,vat1Percent,vat1SumInEuro,vat2Percent,vat2SumInEuro," +
-                    "netAmountInEuro,grossAmountInEuro,clearingPeriodIdentifier,billingDocumentType,");
+            writer.println("id,document_number,document_date,status,clearing_period_type,before_items_text," +
+                    "after_items_text,terms_text,footer_text,tenant_id,participant_id,recipient_name," +
+                    "recipient_participant_number,recipient_address_line1,recipient_address_line2,recipient_address_line3," +
+                    "recipient_bank_name,recipient_bank_iban,recipient_bank_owner,recipient_sepa_mandate_reference," +
+                    "recipient_sepa_mandate_issue_date,recipient_email,recipient_tax_id,recipient_vat_id,issuer_name," +
+                    "issuer_address_line1,issuer_address_line2,issuer_address_line3,issuer_phone,issuer_mail," +
+                    "issuer_website,issuer_tax_id,issuer_vat_id,issuer_company_register_number,issuer_bank_name," +
+                    "issuer_bankiban,issuer_bank_owner,vat1percent,vat1sum_in_euro,vat2percent,vat2sum_in_euro," +
+                    "net_amount_in_euro,gross_amount_in_euro,clearing_period_identifier,billing_document_type," +
+                    "date_created,last_updated");
 
             StringBuilder sb = new StringBuilder();
             for (BillingDocument billingDocument : billingDocumentList) {
@@ -551,7 +570,9 @@ public class MassDataGenerator {
                     .append(billingDocument.getNetAmountInEuro()).append(",")
                     .append(billingDocument.getGrossAmountInEuro()).append(",")
                     .append(billingDocument.getClearingPeriodIdentifier()).append(",")
-                    .append(billingDocument.getBillingDocumentType());
+                    .append(billingDocument.getBillingDocumentType().ordinal()).append(",")
+                    .append(billingDocument.getDateCreated()).append(",")
+                    .append(billingDocument.getLastUpdated());
                 writer.println(sb);
                 sb.setLength(0);
             }
@@ -564,9 +585,9 @@ public class MassDataGenerator {
     private static void writeBillingRunCsv(ArrayList<BillingRun> billingRunList) {
         try (PrintWriter writer = new PrintWriter(new FileWriter("billing_run.csv"))) {
 
-            writer.println("id,clearingPeriodType,clearingPeriodIdentifier,tenantId,runStatus," +
-                    "runStatusDateTime,mailStatus,mailStatusDateTime,sepaStatus,sepaStatusDateTime," +
-                    "numberOfInvoices,numberOfCreditNotes,");
+            writer.println("id,clearing_period_type,clearing_period_identifier,tenant_id,run_status," +
+                    "run_status_date_time,mail_status,mail_status_date_time,sepa_status,sepa_status_date_time," +
+                    "number_of_invoices,number_of_credit_notes,date_created,last_updated");
 
             StringBuilder sb = new StringBuilder();
             for (BillingRun billingRun : billingRunList) {
@@ -574,14 +595,16 @@ public class MassDataGenerator {
                         .append(billingRun.getClearingPeriodType()).append(",")
                         .append(billingRun.getClearingPeriodIdentifier()).append(",")
                         .append(billingRun.getTenantId()).append(",")
-                        .append(billingRun.getRunStatus()).append(",")
+                        .append(billingRun.getRunStatus().ordinal()).append(",")
                         .append(billingRun.getRunStatusDateTime()).append(",")
                         .append(billingRun.getMailStatus()).append(",")
                         .append(billingRun.getMailStatusDateTime()).append(",")
                         .append(billingRun.getSepaStatus()).append(",")
                         .append(billingRun.getSepaStatusDateTime()).append(",")
                         .append(billingRun.getNumberOfInvoices()).append(",")
-                        .append(billingRun.getNumberOfCreditNotes());
+                        .append(billingRun.getNumberOfCreditNotes()).append(",")
+                        .append(billingRun.getDateCreated()).append(",")
+                        .append(billingRun.getLastUpdated());
                 writer.println(sb);
                 sb.setLength(0);
             }
