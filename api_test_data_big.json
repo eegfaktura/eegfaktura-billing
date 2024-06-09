@@ -1,24 +1,8 @@
-# participantAmounts laden
-curl -v -H 'Tenant: <Tenant Id einfuegen>' -H 'Authorization: <Bearer Token einfuegen>' http://localhost:8080/api/billingRuns/<Billing-Run Id einfuegen>/participantAmounts
-
-# XLSX Exportieren
-curl -L -O -v -H 'Tenant: <Tenant Id einfuegen>' -H 'Authorization: <Bearer Token einfuegen>' http://localhost:8080/api/billingRuns/<Billing-Run Id einfuegen>/billingDocuments/xlsx
-
-# ZIP Exportieren
-curl -L -O -v -H 'Tenant: RC100892' -H 'Authorization: <Bearer token hier einfuegen>' http://localhost:8080/api/billingRuns/<Billing-Run Id einfuegen>/billingDocuments/archive
-
-# Abrechnung durchfuehren
-curl -X 'POST' \
-  'http://localhost:8080/api/billing' \
-  -H 'accept: application/json' \
-  -H 'Tenant: <Tenant-Id einfuegen>' \
-  -H 'Authorization: <Bearer Token einfuegen>' \
-  -H 'Content-Type: application/json' \
-  -d '{
+{
   "clearingPeriodType": "MONTHLY",
-  "clearingPeriodIdentifier": "2024-MO-06",
-  "tenantId": "<Tenant-Id einfuegen>",
-  "clearingDocumentDate": "2024-06-09",
+  "clearingPeriodIdentifier": "2024-MO-6",
+  "tenantId": "RC100892",
+  "clearingDocumentDate": "2024-06-30",
   "allocations": [
     {
       "meteringPoint": "ERZ1234000000000089200011",
@@ -2198,4 +2182,4 @@ curl -X 'POST' \
     }
   ],
   "preview": true
-}'
+}
