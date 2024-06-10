@@ -8,7 +8,6 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
 import org.springframework.web.servlet.view.freemarker.FreeMarkerConfigurer;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
@@ -22,6 +21,7 @@ import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
 import org.vfeeg.eegfaktura.billing.util.AppProperties;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -127,33 +127,48 @@ public class BillingDocumentMailService {
             emailService.sendEmail(
                     from,to, cc, subject, htmlBody, attachments);
         } catch (Exception e) {
-            throw new RuntimeException("Mailversand fehlgeschlagen aufgrund: "+e.getMessage(), e);
+            throw new RuntimeException("Mailversand ("+billingDocument.getRecipientEmail()+") fehlgeschlagen aufgrund: "+e.getMessage(), e);
         }
 
     }
 
-    @Transactional
     public String sendAllBillingDocuments(UUID billingRunId) {
         BillingRun billingRun = billingRunRepository
                 .findById(billingRunId)
                         .orElseThrow(() -> new EntityNotFoundException(billingRunId.toString()));
+
+        var mailStatus = billingRun.getMailStatus();
+        if (mailStatus!=null && !mailStatus.isEmpty()) {
+            var errorText = "Mailversand fuer "+billingRun.getClearingPeriodIdentifier()+" ("
+                    +billingRun.getId()+") nicht moeglich. Status = "+mailStatus;
+            throw new RuntimeException(errorText);
+        } else {
+            billingRun.setMailStatus("IN PROGRESS");
+            billingRunRepository.saveAndFlush(billingRun);
+        }
+
         //@TODO: Für EEG passendes Logo holen und verwenden (aus BillingConfig)
         List<BillingDocument> billingDocuments = billingDocumentRepository.findByBillingRunId(billingRunId);
         StringBuilder sendProtocolStringBuilder = new StringBuilder();
+        sendProtocolStringBuilder.append("Send mail start at ")
+                .append(OffsetDateTime.now())
+                .append(": ");
         for(BillingDocument billingDocument : billingDocuments) {
             try {
                 createAndSendMail(billingDocument);
-                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" : OK\n");
+                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" OK,");
             } catch (Exception e) {
                 log.error("Failed to send mail: "+e.getMessage(), e);
-                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" : FEHLER (").append(e.getMessage()).append(")\n");
+                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" FEHLER,");
             }
         }
-        //TODO: sendProtocoll in billingRun speichern
         billingRun.setMailStatus("SENT");
         billingRun.setMailStatusDateTime(LocalDateTime.now());
+        sendProtocolStringBuilder.append("Send mail finished at "+ OffsetDateTime.now());
+        var sendMailProtocol = sendProtocolStringBuilder.toString();
+        billingRun.setSendMailProtocol(sendMailProtocol);
         billingRunRepository.save(billingRun);
-        return sendProtocolStringBuilder.toString();
+        return sendMailProtocol;
     }
 
     //@TODO: Weitere Versandoption waere sendBillingDocumentsFromBillingRun (dann könnte man Sammelmails senden)

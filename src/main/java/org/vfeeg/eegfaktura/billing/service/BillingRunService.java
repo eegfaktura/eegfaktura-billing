@@ -76,6 +76,7 @@ public class BillingRunService {
         billingRunDTO.setRunStatusDateTime(billingRun.getRunStatusDateTime());
         billingRunDTO.setMailStatus(billingRun.getMailStatus());
         billingRunDTO.setMailStatusDateTime(billingRun.getMailStatusDateTime());
+        billingRunDTO.setSendMailProtocol(billingRun.getSendMailProtocol());
         billingRunDTO.setSepaStatus(billingRun.getSepaStatus());
         billingRunDTO.setSepaStatusDateTime(billingRun.getSepaStatusDateTime());
         billingRunDTO.setNumberOfInvoices(billingRun.getNumberOfInvoices());
@@ -91,6 +92,7 @@ public class BillingRunService {
         billingRun.setRunStatusDateTime(billingRunDTO.getRunStatusDateTime());
         billingRun.setMailStatus(billingRunDTO.getMailStatus());
         billingRun.setMailStatusDateTime(billingRunDTO.getMailStatusDateTime());
+        billingRun.setSendMailProtocol(billingRunDTO.getSendMailProtocol());
         billingRun.setSepaStatus(billingRunDTO.getSepaStatus());
         billingRun.setSepaStatusDateTime(billingRunDTO.getSepaStatusDateTime());
         billingRun.setNumberOfInvoices(billingRunDTO.getNumberOfInvoices());

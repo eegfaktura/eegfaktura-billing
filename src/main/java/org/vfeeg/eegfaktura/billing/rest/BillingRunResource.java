@@ -126,8 +126,12 @@ public class BillingRunResource {
             @PathVariable(name = "id") final UUID id) {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
-        String sendProtocol = billingDocumentMailService.sendAllBillingDocuments(id);
-        return new ResponseEntity<>(sendProtocol, HttpStatus.OK);
+        try {
+            String sendProtocol = billingDocumentMailService.sendAllBillingDocuments(id);
+            return new ResponseEntity<>(sendProtocol, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
 //    @PostMapping

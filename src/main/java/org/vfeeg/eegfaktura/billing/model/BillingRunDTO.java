@@ -26,6 +26,8 @@ public class BillingRunDTO {
 
     private String mailStatus;
 
+    private String sendMailProtocol;
+
     private LocalDateTime mailStatusDateTime;
 
     private String sepaStatus;

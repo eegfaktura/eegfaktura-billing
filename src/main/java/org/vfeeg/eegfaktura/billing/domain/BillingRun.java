@@ -43,6 +43,9 @@ public class BillingRun {
     @Column
     private String mailStatus;
 
+    @Column (columnDefinition = "TEXT")
+    private String sendMailProtocol;
+
     @Column
     private LocalDateTime mailStatusDateTime;
 
