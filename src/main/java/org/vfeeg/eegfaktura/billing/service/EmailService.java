@@ -32,7 +32,7 @@ public class EmailService {
         helper.setFrom(from);
         helper.setTo(to.split(";"));
         if (!StringHelper.isNullOrEmptyString(cc)) {
-            helper.setCc(cc);
+            helper.setCc(cc.split(";"));
         }
         helper.setSubject(subject);
         helper.setText(htmlBody, true);
