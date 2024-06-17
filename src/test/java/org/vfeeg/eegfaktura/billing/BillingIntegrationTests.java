@@ -44,7 +44,9 @@ class BillingIntegrationTests {
         {"C0000000000000000000001234", "12.34"},
         {"C0000000000000000000002234", "22.34"},
         {"P0000000000000000000002222", "22.22"},
-        {"P0000000000000000000003333", "33.33"}};
+        {"P0000000000000000000003333", "33.33"},
+        {"P0000000000000000000004444", "44.44"}
+    };
 
     @Autowired
     BillingConfigService billingConfigService;
@@ -307,14 +309,15 @@ class BillingIntegrationTests {
         assertSonneGmbHDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
-        assertThat(billingDocumentDTO.getGrossAmountInEuro(), is(BigDecimal.valueOf(10.0)));
-        assertThat(billingDocumentDTO.getNetAmountInEuro(), is(BigDecimal.valueOf(10.0)));
+        assertThat(billingDocumentDTO.getGrossAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(13.00)));
+        assertThat(billingDocumentDTO.getNetAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(12.50)));
         //assertThat(billingDocumentDTO.getVat1Percent(), is(BigDecimal.ZERO));
         //assertThat(billingDocumentDTO.getVat1SumInEuro(), is(BigDecima.ZERO));
         assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
         assertThat(billingDocumentDTO.getVat2SumInEuro(), nullValue());
-        assertThat(billingDocumentItemList, hasSize(1));
+        assertThat(billingDocumentItemList, hasSize(2));
         assertThat(billingDocumentItemList.get(0).getText(), is("Mitgliedsgebühr"));
+        assertThat(billingDocumentItemList.get(1).getText(), startsWith("Zählpunktgebühr"));
         return true;
     }
 
@@ -333,24 +336,37 @@ class BillingIntegrationTests {
         assertSonneGmbHDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("6,97"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("6,33"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("16,25"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("14,78"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat1Percent()), is("10,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat1SumInEuro()), is("0,63"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat1SumInEuro()), is("1,48"));
         assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
         assertThat(billingDocumentDTO.getVat2SumInEuro(), nullValue());
-        assertThat(billingDocumentItemList, hasSize(1));
-        BillingDocumentItem item = billingDocumentItemList.get(0);
-        assertThat(item.getText(), allOf(
+        assertThat(billingDocumentItemList, hasSize(2));
+        var item0 = billingDocumentItemList.get(0);
+        assertThat(item0.getText(), allOf(
                 containsString("Anlage-Name: PV Sonne GmbH"),
                 containsString("Anlage-Nr.: Anlagenr 3333"),
                 containsString("P0000000000000000000003333")
         ));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getAmount()), is("33,33"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getPricePerUnit()), is("19,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getNetValue()), is("6,33"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getVatPercent()), is("10,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getVatValueInEuro()), is("0,63"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getAmount()), is("33,33"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getPricePerUnit()), is("19,00"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getNetValue()), is("6,33"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getVatPercent()), is("10,00"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getVatValueInEuro()), is("0,63"));
+
+        var item1 = billingDocumentItemList.get(1);
+        assertThat(item1.getText(), allOf(
+                containsString("Anlage-Name: PV Sonne GmbH"),
+                containsString("Anlage-Nr.: Anlagenr 4444"),
+                containsString("P0000000000000000000004444")
+        ));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getAmount()), is("44,44"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getPricePerUnit()), is("19,00"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getNetValue()), is("8,44"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getVatPercent()), is("10,00"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getVatValueInEuro()), is("0,84"));
+
         return true;
     }
 

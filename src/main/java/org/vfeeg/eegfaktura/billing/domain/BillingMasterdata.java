@@ -79,6 +79,7 @@ public class BillingMasterdata {
     private BigDecimal tariffFreekwh;
     private Boolean tariffUseMeteringPointFee;
     private BigDecimal tariffMeteringPointFee;
+    private BigDecimal tariffMeteringPointVat; // USt für Zaehlpunktgebuehr (EEG->Teilnehmer)
     private String tariffMeteringPointFeeText;
 
     public Boolean getTariffUseVat() {

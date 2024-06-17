@@ -507,15 +507,16 @@ public class BillingService {
         BigDecimal pricePerMeter = billingMasterdata.getTariffMeteringPointFee();
         if (BigDecimalTools.isNullOrZero(pricePerMeter)) return;
 
-        boolean useVat = billingMasterdata.getTariffUseVat();
-        BigDecimal vatPercent = billingMasterdata.getTariffVatInPercent();
+
+        BigDecimal vatPercent = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffMeteringPointVat());
+        boolean useVat = vatPercent.compareTo(BigDecimal.ZERO)>0;
 
         BillingDocumentItem newBillingDocumentItem = new BillingDocumentItem();
 
         BigDecimal vatPercentSafe = BigDecimalTools.makeZeroIfNull(vatPercent);
         BigDecimal vatEuro = useVat ? pricePerMeter
                 .multiply(vatPercentSafe.divide(BigDecimal.valueOf(100.0)))
-                : BigDecimal.valueOf(0);
+                : BigDecimal.ZERO;
         BigDecimal grossValue = pricePerMeter.add(vatEuro);
 
         if (BigDecimalTools.isNullOrZero(grossValue)) return; // Keine Nullposition!
