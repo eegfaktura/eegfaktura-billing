@@ -498,7 +498,11 @@ class BillingIntegrationTests {
             switch(participantAmount.getMeteringPoints().get(0).getId()) {
                 case "C0000000000000000000001234", "C0000000000000000000002234" -> /* Glück */ {return true; } //assertThat(participantAmount.getParticipantFee(), is(BigDecimal.valueOf(10)));
                 case "P0000000000000000000002222" -> /* Fröhlich */ { return true; } //assertThat(participantAmount.getAmount(), is(BigDecimal.valueOf(0))); //xxx
-                case "P0000000000000000000003333" -> /* Sonne */ { return true; }
+                case "P0000000000000000000003333" -> /* Sonne */ {
+                    assertThat(participantAmount.getParticipantFee(), comparesEqualTo(BigDecimal.valueOf(10)));
+                    assertThat(participantAmount.getMeteringPointFeeSum(), comparesEqualTo(BigDecimal.valueOf(3)));
+                    return true;
+                }
                 default -> throw new AssertionFailedError("Unexpected meteringPointId found");
             }
         }

@@ -507,9 +507,21 @@ public class BillingService {
         BigDecimal pricePerMeter = billingMasterdata.getTariffMeteringPointFee();
         if (BigDecimalTools.isNullOrZero(pricePerMeter)) return;
 
+        BigDecimal vatPercent = BigDecimal.ZERO;
+        boolean useVat = false;
 
-        BigDecimal vatPercent = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffMeteringPointVat());
-        boolean useVat = vatPercent.compareTo(BigDecimal.ZERO)>0;
+        if (billingMasterdata.getMeteringPointType() == MeteringPointType.CONSUMER) {
+            // Fuer Verbraucher Zaehlpunkte wird der UST Satz vom (Verbraucher-)Tarif genommen
+            // = USt Satz der EEG
+            useVat = billingMasterdata.getTariffUseVat();
+            vatPercent = BigDecimalTools.makeZeroIfNull(vatPercent);
+        } else {
+            // Fuer Erzeuger Zaehlpunkte wird der UST Satz aus dem ZP-Ust Feld genommen
+            // da der UST Satz des (Erzeuger-) Tarifes der UST Satz des Erzeugers enthaelt und
+            // nicht den der EEG.
+            vatPercent = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffMeteringPointVat());
+            useVat = vatPercent.compareTo(BigDecimal.ZERO)>0;
+        }
 
         BillingDocumentItem newBillingDocumentItem = new BillingDocumentItem();
 
