@@ -493,20 +493,24 @@ class BillingIntegrationTests {
         return true;
     }
 
-    boolean assertDoBillingResults(DoBillingResults doBillingResults) {
+    void assertDoBillingResults(DoBillingResults doBillingResults) {
         for(ParticipantAmount participantAmount : doBillingResults.getParticipantAmounts()) {
             switch(participantAmount.getMeteringPoints().get(0).getId()) {
-                case "C0000000000000000000001234", "C0000000000000000000002234" -> /* Glück */ {return true; } //assertThat(participantAmount.getParticipantFee(), is(BigDecimal.valueOf(10)));
-                case "P0000000000000000000002222" -> /* Fröhlich */ { return true; } //assertThat(participantAmount.getAmount(), is(BigDecimal.valueOf(0))); //xxx
+                case "C0000000000000000000001234", "C0000000000000000000002234" -> /* Glück */ {
+                    assertThat(participantAmount.getParticipantFee(), comparesEqualTo((BigDecimal.valueOf(10))));
+                    assertThat(participantAmount.getAmount(), comparesEqualTo((BigDecimal.valueOf(5.202))));
+                }
+                case "P0000000000000000000002222" -> /* Fröhlich */ {
+                    assertThat(participantAmount.getParticipantFee(), comparesEqualTo((BigDecimal.valueOf(10))));
+                    assertThat(participantAmount.getAmount(), comparesEqualTo(BigDecimal.valueOf(4.2218)));
+                }
                 case "P0000000000000000000003333" -> /* Sonne */ {
                     assertThat(participantAmount.getParticipantFee(), comparesEqualTo(BigDecimal.valueOf(10)));
                     assertThat(participantAmount.getMeteringPointFeeSum(), comparesEqualTo(BigDecimal.valueOf(3)));
-                    return true;
                 }
                 default -> throw new AssertionFailedError("Unexpected meteringPointId found");
             }
         }
-        return true;
     }
 
     @Test
@@ -519,7 +523,7 @@ class BillingIntegrationTests {
         doBillingParams.setClearingPeriodIdentifier("2023-YQ-3");
         doBillingParams.setPreview(true);
         ArrayList<Allocation> allocations = new ArrayList<>();
-        for (String meteringPointData[] : TEST_ALLOCATIONS) {
+        for (String[] meteringPointData : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
             allocation.setMeteringPoint(meteringPointData[0]);
             allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[1])));
@@ -557,7 +561,7 @@ class BillingIntegrationTests {
         doBillingParams.setPreview(false);
         ArrayList<Allocation> allocations = new ArrayList<>();
 
-        for (String meteringPointData[] : TEST_ALLOCATIONS) {
+        for (String[] meteringPointData : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
             allocation.setMeteringPoint(meteringPointData[0]);
             allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[1])));
@@ -669,7 +673,7 @@ class BillingIntegrationTests {
         doBillingParams.setPreview(false);
         ArrayList<Allocation> allocations = new ArrayList<>();
 
-        for (String meteringPointData[] : TEST_ALLOCATIONS) {
+        for (String[] meteringPointData : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
             allocation.setMeteringPoint(meteringPointData[0]);
             allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[1])));

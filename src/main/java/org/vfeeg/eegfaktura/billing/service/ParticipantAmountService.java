@@ -53,8 +53,10 @@ public class ParticipantAmountService {
                     participantAmount.setAmount(participantAmount.getAmount().add(billingDocumentItem.getGrossValue()));
                 });
 
-        // Jenes Item ohne einer MeteringPointId ist (aktuell) die Mitgliedsgebühr
-        billingDocumentItems.stream().filter(billingDocumentItem -> billingDocumentItem.getMeteringPointId()==null)
+        // Jenes Item ohne einer MeteringPointId UND nicht mit dem Text "Zaehlpunktgebuehr" beginnt
+        // ist (aktuell) die Mitgliedsgebühr
+        billingDocumentItems.stream().filter(billingDocumentItem -> billingDocumentItem.getMeteringPointId()==null
+                && !billingDocumentItem.getText().startsWith(BillingService.ZAEHLPUNKTGEBUEHR_TEXT))
                 .forEach(billingDocumentItem -> participantAmount.setParticipantFee(billingDocumentItem.getGrossValue()));
 
         // Jene Items die mit dem Text "Zaehlpunktgebuehr" beginnen, sind eben solche
@@ -63,7 +65,7 @@ public class ParticipantAmountService {
                 .filter(billingDocumentItem -> billingDocumentItem.getText().startsWith(
                         BillingService.ZAEHLPUNKTGEBUEHR_TEXT)).map(BillingDocumentItem::getGrossValue)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
-        participantAmount.setMeteringPointFeeSum(meteringPointFeeSum);
+        participantAmount.setMeteringPointFeeSum(participantAmount.getMeteringPointFeeSum().add(meteringPointFeeSum));
 
         List<BillingDocumentFileDTO> billingDocumentList = billingDocumentFileService
                 .findByBillingDocumentId(billingDocument.getId());
