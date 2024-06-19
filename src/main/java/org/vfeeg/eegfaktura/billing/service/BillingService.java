@@ -514,7 +514,7 @@ public class BillingService {
             // Fuer Verbraucher Zaehlpunkte wird der UST Satz vom (Verbraucher-)Tarif genommen
             // = USt Satz der EEG
             useVat = billingMasterdata.getTariffUseVat();
-            vatPercent = BigDecimalTools.makeZeroIfNull(vatPercent);
+            vatPercent = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffVatInPercent());
         } else {
             // Fuer Erzeuger Zaehlpunkte wird der UST Satz aus dem ZP-Ust Feld genommen
             // da der UST Satz des (Erzeuger-) Tarifes der UST Satz des Erzeugers enthaelt und
