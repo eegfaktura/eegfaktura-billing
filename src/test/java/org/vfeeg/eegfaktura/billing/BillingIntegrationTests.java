@@ -41,11 +41,11 @@ import static org.hamcrest.Matchers.*;
 class BillingIntegrationTests {
 
     public final static String[][] TEST_ALLOCATIONS = new String[][] {
-        {"C0000000000000000000001234", "12.34"},
-        {"C0000000000000000000002234", "22.34"},
-        {"P0000000000000000000002222", "22.22"},
-        {"P0000000000000000000003333", "33.33"},
-        {"P0000000000000000000004444", "44.44"}
+        {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000001234", "12.34"},
+        {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000002234", "22.34"},
+        {"039e8d60-b6ba-459c-b5a1-0c31aa53a49", "P0000000000000000000002222", "22.22"},
+        {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000003333", "33.33"},
+        {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000004444", "44.44"}
     };
 
     @Autowired
@@ -525,8 +525,9 @@ class BillingIntegrationTests {
         ArrayList<Allocation> allocations = new ArrayList<>();
         for (String[] meteringPointData : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
-            allocation.setMeteringPoint(meteringPointData[0]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[1])));
+            allocation.setParticipantId(meteringPointData[0]);
+            allocation.setMeteringPoint(meteringPointData[1]);
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[2])));
             allocations.add(allocation);
         }
         doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
@@ -563,8 +564,9 @@ class BillingIntegrationTests {
 
         for (String[] meteringPointData : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
-            allocation.setMeteringPoint(meteringPointData[0]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[1])));
+            allocation.setParticipantId(meteringPointData[0]);
+            allocation.setMeteringPoint(meteringPointData[1]);
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[2])));
             allocations.add(allocation);
         }
 
@@ -601,8 +603,9 @@ class BillingIntegrationTests {
         ArrayList<Allocation> allocations = new ArrayList<>();
         for (String[] meteringPointId : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
-            allocation.setMeteringPoint(meteringPointId[0]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointId[1])));
+            allocation.setParticipantId(meteringPointId[0]);
+            allocation.setMeteringPoint(meteringPointId[1]);
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointId[2])));
             allocations.add(allocation);
         }
         doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
@@ -638,8 +641,9 @@ class BillingIntegrationTests {
         ArrayList<Allocation> allocations = new ArrayList<>();
         for (String[] meteringPointId : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
-            allocation.setMeteringPoint(meteringPointId[0]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointId[1])));
+            allocation.setParticipantId(meteringPointId[0]);
+            allocation.setMeteringPoint(meteringPointId[1]);
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointId[2])));
             allocations.add(allocation);
         }
         doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
@@ -675,8 +679,9 @@ class BillingIntegrationTests {
 
         for (String[] meteringPointData : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
-            allocation.setMeteringPoint(meteringPointData[0]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[1])));
+            allocation.setParticipantId(meteringPointData[0]);
+            allocation.setMeteringPoint(meteringPointData[1]);
+            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[2])));
             allocations.add(allocation);
         }
 

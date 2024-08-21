@@ -1,6 +1,7 @@
 package org.vfeeg.eegfaktura.billing.rest;
 
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping(value = "/api/billingRuns", produces = MediaType.APPLICATION_JSON_VALUE)
+@Slf4j
 public class BillingRunResource {
 
     private final BillingRunService billingRunService;
@@ -124,6 +126,7 @@ public class BillingRunResource {
     @GetMapping("/{id}/billingDocuments/sendmail")
     public ResponseEntity<String> sendAllBillingDocuments(
             @PathVariable(name = "id") final UUID id) {
+        log.error("Inside billingRunResource::sendAllBillingDocuments");
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
         try {

@@ -133,16 +133,17 @@ public class BillingService {
 
             }
 
-            // Aus den Daten des Eingangsparameters erstellen wir eine Map aus
-            // Zaehlpunkten (key) mit ihren zugehoerigen Verbrauchs/Erzeugerdaten (value)
+            // Aus den Daten des Eingangsparameters erstellen wir eine Map aus dem Tupel
+            // Teilnehmer/Zaehlpunkt (key) mit ihren zugehoerigen Verbrauchs/Erzeugerdaten (value)
             Map<String, BigDecimal> allocationMap = Arrays.stream(doBillingParams.getAllocations())
-                    .collect(Collectors.toMap(Allocation::getMeteringPoint,
+                    .collect(Collectors.toMap(
+                            allocation -> allocation.getParticipantId()+"@"+allocation.getMeteringPoint(),
                             allocation -> allocation.getAllocationKWh()!=null ? allocation.getAllocationKWh()
                             : BigDecimal.ZERO));
 
             // Weiters erstellen wir eine Map mit den Teilnehmern (key) und deren Zaehlpunkten (value)
             Map<String, List<BillingMasterdata>> participantsWithAllocationsMap = billingMasterdataList.stream()
-                    .filter(e -> allocationMap.containsKey(e.getMeteringPointId()))
+                    .filter(e -> allocationMap.containsKey(e.getParticipantId()+"@"+e.getMeteringPointId()))
                     .collect(Collectors.groupingBy(BillingMasterdata::getParticipantId));
 
             // Nun wird fuer jeden Teilnehmer die Abrechnung durchgefuehrt
@@ -198,6 +199,7 @@ public class BillingService {
                     StringUtils.isNotEmpty(documentText)
                             ? documentText.replace("##", "\n")
                             : documentText,
+                    firstBillingMasterdata.getTariffParticipantFeeName(),
                     firstBillingMasterdata.getTariffParticipantFee(),
                     firstBillingMasterdata.getTariffParticipantFeeDiscount(),
                     firstBillingMasterdata.getTariffParticipantFeeUseVat(),
@@ -401,8 +403,10 @@ public class BillingService {
         final String documentText = billingMasterdata.getTariffText();
         newBillingDocumentItem.setDocumentText(StringUtils.isNotEmpty(documentText) ?
                 documentText.replace("##", "\n"): documentText);
+        newBillingDocumentItem.setTariffName(billingMasterdata.getTariffName());
 
-        BigDecimal amount = BigDecimalTools.makeZeroIfNull(allocationMap.get(billingMasterdata.getMeteringPointId()));
+        BigDecimal amount = BigDecimalTools.makeZeroIfNull(allocationMap.get(
+                billingMasterdata.getParticipantId()+"@"+billingMasterdata.getMeteringPointId()));
         BigDecimal tariffFreekwh = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffFreekwh());
 
         // Freie kWh berücksichtigen
@@ -460,6 +464,7 @@ public class BillingService {
                                            List<BillingDocumentItem> billingDocumentItems,
                                            String text,
                                            String documentText,
+                                           String tariffName,
                                            BigDecimal pricePerUnit,
                                            BigDecimal discountPercent,
                                            boolean useVat,
@@ -482,6 +487,7 @@ public class BillingService {
 
         newBillingDocumentItem.setText(text);
         newBillingDocumentItem.setDocumentText(documentText);
+        newBillingDocumentItem.setTariffName(tariffName);
         newBillingDocumentItem.setAmount(BigDecimal.ONE);
         newBillingDocumentItem.setPricePerUnit(pricePerUnit);
         newBillingDocumentItem.setPpuUnit("€");
@@ -537,7 +543,7 @@ public class BillingService {
         final String documentText = billingMasterdata.getTariffMeteringPointFeeText();
         newBillingDocumentItem.setDocumentText(StringUtils.isNotEmpty(documentText) ?
                 documentText.replace("##", "\n"): documentText);
-
+        newBillingDocumentItem.setTariffName(ZAEHLPUNKTGEBUEHR_TEXT);
         newBillingDocumentItem.setAmount(BigDecimal.ONE);
         newBillingDocumentItem.setPricePerUnit(pricePerMeter);
         newBillingDocumentItem.setDiscountPercent(BigDecimal.ZERO);

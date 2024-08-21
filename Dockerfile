@@ -1,4 +1,4 @@
 FROM openjdk:17.0.2
-COPY target/eegfaktura-billing-0.1.17.jar /tmp
+COPY target/eegfaktura-billing-0.1.18.jar /tmp
 WORKDIR /tmp
-ENTRYPOINT ["java","-jar","eegfaktura-billing-0.1.17.jar"]
+ENTRYPOINT ["java","-jar","eegfaktura-billing-0.1.18.jar"]

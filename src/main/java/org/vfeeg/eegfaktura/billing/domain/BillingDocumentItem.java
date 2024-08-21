@@ -50,6 +50,9 @@ public class BillingDocumentItem {
     private String documentText; // text to be printed once on billing document
 
     @Column
+    private String tariffName;
+
+    @Column
     private String unit;
 
     @Column

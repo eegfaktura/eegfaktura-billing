@@ -67,6 +67,8 @@ public class BillingDocumentXlsxService {
         createCell(xssfSheet, row, columnNumber++, "UST Satz 2 Summe (Euro)", style);
         createCell(xssfSheet, row, columnNumber++, "Rechnungsbetrag Netto", style);
         createCell(xssfSheet, row, columnNumber++, "Rechnungsbetrag Brutto", style);
+        createCell(xssfSheet, row, columnNumber++, "Ersteller UID", style);
+        createCell(xssfSheet, row, columnNumber++, "Empfänger UID", style);
     }
 
     private void createXlsxHeaderDetails(XSSFWorkbook xssfWorkbook, XSSFSheet xssfSheet) {
@@ -104,6 +106,7 @@ public class BillingDocumentXlsxService {
         createCell(xssfSheet, row, columnNumber++, "Pos. UST %", style);
         createCell(xssfSheet, row, columnNumber++, "Pos. UST Betrag", style);
         createCell(xssfSheet, row, columnNumber++, "Pos. Bruttobetrag", style);
+        createCell(xssfSheet, row, columnNumber++, "Pos. Tarif", style);
     }
 
     private void createCell(XSSFSheet xssfSheet, Row row, int columnNumber, Object valueOfCell, CellStyle style) {
@@ -153,6 +156,8 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocument.getVat2SumInEuro(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getNetAmountInEuro(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getGrossAmountInEuro(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerVatId(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientVatId(), style);
         }
     }
 
@@ -181,7 +186,7 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getIssuerBankName(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getIssuerBankIBAN(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getMeteringPointType() != null ?
-                    billingDocumentItem.getMeteringPointType() == MeteringPointType.CONSUMER ?
+                    billingDocumentItem.getMeteringPointType() == MeteringPointType.PRODUCER ?
                             "Erzeuger" : "Verbraucher" : "" , style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getText(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getAmount(), style);
@@ -195,6 +200,8 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getVatPercent(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getVatValueInEuro(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getGrossValue(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getTariffName() != null
+                    ? billingDocumentItem.getTariffName() : "", style);
         }
     }
     public byte[] createXlsx (UUID billingRunId) throws IOException {

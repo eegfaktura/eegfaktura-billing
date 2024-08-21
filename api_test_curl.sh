@@ -1,8 +1,12 @@
+
 # participantAmounts laden
 curl -v -H 'Tenant: <Tenant Id einfuegen>' -H 'Authorization: <Bearer Token einfuegen>' http://localhost:8080/api/billingRuns/<Billing-Run Id einfuegen>/participantAmounts
 
 # XLSX Exportieren
 curl -L -O -v -H 'Tenant: <Tenant Id einfuegen>' -H 'Authorization: <Bearer Token einfuegen>' http://localhost:8080/api/billingRuns/<Billing-Run Id einfuegen>/billingDocuments/xlsx
+
+# Mails senden
+curl -v -H 'Tenant: <Tenant Id einfuegen>' -H 'Authorization: <Bearer Token einfuegen>' http://localhost:8080/api/billingRuns/<Billing-Run Id einfuegen>/billingDocuments/sendmail
 
 # ZIP Exportieren
 curl -L -O -v -H 'Tenant: RC100892' -H 'Authorization: <Bearer token hier einfuegen>' http://localhost:8080/api/billingRuns/<Billing-Run Id einfuegen>/billingDocuments/archive

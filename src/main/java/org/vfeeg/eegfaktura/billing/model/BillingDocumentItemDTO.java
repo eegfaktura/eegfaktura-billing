@@ -1,6 +1,5 @@
 package org.vfeeg.eegfaktura.billing.model;
 
-import jakarta.persistence.Column;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -31,6 +30,8 @@ public class BillingDocumentItemDTO {
     private String text;
 
     private String documentText;
+
+    private String tariffName;
 
     private String unit;
 
