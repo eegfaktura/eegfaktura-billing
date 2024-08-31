@@ -254,6 +254,8 @@ public class MassDataGenerator {
                 .footerText(billingConfig.getFooterText())
                 .participantId(masterdataList.get(0).getParticipantId())
                 .recipientName(masterdataList.get(0).getParticipantLastname())
+                .recipientFirstname(masterdataList.get(0).getParticipantFirstname())
+                .recipientLastname(masterdataList.get(0).getParticipantLastname())
                 .issuerName(masterdataList.get(0).getEecName())
                 .vat1Percent(BigDecimal.ZERO)
                 .vat1SumInEuro(BigDecimal.ZERO)

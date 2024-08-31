@@ -42,7 +42,7 @@ class BillingIntegrationTests {
 
     public final static String[][] TEST_ALLOCATIONS = new String[][] {
         {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000001234", "12.34"},
-        {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000002234", "22.34"},
+        {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000002234", "77.59"},
         {"039e8d60-b6ba-459c-b5a1-0c31aa53a49", "P0000000000000000000002222", "22.22"},
         {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000003333", "33.33"},
         {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000004444", "44.44"}
@@ -260,6 +260,7 @@ class BillingIntegrationTests {
 
     void assertSonneGmbHDataValid(BillingDocumentDTO billingDocumentDTO) {
         assertThat(billingDocumentDTO.getRecipientName(), is("Sonne GmbH"));
+        assertThat(billingDocumentDTO.getRecipientLastname(), is("Sonne GmbH"));
         assertThat(billingDocumentDTO.getRecipientAddressLine1(), is("Sonnenweg 42"));
         assertThat(billingDocumentDTO.getRecipientAddressLine2(), is("1234 Fuxholzen"));
         assertThat(billingDocumentDTO.getRecipientEmail(), is("harald.lacherstorfer@gmail.com"));
@@ -273,6 +274,8 @@ class BillingIntegrationTests {
 
     void assertFelixGlueckDataValid(BillingDocumentDTO billingDocumentDTO) {
         assertThat(billingDocumentDTO.getRecipientName(), is("Mag. Felix Glück Msc"));
+        assertThat(billingDocumentDTO.getRecipientFirstname(), is("Felix"));
+        assertThat(billingDocumentDTO.getRecipientLastname(), is("Glück"));
         assertThat(billingDocumentDTO.getRecipientAddressLine1(), is("Glücksweg 13"));
         assertThat(billingDocumentDTO.getRecipientAddressLine2(), is("1234 Fuxholzen"));
         assertThat(billingDocumentDTO.getRecipientEmail(), is("harald.lacherstorfer@gmail.com"));
@@ -286,6 +289,8 @@ class BillingIntegrationTests {
 
     void assertFridolinFroehlichDataValid(BillingDocumentDTO billingDocumentDTO) {
         assertThat(billingDocumentDTO.getRecipientName(), is("Fridolin Fröhlich MBA"));
+        assertThat(billingDocumentDTO.getRecipientFirstname(), is("Fridolin"));
+        assertThat(billingDocumentDTO.getRecipientLastname(), is("Fröhlich"));
         assertThat(billingDocumentDTO.getRecipientAddressLine1(), is("Fröhlichweg 15"));
         assertThat(billingDocumentDTO.getRecipientAddressLine2(), is("1234 Fuxholzen"));
         assertThat(billingDocumentDTO.getRecipientEmail(), is("harald.lacherstorfer@gmail.com"));
@@ -382,8 +387,8 @@ class BillingIntegrationTests {
         assertFelixGlueckDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("15,20"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("15,20"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("21,54"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("21,54"));
         assertThat(billingDocumentDTO.getVat1Percent(), nullValue());
         assertThat(billingDocumentDTO.getVat1SumInEuro(), nullValue());
         assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
@@ -396,10 +401,10 @@ class BillingIntegrationTests {
                 containsString("Anlage-Name: Anlage Fix-Foxi"),
                 containsString("Anlage-Nr.: Anlagenr 2234"))
         );
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getAmount()), is("22,34"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getPricePerUnit()), is("15,00"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getAmount()), is("77,59"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getPricePerUnit()), is("12,83"));
         assertThat(item2234.getPpuUnit(), nullValue()); // left empty (default is kWh)
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getNetValue()), is("3,35"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getNetValue()), is("9,95"));
         assertThat(item2234.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
         assertThat(item2234.getVatValueInEuro(), is(BigDecimal.ZERO));
 
@@ -410,9 +415,9 @@ class BillingIntegrationTests {
                 containsString("Anlage-Nr.: Anlagenr 1234"))
         );
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getAmount()), is("12,34"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getPricePerUnit()), is("15,00"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getPricePerUnit()), is("12,83"));
         assertThat(item1234.getPpuUnit(), nullValue()); // left empty (default is kWh)
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getNetValue()), is("1,85"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getNetValue()), is("1,58"));
         assertThat(item1234.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
         assertThat(item1234.getVatValueInEuro(), is(BigDecimal.ZERO));
 
@@ -498,7 +503,7 @@ class BillingIntegrationTests {
             switch(participantAmount.getMeteringPoints().get(0).getId()) {
                 case "C0000000000000000000001234", "C0000000000000000000002234" -> /* Glück */ {
                     assertThat(participantAmount.getParticipantFee(), comparesEqualTo((BigDecimal.valueOf(10))));
-                    assertThat(participantAmount.getAmount(), comparesEqualTo((BigDecimal.valueOf(5.202))));
+                    assertThat(participantAmount.getAmount(), comparesEqualTo((BigDecimal.valueOf(11.538019))));
                 }
                 case "P0000000000000000000002222" -> /* Fröhlich */ {
                     assertThat(participantAmount.getParticipantFee(), comparesEqualTo((BigDecimal.valueOf(10))));

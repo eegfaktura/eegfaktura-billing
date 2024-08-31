@@ -25,6 +25,8 @@ public class BillingDocumentDTO {
     private String tenantId;
     private String participantId;
     private String recipientName;
+    private String recipientFirstname;
+    private String recipientLastname;
     private String recipientParticipantNumber;
     private String recipientAddressLine1;
     private String recipientAddressLine2;

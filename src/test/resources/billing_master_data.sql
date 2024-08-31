@@ -170,7 +170,7 @@ insert into base.billing_masterdata (
     0.0, -- tariff_participant_fee_discount,
     0.0, -- tariff_basic_fee,
     0.0, -- tariff_discount,
-    15, -- tariff_working_fee_per_consumedkwh,
+    12.83, -- tariff_working_fee_per_consumedkwh,
     19, -- tariff_credit_amount_per_producedkwh,
     0, -- tariff_metering_point_vat
     0 -- tariff_freekwh
@@ -284,7 +284,7 @@ insert into base.billing_masterdata (
              0.0, -- tariff_participant_fee_discount,
              0.0, -- tariff_basic_fee,
              0.0, -- tariff_discount,
-             15, -- tariff_working_fee_per_consumedkwh,
+             12.83, -- tariff_working_fee_per_consumedkwh,
              19, -- tariff_credit_amount_per_producedkwh,
              12.5, -- tariff_metering_point_vat
              0 -- tariff_freekwh

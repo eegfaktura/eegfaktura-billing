@@ -94,6 +94,8 @@ public class BillingDocumentService {
         billingDocumentDTO.setTenantId(billingDocument.getTenantId());
         billingDocumentDTO.setParticipantId(billingDocument.getParticipantId());
         billingDocumentDTO.setRecipientName(billingDocument.getRecipientName());
+        billingDocumentDTO.setRecipientFirstname(billingDocument.getRecipientFirstname());
+        billingDocumentDTO.setRecipientLastname(billingDocument.getRecipientLastname());
         billingDocumentDTO.setRecipientParticipantNumber(billingDocument.getRecipientParticipantNumber());
         billingDocumentDTO.setRecipientAddressLine1(billingDocument.getRecipientAddressLine1());
         billingDocumentDTO.setRecipientAddressLine2(billingDocument.getRecipientAddressLine2());
@@ -144,6 +146,8 @@ public class BillingDocumentService {
         billingDocument.setTenantId(billingDocumentDTO.getTenantId());
         billingDocument.setParticipantId(billingDocumentDTO.getParticipantId());
         billingDocument.setRecipientName(billingDocumentDTO.getRecipientName());
+        billingDocument.setRecipientFirstname(billingDocumentDTO.getRecipientFirstname());
+        billingDocument.setRecipientLastname(billingDocumentDTO.getRecipientLastname());
         billingDocument.setRecipientParticipantNumber(billingDocumentDTO.getRecipientParticipantNumber());
         billingDocument.setRecipientAddressLine1(billingDocumentDTO.getRecipientAddressLine1());
         billingDocument.setRecipientAddressLine2(billingDocumentDTO.getRecipientAddressLine2());

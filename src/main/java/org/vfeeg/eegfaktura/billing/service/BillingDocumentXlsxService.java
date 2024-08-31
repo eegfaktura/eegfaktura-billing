@@ -69,6 +69,8 @@ public class BillingDocumentXlsxService {
         createCell(xssfSheet, row, columnNumber++, "Rechnungsbetrag Brutto", style);
         createCell(xssfSheet, row, columnNumber++, "Ersteller UID", style);
         createCell(xssfSheet, row, columnNumber++, "Empfänger UID", style);
+        createCell(xssfSheet, row, columnNumber++, "Empfänger Vorame", style);
+        createCell(xssfSheet, row, columnNumber++, "Empfänger Nachname", style);
     }
 
     private void createXlsxHeaderDetails(XSSFWorkbook xssfWorkbook, XSSFSheet xssfSheet) {
@@ -107,6 +109,8 @@ public class BillingDocumentXlsxService {
         createCell(xssfSheet, row, columnNumber++, "Pos. UST Betrag", style);
         createCell(xssfSheet, row, columnNumber++, "Pos. Bruttobetrag", style);
         createCell(xssfSheet, row, columnNumber++, "Pos. Tarif", style);
+        createCell(xssfSheet, row, columnNumber++, "Empfänger Vorame", style);
+        createCell(xssfSheet, row, columnNumber++, "Empfänger Nachname", style);
     }
 
     private void createCell(XSSFSheet xssfSheet, Row row, int columnNumber, Object valueOfCell, CellStyle style) {
@@ -158,6 +162,10 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocument.getGrossAmountInEuro(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerVatId(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientVatId(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientFirstname() != null
+                    ? billingDocument.getRecipientFirstname() : "", style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientLastname() != null
+                    ? billingDocument.getRecipientLastname() : "", style);
         }
     }
 
@@ -167,24 +175,25 @@ public class BillingDocumentXlsxService {
 
         for (BillingDocumentItem billingDocumentItem : billingDocumentItems) {
             Row row = xssfSheet.createRow(rowCount++);
+            BillingDocument billingDocument = billingDocumentItem.getBillingDocument();
             int columnNumber = 0;
             createCell(xssfSheet, row, columnNumber++,
-                    BillingDocument.getDocumentTypeName(billingDocumentItem.getBillingDocument().getBillingDocumentType()), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getDocumentNumber(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getDocumentDate(), dateStyle);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getClearingPeriodIdentifier(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getRecipientName(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getRecipientParticipantNumber(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getRecipientAddressLine1(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getRecipientAddressLine2(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getRecipientAddressLine3(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getRecipientBankOwner(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getRecipientBankIban(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getRecipientSepaMandateIssueDate(), dateStyle);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getRecipientSepaMandateReference(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getIssuerName(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getIssuerBankName(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getBillingDocument().getIssuerBankIBAN(), style);
+                    BillingDocument.getDocumentTypeName(billingDocument.getBillingDocumentType()), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getDocumentNumber(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getDocumentDate(), dateStyle);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getClearingPeriodIdentifier(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientName(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientParticipantNumber(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientAddressLine1(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientAddressLine2(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientAddressLine3(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientBankOwner(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientBankIban(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientSepaMandateIssueDate(), dateStyle);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientSepaMandateReference(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerName(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerBankName(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerBankIBAN(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getMeteringPointType() != null ?
                     billingDocumentItem.getMeteringPointType() == MeteringPointType.PRODUCER ?
                             "Erzeuger" : "Verbraucher" : "" , style);
@@ -202,6 +211,10 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getGrossValue(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getTariffName() != null
                     ? billingDocumentItem.getTariffName() : "", style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientFirstname() != null
+                    ? billingDocument.getRecipientFirstname() : "", style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientLastname() != null
+                    ? billingDocument.getRecipientLastname() : "", style);
         }
     }
     public byte[] createXlsx (UUID billingRunId) throws IOException {

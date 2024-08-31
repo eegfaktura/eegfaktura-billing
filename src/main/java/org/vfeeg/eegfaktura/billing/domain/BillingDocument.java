@@ -60,6 +60,12 @@ public class BillingDocument {
     private String recipientName;
 
     @Column
+    private String recipientFirstname;
+
+    @Column
+    private String recipientLastname;
+
+    @Column
     private String recipientParticipantNumber;
 
     @Column

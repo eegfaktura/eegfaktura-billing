@@ -1,7 +1,6 @@
 package org.vfeeg.eegfaktura.billing.util;
 
 import io.netty.util.internal.StringUtil;
-import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;

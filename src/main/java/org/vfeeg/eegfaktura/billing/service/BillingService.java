@@ -130,7 +130,6 @@ public class BillingService {
                 billingDocumentFileRepository.deleteByBillingRunId(billingRun.getId());
                 billingDocumentItemRepository.deleteByBillingRunId(billingRun.getId());
                 billingDocumentRepository.deleteByBillingRunId(billingRun.getId());
-
             }
 
             // Aus den Daten des Eingangsparameters erstellen wir eine Map aus dem Tupel
@@ -328,6 +327,8 @@ public class BillingService {
                         billingMasterdata.getParticipantLastname(),
                         billingMasterdata.getParticipantTitleAfter())
         );
+        billingDocument.setRecipientFirstname(billingMasterdata.getParticipantFirstname());
+        billingDocument.setRecipientLastname(billingMasterdata.getParticipantLastname());
         billingDocument.setRecipientParticipantNumber(billingMasterdata.getParticipantNumber());
         billingDocument.setRecipientBankName(billingMasterdata.getParticipantBankName());
         billingDocument.setRecipientBankIban(billingMasterdata.getParticipantBankIban());
