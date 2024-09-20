@@ -165,7 +165,7 @@
 					<pen lineWidth="2.0" lineColor="#999999"/>
 				</graphicElement>
 			</line>
-			<textField>
+			<textField textAdjust="StretchHeight">
 				<reportElement mode="Transparent" x="1" y="225" width="291" height="26" isRemoveLineWhenBlank="true" forecolor="#000000" backcolor="#FFFFFF" uuid="5d7ee4cb-afd5-4b5e-bb75-a902ae6e07a9"/>
 				<textElement markup="none">
 					<font size="20"/>

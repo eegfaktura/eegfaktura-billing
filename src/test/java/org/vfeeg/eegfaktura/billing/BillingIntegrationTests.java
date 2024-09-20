@@ -41,11 +41,11 @@ import static org.hamcrest.Matchers.*;
 class BillingIntegrationTests {
 
     public final static String[][] TEST_ALLOCATIONS = new String[][] {
-        {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000001234", "12.34"},
-        {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000002234", "77.59"},
-        {"039e8d60-b6ba-459c-b5a1-0c31aa53a49", "P0000000000000000000002222", "22.22"},
-        {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000003333", "33.33"},
-        {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000004444", "44.44"}
+        {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000001234", "120.3489"},
+        {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000002234", "777.5976"},
+        {"039e8d60-b6ba-459c-b5a1-0c31aa53a49", "P0000000000000000000002222", "2233.2209"},
+        {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000003333", "3355.3323"},
+        {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000004444", "4477.4499"}
     };
 
     @Autowired
@@ -314,8 +314,8 @@ class BillingIntegrationTests {
         assertSonneGmbHDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
-        assertThat(billingDocumentDTO.getGrossAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(13.00)));
-        assertThat(billingDocumentDTO.getNetAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(12.50)));
+        assertThat(billingDocumentDTO.getGrossAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(35.88)));
+        assertThat(billingDocumentDTO.getNetAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(29.90)));
         //assertThat(billingDocumentDTO.getVat1Percent(), is(BigDecimal.ZERO));
         //assertThat(billingDocumentDTO.getVat1SumInEuro(), is(BigDecima.ZERO));
         assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
@@ -341,10 +341,10 @@ class BillingIntegrationTests {
         assertSonneGmbHDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("16,25"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("14,78"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("762,55"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("693,23"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat1Percent()), is("10,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat1SumInEuro()), is("1,48"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat1SumInEuro()), is("69,32"));
         assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
         assertThat(billingDocumentDTO.getVat2SumInEuro(), nullValue());
         assertThat(billingDocumentItemList, hasSize(2));
@@ -354,11 +354,11 @@ class BillingIntegrationTests {
                 containsString("Anlage-Nr.: Anlagenr 3333"),
                 containsString("P0000000000000000000003333")
         ));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getAmount()), is("33,33"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getPricePerUnit()), is("19,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getNetValue()), is("6,33"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getAmount()), is("3355,33"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getPricePerUnit()), is("7,77"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getNetValue()), is("260,71"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getVatPercent()), is("10,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getVatValueInEuro()), is("0,63"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item0.getVatValueInEuro()), is("26,07"));
 
         var item1 = billingDocumentItemList.get(1);
         assertThat(item1.getText(), allOf(
@@ -366,11 +366,11 @@ class BillingIntegrationTests {
                 containsString("Anlage-Nr.: Anlagenr 4444"),
                 containsString("P0000000000000000000004444")
         ));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getAmount()), is("44,44"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getPricePerUnit()), is("19,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getNetValue()), is("8,44"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getAmount()), is("4477,45"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getPricePerUnit()), is("9,66"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getNetValue()), is("432,52"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getVatPercent()), is("10,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getVatValueInEuro()), is("0,84"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1.getVatValueInEuro()), is("43,25"));
 
         return true;
     }
@@ -387,8 +387,8 @@ class BillingIntegrationTests {
         assertFelixGlueckDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("21,54"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("21,54"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("125,21"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("125,21"));
         assertThat(billingDocumentDTO.getVat1Percent(), nullValue());
         assertThat(billingDocumentDTO.getVat1SumInEuro(), nullValue());
         assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
@@ -401,10 +401,10 @@ class BillingIntegrationTests {
                 containsString("Anlage-Name: Anlage Fix-Foxi"),
                 containsString("Anlage-Nr.: Anlagenr 2234"))
         );
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getAmount()), is("77,59"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getAmount()), is("777,60"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getPricePerUnit()), is("12,83"));
         assertThat(item2234.getPpuUnit(), nullValue()); // left empty (default is kWh)
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getNetValue()), is("9,95"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getNetValue()), is("99,77"));
         assertThat(item2234.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
         assertThat(item2234.getVatValueInEuro(), is(BigDecimal.ZERO));
 
@@ -414,10 +414,10 @@ class BillingIntegrationTests {
                 containsString("Anlage-Name: Anlage Foo-Bar"),
                 containsString("Anlage-Nr.: Anlagenr 1234"))
         );
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getAmount()), is("12,34"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getAmount()), is("120,35"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getPricePerUnit()), is("12,83"));
         assertThat(item1234.getPpuUnit(), nullValue()); // left empty (default is kWh)
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getNetValue()), is("1,58"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getNetValue()), is("15,44"));
         assertThat(item1234.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
         assertThat(item1234.getVatValueInEuro(), is(BigDecimal.ZERO));
 
@@ -475,8 +475,8 @@ class BillingIntegrationTests {
         assertFridolinFroehlichDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("4,22"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("4,22"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("431,68"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("431,68"));
         assertThat(billingDocumentDTO.getVat1Percent(), nullValue());
         assertThat(billingDocumentDTO.getVat1SumInEuro(), nullValue());
         assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
@@ -489,9 +489,9 @@ class BillingIntegrationTests {
                 containsString("Anlage-Nr.: Anlagenr 2222"),
                 containsString("P0000000000000000000002222")
         ));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getAmount()), is("22,22"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getPricePerUnit()), is("19,00"));
-        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getNetValue()), is("4,22"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getAmount()), is("2233,22"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getPricePerUnit()), is("19,33"));
+        assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getNetValue()), is("431,68"));
         assertThat(item.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
         assertThat(item.getVatValueInEuro(), is(BigDecimal.ZERO));
 
@@ -503,15 +503,15 @@ class BillingIntegrationTests {
             switch(participantAmount.getMeteringPoints().get(0).getId()) {
                 case "C0000000000000000000001234", "C0000000000000000000002234" -> /* Glück */ {
                     assertThat(participantAmount.getParticipantFee(), comparesEqualTo((BigDecimal.valueOf(10))));
-                    assertThat(participantAmount.getAmount(), comparesEqualTo((BigDecimal.valueOf(11.538019))));
+                    assertThat(participantAmount.getAmount(), comparesEqualTo((BigDecimal.valueOf(115.21))));
                 }
                 case "P0000000000000000000002222" -> /* Fröhlich */ {
                     assertThat(participantAmount.getParticipantFee(), comparesEqualTo((BigDecimal.valueOf(10))));
-                    assertThat(participantAmount.getAmount(), comparesEqualTo(BigDecimal.valueOf(4.2218)));
+                    assertThat(participantAmount.getAmount(), comparesEqualTo(BigDecimal.valueOf(431.68)));
                 }
                 case "P0000000000000000000003333" -> /* Sonne */ {
-                    assertThat(participantAmount.getParticipantFee(), comparesEqualTo(BigDecimal.valueOf(10)));
-                    assertThat(participantAmount.getMeteringPointFeeSum(), comparesEqualTo(BigDecimal.valueOf(3)));
+                    assertThat(participantAmount.getParticipantFee(), comparesEqualTo(BigDecimal.valueOf(12)));
+                    assertThat(participantAmount.getMeteringPointFeeSum(), comparesEqualTo(BigDecimal.valueOf(23.88)));
                 }
                 default -> throw new AssertionFailedError("Unexpected meteringPointId found");
             }

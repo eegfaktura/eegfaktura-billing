@@ -11,6 +11,7 @@ import org.vfeeg.eegfaktura.billing.util.BigDecimalTools;
 import org.vfeeg.eegfaktura.billing.util.StringTools;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -407,8 +408,10 @@ public class BillingService {
         newBillingDocumentItem.setTariffName(billingMasterdata.getTariffName());
 
         BigDecimal amount = BigDecimalTools.makeZeroIfNull(allocationMap.get(
-                billingMasterdata.getParticipantId()+"@"+billingMasterdata.getMeteringPointId()));
-        BigDecimal tariffFreekwh = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffFreekwh());
+                billingMasterdata.getParticipantId()+"@"+billingMasterdata.getMeteringPointId()))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal tariffFreekwh = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffFreekwh())
+                .setScale(2, RoundingMode.HALF_UP);
 
         // Freie kWh berücksichtigen
         if (billingMasterdata.getMeteringPointType()==MeteringPointType.CONSUMER &&
@@ -432,13 +435,16 @@ public class BillingService {
                 BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffCreditAmountPerProducedkwh());
 
         BigDecimal discountPercent = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffDiscount());
-        BigDecimal netValue = amount.multiply(tariffPpuInCent).divide(BigDecimal.valueOf(100.0));
-        BigDecimal discountValue = netValue.multiply(discountPercent.divide(BigDecimal.valueOf(100.0)));
+        BigDecimal netValue = amount.multiply(tariffPpuInCent).divide(BigDecimal.valueOf(100.0))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal discountValue = netValue.multiply(discountPercent.divide(BigDecimal.valueOf(100.0)))
+                .setScale(2, RoundingMode.HALF_UP);
         netValue = netValue.subtract(discountValue);
         BigDecimal vatPercent = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffVatInPercent());
         BigDecimal vatEuro = BigDecimal.valueOf(0);
         if (billingMasterdata.getTariffUseVat()) {
-            vatEuro = netValue.multiply(vatPercent.divide(BigDecimal.valueOf(100.0)));
+            vatEuro = netValue.multiply(vatPercent.divide(BigDecimal.valueOf(100.0)))
+                    .setScale(2, RoundingMode.HALF_UP);
         }
         BigDecimal grossValue = netValue.add(vatEuro);
 
@@ -466,21 +472,23 @@ public class BillingService {
                                            String text,
                                            String documentText,
                                            String tariffName,
-                                           BigDecimal pricePerUnit,
+                                           BigDecimal price,
                                            BigDecimal discountPercent,
                                            boolean useVat,
                                            BigDecimal vatPercent) {
 
-        if (BigDecimalTools.isNullOrZero(pricePerUnit)) return;
+        if (BigDecimalTools.isNullOrZero(price)) return;
 
         BillingDocumentItem newBillingDocumentItem = new BillingDocumentItem();
 
         BigDecimal discountPercentSafe = BigDecimalTools.makeZeroIfNull(discountPercent);
-        BigDecimal discountValue = pricePerUnit.multiply(discountPercentSafe.divide(BigDecimal.valueOf(100.0)));
-        BigDecimal netValue = pricePerUnit.subtract(discountValue);
+        BigDecimal discountValue = price.multiply(discountPercentSafe.divide(BigDecimal.valueOf(100.0)))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal netValue = price.subtract(discountValue);
         BigDecimal vatPercentSafe = BigDecimalTools.makeZeroIfNull(vatPercent);
         BigDecimal vatEuro = useVat ? netValue
                 .multiply(vatPercentSafe.divide(BigDecimal.valueOf(100.0)))
+                .setScale(2, RoundingMode.HALF_UP)
                     : BigDecimal.valueOf(0);
         BigDecimal grossValue = netValue.add(vatEuro);
 
@@ -490,7 +498,7 @@ public class BillingService {
         newBillingDocumentItem.setDocumentText(documentText);
         newBillingDocumentItem.setTariffName(tariffName);
         newBillingDocumentItem.setAmount(BigDecimal.ONE);
-        newBillingDocumentItem.setPricePerUnit(pricePerUnit);
+        newBillingDocumentItem.setPricePerUnit(price);
         newBillingDocumentItem.setPpuUnit("€");
         newBillingDocumentItem.setDiscountPercent(discountPercentSafe);
         newBillingDocumentItem.setNetValue(netValue);
@@ -535,6 +543,7 @@ public class BillingService {
         BigDecimal vatPercentSafe = BigDecimalTools.makeZeroIfNull(vatPercent);
         BigDecimal vatEuro = useVat ? pricePerMeter
                 .multiply(vatPercentSafe.divide(BigDecimal.valueOf(100.0)))
+                .setScale(2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
         BigDecimal grossValue = pricePerMeter.add(vatEuro);
 

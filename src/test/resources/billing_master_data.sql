@@ -395,7 +395,7 @@ insert into base.billing_masterdata (
              0.0, -- tariff_basic_fee,
              0.0, -- tariff_discount,
              15, -- tariff_working_fee_per_consumedkwh,
-             19, -- tariff_credit_amount_per_producedkwh,
+             19.33, -- tariff_credit_amount_per_producedkwh,
              0, -- tariff_metering_point_vat
              0 -- tariff_freekwh
 
@@ -499,13 +499,13 @@ insert into base.billing_masterdata (
              10.0, -- tariff_vat_in_percent,
              10.0, -- tariff_participant_fee,
              'Mitgliedsgebühr', --tariff_participant_fee_name
-             false, -- tariff_participant_fee_use_vat,
-             0.0, -- tariff_participant_fee_vat_in_percent,
+             true, -- tariff_participant_fee_use_vat,
+             20.0, -- tariff_participant_fee_vat_in_percent,
              0.0, -- tariff_participant_fee_discount,
              0.0, -- tariff_basic_fee,
              0.0, -- tariff_discount,
              15, -- tariff_working_fee_per_consumedkwh,
-             19, -- tariff_credit_amount_per_producedkwh,
+             7.77, -- tariff_credit_amount_per_producedkwh,
              0, -- tariff_metering_point_vat
              0 -- tariff_freekwh
          );
@@ -617,8 +617,8 @@ insert into base.billing_masterdata (
              0.0, -- tariff_basic_fee,
              0.0, -- tariff_discount,
              15, -- tariff_working_fee_per_consumedkwh,
-             19, -- tariff_credit_amount_per_producedkwh,
-             2.5, -- tariff_metering_point_fee,
+             9.66, -- tariff_credit_amount_per_producedkwh,
+             19.9, -- tariff_metering_point_fee,
              'Zählpunktgebühr', -- tariff_metering_point_fee_text
              20.0, --tariff_metering_point_vat
              true, -- tariff_use_metering_point_fee
