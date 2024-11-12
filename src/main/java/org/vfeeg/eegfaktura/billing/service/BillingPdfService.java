@@ -11,12 +11,12 @@ import org.vfeeg.eegfaktura.billing.domain.*;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
 import org.vfeeg.eegfaktura.billing.util.BigDecimalTools;
+import org.vfeeg.eegfaktura.billing.util.ClearingPeriodIdentifierTool;
 import org.vfeeg.eegfaktura.billing.util.StringTools;
 
 import java.io.InputStream;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -69,11 +69,13 @@ public class BillingPdfService {
                 .toUpperCase());
         parameters.put("documentDate", document.getDocumentDate().toString());
         parameters.put("documentNumber", document.getDocumentNumber());
-        parameters.put("clearingPeriodIdentifier", document.getClearingPeriodIdentifier());
+        parameters.put("clearingPeriodIdentifier", ClearingPeriodIdentifierTool.asText(document.getClearingPeriodIdentifier()));
         parameters.put("recipientName", document.getRecipientName());
         parameters.put("recipientParticipantNumber", document.getRecipientParticipantNumber());
         parameters.put("recipientBankName", document.getRecipientBankName());
-        parameters.put("recipientBankIban", document.getRecipientBankIban());
+        parameters.put("recipientBankIban", "******" + (document.getRecipientBankIban() != null ?
+                document.getRecipientBankIban().substring(Math.max(0, document.getRecipientBankIban().length() - 4))
+                : ""));
         parameters.put("recipientBankOwner", document.getRecipientBankOwner());
         parameters.put("recipientTaxId", document.getRecipientTaxId());
         parameters.put("recipientVatId", document.getRecipientVatId());

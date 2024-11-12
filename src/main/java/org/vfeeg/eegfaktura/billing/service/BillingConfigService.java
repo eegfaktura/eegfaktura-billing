@@ -85,7 +85,7 @@ public class BillingConfigService {
             }
             update(billingConfigDTO.getId(), billingConfigDTO);
         } catch (Exception e) {
-            log.error("Unable to store uploaded file due to: "+e.getMessage(), e);
+            log.error("Unable to store uploaded file due to: {}", e.getMessage(), e);
             throw new RuntimeException("Unable to store uploaded file due to: "+e, e);
         }
     }

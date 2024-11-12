@@ -55,7 +55,7 @@ public class JwtTokenService {
 
             jwtAuthentication = new JwtAuthentication(username, authorities);
         } catch (Exception e) {
-            log.warn("Failed to validate JWT token: "+e.getMessage(), e);
+            log.warn("Failed to validate JWT token: {}", e.getMessage(), e);
         }
         return jwtAuthentication;
     }

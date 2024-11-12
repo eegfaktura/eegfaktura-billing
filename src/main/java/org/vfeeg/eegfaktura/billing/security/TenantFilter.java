@@ -2,7 +2,6 @@ package org.vfeeg.eegfaktura.billing.security;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -18,12 +17,12 @@ class TenantFilter implements Filter {
 
         HttpServletRequest req = (HttpServletRequest) request;
         String tenant = req.getHeader("Tenant");
-        TenantContext.setCurrentTenant(tenant);
+        TenantContext.setCurrentTenant(new Authority(tenant));
 
         try {
             chain.doFilter(request, response);
         } finally {
-            TenantContext.setCurrentTenant("");
+            TenantContext.setCurrentTenant(null);
         }
     }
 }

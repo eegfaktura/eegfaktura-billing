@@ -313,7 +313,7 @@ class BillingIntegrationTests {
         assertIssuerDataValid(billingDocumentDTO);
         assertSonneGmbHDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
-        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
+        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("Abr_YQ-2023-3"));
         assertThat(billingDocumentDTO.getGrossAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(35.88)));
         assertThat(billingDocumentDTO.getNetAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(29.90)));
         //assertThat(billingDocumentDTO.getVat1Percent(), is(BigDecimal.ZERO));
@@ -340,7 +340,7 @@ class BillingIntegrationTests {
         assertIssuerDataValid(billingDocumentDTO);
         assertSonneGmbHDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
-        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
+        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("Abr_YQ-2023-3"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("762,55"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("693,23"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getVat1Percent()), is("10,00"));
@@ -386,7 +386,7 @@ class BillingIntegrationTests {
         assertIssuerDataValid(billingDocumentDTO);
         assertFelixGlueckDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
-        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
+        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("Abr_YQ-2023-3"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("125,21"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("125,21"));
         assertThat(billingDocumentDTO.getVat1Percent(), nullValue());
@@ -444,7 +444,7 @@ class BillingIntegrationTests {
         assertIssuerDataValid(billingDocumentDTO);
         assertFridolinFroehlichDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
-        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
+        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("Abr_YQ-2023-3"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("10,00"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("10,00"));
         assertThat(billingDocumentDTO.getVat1Percent(), nullValue());
@@ -474,7 +474,7 @@ class BillingIntegrationTests {
         assertIssuerDataValid(billingDocumentDTO);
         assertFridolinFroehlichDataValid(billingDocumentDTO);
         assertThat(billingDocumentDTO.getClearingPeriodType(), is("QUARTERLY"));
-        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("2023-YQ-3"));
+        assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("Abr_YQ-2023-3"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getGrossAmountInEuro()), is("431,68"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(billingDocumentDTO.getNetAmountInEuro()), is("431,68"));
         assertThat(billingDocumentDTO.getVat1Percent(), nullValue());
@@ -525,7 +525,7 @@ class BillingIntegrationTests {
         DoBillingParams doBillingParams = new DoBillingParams();
         doBillingParams.setTenantId("TE100100");
         doBillingParams.setClearingPeriodType("QUARTERLY");
-        doBillingParams.setClearingPeriodIdentifier("2023-YQ-3");
+        doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
         doBillingParams.setPreview(true);
         ArrayList<Allocation> allocations = new ArrayList<>();
         for (String[] meteringPointData : TEST_ALLOCATIONS) {
@@ -563,7 +563,7 @@ class BillingIntegrationTests {
         DoBillingParams doBillingParams = new DoBillingParams();
         doBillingParams.setTenantId("TE100100");
         doBillingParams.setClearingPeriodType("QUARTERLY");
-        doBillingParams.setClearingPeriodIdentifier("2023-YQ-3");
+        doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
         doBillingParams.setPreview(false);
         ArrayList<Allocation> allocations = new ArrayList<>();
 
@@ -602,7 +602,7 @@ class BillingIntegrationTests {
         DoBillingParams doBillingParams = new DoBillingParams();
         doBillingParams.setTenantId("TE100100");
         doBillingParams.setClearingPeriodType("QUARTERLY");
-        doBillingParams.setClearingPeriodIdentifier("2023-YQ-3");
+        doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
         doBillingParams.setPreview(false);
         doBillingParams.setClearingDocumentDate(documentDate);
         ArrayList<Allocation> allocations = new ArrayList<>();
@@ -640,7 +640,7 @@ class BillingIntegrationTests {
         DoBillingParams doBillingParams = new DoBillingParams();
         doBillingParams.setTenantId("TE100100");
         doBillingParams.setClearingPeriodType("QUARTERLY");
-        doBillingParams.setClearingPeriodIdentifier("2023-YQ-3");
+        doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
         doBillingParams.setPreview(false);
         doBillingParams.setClearingDocumentDate(documentDate);
         ArrayList<Allocation> allocations = new ArrayList<>();
@@ -678,7 +678,7 @@ class BillingIntegrationTests {
         DoBillingParams doBillingParams = new DoBillingParams();
         doBillingParams.setTenantId("TE100100");
         doBillingParams.setClearingPeriodType("QUARTERLY");
-        doBillingParams.setClearingPeriodIdentifier("2023-YQ-3");
+        doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
         doBillingParams.setPreview(false);
         ArrayList<Allocation> allocations = new ArrayList<>();
 

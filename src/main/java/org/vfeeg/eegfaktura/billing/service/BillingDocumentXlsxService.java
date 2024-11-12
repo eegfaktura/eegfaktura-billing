@@ -70,7 +70,7 @@ public class BillingDocumentXlsxService {
         createCell(xssfSheet, row, columnNumber++, "Ersteller UID", style);
         createCell(xssfSheet, row, columnNumber++, "Empfänger UID", style);
         createCell(xssfSheet, row, columnNumber++, "Empfänger Vorame", style);
-        createCell(xssfSheet, row, columnNumber++, "Empfänger Nachname", style);
+        createCell(xssfSheet, row, columnNumber, "Empfänger Nachname", style);
     }
 
     private void createXlsxHeaderDetails(XSSFWorkbook xssfWorkbook, XSSFSheet xssfSheet) {
@@ -110,7 +110,7 @@ public class BillingDocumentXlsxService {
         createCell(xssfSheet, row, columnNumber++, "Pos. Bruttobetrag", style);
         createCell(xssfSheet, row, columnNumber++, "Pos. Tarif", style);
         createCell(xssfSheet, row, columnNumber++, "Empfänger Vorame", style);
-        createCell(xssfSheet, row, columnNumber++, "Empfänger Nachname", style);
+        createCell(xssfSheet, row, columnNumber, "Empfänger Nachname", style);
     }
 
     private void createCell(XSSFSheet xssfSheet, Row row, int columnNumber, Object valueOfCell, CellStyle style) {
@@ -164,7 +164,7 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientVatId(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientFirstname() != null
                     ? billingDocument.getRecipientFirstname() : "", style);
-            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientLastname() != null
+            createCell(xssfSheet, row, columnNumber, billingDocument.getRecipientLastname() != null
                     ? billingDocument.getRecipientLastname() : "", style);
         }
     }
@@ -213,7 +213,7 @@ public class BillingDocumentXlsxService {
                     ? billingDocumentItem.getTariffName() : "", style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientFirstname() != null
                     ? billingDocument.getRecipientFirstname() : "", style);
-            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientLastname() != null
+            createCell(xssfSheet, row, columnNumber, billingDocument.getRecipientLastname() != null
                     ? billingDocument.getRecipientLastname() : "", style);
         }
     }

@@ -19,6 +19,7 @@ import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
 import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
 import org.vfeeg.eegfaktura.billing.util.AppProperties;
+import org.vfeeg.eegfaktura.billing.util.ClearingPeriodIdentifierTool;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -107,7 +108,7 @@ public class BillingDocumentMailService {
             templateModel.put("recipientName", billingDocument.getRecipientName());
             templateModel.put("billingDocumentType", BillingDocument.getDocumentTypeName(
                     billingDocument.getBillingDocumentType()));
-            templateModel.put("clearingPeriodIdentifier", billingDocument.getClearingPeriodIdentifier());
+            templateModel.put("clearingPeriodIdentifier", ClearingPeriodIdentifierTool.asText(billingDocument.getClearingPeriodIdentifier()));
             templateModel.put("issuerName", billingDocument.getIssuerName());
             templateModel.put("footerText", billingDocument.getFooterText());
 
@@ -158,13 +159,13 @@ public class BillingDocumentMailService {
                 createAndSendMail(billingDocument);
                 sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" OK,");
             } catch (Exception e) {
-                log.error("Failed to send mail: "+e.getMessage(), e);
+                log.error("Failed to send mail: {}", e.getMessage(), e);
                 sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" FEHLER,");
             }
         }
         billingRun.setMailStatus("SENT");
         billingRun.setMailStatusDateTime(LocalDateTime.now());
-        sendProtocolStringBuilder.append("Send mail finished at "+ OffsetDateTime.now());
+        sendProtocolStringBuilder.append("Send mail finished at ").append(OffsetDateTime.now());
         var sendMailProtocol = sendProtocolStringBuilder.toString();
         billingRun.setSendMailProtocol(sendMailProtocol);
         billingRunRepository.save(billingRun);

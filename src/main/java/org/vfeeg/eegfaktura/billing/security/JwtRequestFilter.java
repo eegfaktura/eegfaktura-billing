@@ -44,7 +44,7 @@ public class JwtRequestFilter  extends OncePerRequestFilter {
 
         // check if user is granted permission to the current tenant
         if (jwtAuthentication.getAuthorities().contains(TenantContext.getCurrentTenant())) {
-            log.error("User not granted permission for "+TenantContext.getCurrentTenant());
+            log.error("User not granted permission for {}", TenantContext.getCurrentTenant());
             throw new AccessDeniedException("User not granted permission for "+TenantContext.getCurrentTenant());
         }
 

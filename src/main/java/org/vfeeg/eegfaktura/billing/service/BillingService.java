@@ -90,6 +90,7 @@ public class BillingService {
                     doBillingParams.getClearingPeriodType(),
                     doBillingParams.getClearingPeriodIdentifier()
             );
+
             // Kein passender Abrechnungslauf gefunden: Neuen erstellen!
             if (billingRunList.isEmpty()) {
                 billingRun = new BillingRun();
@@ -522,9 +523,8 @@ public class BillingService {
         BigDecimal pricePerMeter = billingMasterdata.getTariffMeteringPointFee();
         if (BigDecimalTools.isNullOrZero(pricePerMeter)) return;
 
-        BigDecimal vatPercent = BigDecimal.ZERO;
-        boolean useVat = false;
-
+        BigDecimal vatPercent;
+        boolean useVat;
         if (billingMasterdata.getMeteringPointType() == MeteringPointType.CONSUMER) {
             // Fuer Verbraucher Zaehlpunkte wird der UST Satz vom (Verbraucher-)Tarif genommen
             // = USt Satz der EEG
