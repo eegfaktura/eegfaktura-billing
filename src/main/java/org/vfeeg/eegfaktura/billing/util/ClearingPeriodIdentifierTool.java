@@ -6,12 +6,10 @@ import java.time.temporal.TemporalAdjusters;
 
 /**
  * Clearing period identifiers have the following form:
- *
  * Identifier := "Abr_"(Period-Type)"-"(Year)"-"(Period)
  * (Period-Type) := Y | H | Q | M
  * (Year) := Year in yyyy format
  * (Period) := when Type = Y ... empty, when H = 1 | 2, when Q = (1-4), when M = (1-12)
- *
  * Examples:
  * - "Abr_Y-2024"
  * - "Abr_YH-2024-2"
@@ -109,7 +107,7 @@ import java.time.temporal.TemporalAdjusters;
 
         return textDateTimeFormatter.format(startDate) + " - " + textDateTimeFormatter.format(endDate);
 
-    };
+    }
 
     public static String asText(String clearingPeriodIdentifier) {
         return asText(clearingPeriodIdentifier, defaultDateTimeFormatter);

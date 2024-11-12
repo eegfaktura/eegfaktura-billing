@@ -17,7 +17,6 @@ import org.vfeeg.eegfaktura.billing.util.StringTools;
 import java.io.InputStream;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
