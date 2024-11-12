@@ -18,12 +18,12 @@ class TenantFilter implements Filter {
 
         HttpServletRequest req = (HttpServletRequest) request;
         String tenant = req.getHeader("Tenant");
-        TenantContext.setCurrentTenant(tenant);
+        TenantContext.setCurrentTenant(new Authority(tenant));
 
         try {
             chain.doFilter(request, response);
         } finally {
-            TenantContext.setCurrentTenant("");
+            TenantContext.setCurrentTenant(null);
         }
     }
 }

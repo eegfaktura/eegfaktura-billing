@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  eegfaktura-postgresql:
+    build: .
+    hostname: eegfaktura-postgresql
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "S3cret"
+      POSTGRES_DATABASE: "postgres"
+      POSTGRES_INITDB_ARGS: "--locale=de_DE:UTF8"
+    volumes:
+      - eegfaktura_postgres_data:/var/lib/postgresql/data/
+    ports:
+      - 5432:5432  
+    healthcheck:
+      test: "PGPASSWORD=$${POSTGRES_PASSWORD} pg_isready -d $${POSTGRES_DATABASE} -U $${POSTGRES_USER} && psql --d $${POSTGRES_DATABASE} -U $${POSTGRES_USER} --list"
+      timeout: 10s
+      start_period: 10s
+      interval: 10s
+      retries: 20
+
+  eegfaktura-billing:
+    build: ..
+    hostname: eegfaktura-billing
+    volumes:
+      - ../:/billing
+    ports:
+      - "8070:8080"
+      - "9009:5005"
+    environment:
+      JDBC_DATABASE_URL: "jdbc:postgresql://eegfaktura-postgresql:5432/postgres"
+      JDBC_DATABASE_USERNAME: "postgres"
+      JDBC_DATABASE_PASSWORD: "S3cret"
+      JWT_PUBLICKEYFILE: "/billing/etc/zertifikat-pub.pem"
+      MAIL_HOST: "postal.meinmx.at"
+      MAIL_PORT: "25"
+      MAIL_USER: "postal-meinmx-at"
+      MAIL_PASSWORD: "foobar"
+      MAIL_SMTP_AUTH: "true"
+      MAIL_SMTP_STARTTLS_ENABLE: "false"
+      JAVA_OPTS: "-Xdebug -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005"
+    depends_on:
+      eegfaktura-postgresql:
+        condition: service_healthy
+
+volumes:
+    eegfaktura_postgres_data:
+

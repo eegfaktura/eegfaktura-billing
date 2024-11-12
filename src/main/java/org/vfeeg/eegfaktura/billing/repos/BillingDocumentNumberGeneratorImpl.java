@@ -39,8 +39,7 @@ public class BillingDocumentNumberGeneratorImpl implements BillingDocumentNumber
         Long nextSequenceNumber = billingDocumentNumberRepository.getMaxSequenceNumber(tenantId, year, prefix);
         nextSequenceNumber = nextSequenceNumber==null? start : nextSequenceNumber+1L;
         next.setSequenceNumber(nextSequenceNumber);
-        next.setDocumentNumber((prefix==null ? ""
-                : prefix.trim()) + Integer.toString(year) + String.format("%0"+ sequenceNumberLength + "d",
+        next.setDocumentNumber(prefix.trim() + year + String.format("%0"+ sequenceNumberLength + "d",
                 nextSequenceNumber));
         return billingDocumentNumberRepository.saveAndFlush(next);
     }

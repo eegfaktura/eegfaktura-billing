@@ -1,3 +1,71 @@
+-- Damit wir nicht das ganze Backend in der DB hochziehen müssen erstellen wir nur die
+-- Tabelle billing_masterdata in einem "base" Schema. Production handelt es sich bei
+-- billing_masterdata um eine View
+create schema if not exists base;
+
+create table if not exists base.billing_masterdata
+(
+    participant_id                        varchar,
+    participant_title_before              varchar,
+    participant_firstname                 varchar,
+    participant_lastname                  varchar,
+    participant_title_after               varchar,
+    participant_vat_id                    varchar,
+    participant_tax_id                    varchar,
+    participant_company_register_number   varchar,
+    participant_email                     varchar,
+    participant_number                    varchar,
+    participant_bank_name                 varchar,
+    participant_bank_iban                 varchar,
+    participant_bank_owner                varchar,
+    participant_sepa_mandate_reference    varchar,
+    participant_sepa_mandate_issue_date   varchar,
+    metering_point_id                     varchar,
+    equipment_number                     varchar,
+    metering_equipment_name               varchar,
+    metering_point_type                   varchar,
+    tenant_id                             varchar,
+    eec_id                                varchar,
+    eec_name                              varchar,
+    eec_vat_id                            varchar,
+    eec_tax_id                            varchar,
+    eec_company_register_number           varchar,
+    eec_email                             varchar,
+    eec_phone                             varchar,
+    eec_subject_to_vat                    boolean,
+    eec_street                            varchar,
+    eec_zip_code                          varchar,
+    eec_city                              varchar,
+    eec_bank_name                         varchar,
+    eec_bank_iban                         varchar,
+    eec_bank_owner                        varchar,
+    participant_street                    varchar,
+    participant_zip_code                  varchar,
+    participant_city                      varchar,
+    tariff_type                           varchar,
+    tariff_name                           varchar,
+    tariff_text                           varchar,
+    tariff_billing_period                 varchar,
+    tariff_use_vat                        boolean,
+    tariff_vat_in_percent                 numeric,
+    tariff_participant_fee                numeric,
+    tariff_participant_fee_name           varchar,
+    tariff_participant_fee_text           varchar,
+    tariff_participant_fee_use_vat        boolean,
+    tariff_participant_fee_vat_in_percent numeric,
+    tariff_participant_fee_discount       numeric,
+    tariff_basic_fee                      numeric,
+    tariff_discount                       numeric,
+    tariff_working_fee_per_consumedkwh    numeric,
+    tariff_credit_amount_per_producedkwh  numeric,
+    tariff_freekwh                        numeric,
+    tariff_metering_point_fee             numeric,
+    tariff_metering_point_fee_text        varchar,
+    tariff_metering_point_vat             numeric,
+    tariff_use_metering_point_fee         boolean default false
+);
+
+
 -- mit folgenden Befehlen können (generierte) Massdaten in die DB eingespielt werden (zB mittels PSQL):
 
 \COPY base.billing_masterdata (
@@ -18,7 +86,7 @@
     participant_sepa_mandate_issue_date,metering_point_type,metering_point_id,
     equipment_number,metering_equipment_name
 )
-    FROM '/home/hla/IdeaProjects/eegfaktura-billing/billing_masterdata.csv'
+    FROM '/billing_masterdata.csv'
     DELIMITER ','
     CSV HEADER
     QUOTE '"'
@@ -33,7 +101,7 @@
     credit_note_number_prefix,credit_note_number_start,
     date_created, last_updated
 )
-FROM '/home/hla/IdeaProjects/eegfaktura-billing/billing_config.csv'
+FROM '/billing_config.csv'
     DELIMITER ','
     CSV HEADER
     QUOTE '"'
@@ -44,7 +112,7 @@ FROM '/home/hla/IdeaProjects/eegfaktura-billing/billing_config.csv'
     run_status_date_time,mail_status,mail_status_date_time,sepa_status,sepa_status_date_time,
     number_of_invoices,number_of_credit_notes,date_created,last_updated
 )
-FROM '/home/hla/IdeaProjects/eegfaktura-billing/billing_run.csv'
+FROM '/billing_run.csv'
     DELIMITER ','
     CSV HEADER
     QUOTE '"'
@@ -62,7 +130,7 @@ FROM '/home/hla/IdeaProjects/eegfaktura-billing/billing_run.csv'
     net_amount_in_euro,gross_amount_in_euro,clearing_period_identifier,billing_document_type,
     date_created,last_updated
 )
-FROM '/home/hla/IdeaProjects/eegfaktura-billing/billing_document.csv'
+FROM '/billing_document.csv'
     DELIMITER ','
     CSV HEADER
     QUOTE '"'
@@ -73,7 +141,7 @@ FROM '/home/hla/IdeaProjects/eegfaktura-billing/billing_document.csv'
     metering_point_type,text,document_text,unit,price_per_unit,ppu_unit,net_value,discount_percent,
     vat_percent,vat_value_in_euro,gross_value,date_created,last_updated
 )
-FROM '/home/hla/IdeaProjects/eegfaktura-billing/billing_document_item.csv'
+FROM '/billing_document_item.csv'
     DELIMITER ','
     CSV HEADER
     QUOTE '"'
