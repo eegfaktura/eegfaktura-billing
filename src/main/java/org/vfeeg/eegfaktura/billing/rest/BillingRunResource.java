@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
+import org.vfeeg.eegfaktura.billing.repos.InMemoryLockRepository;
 import org.vfeeg.eegfaktura.billing.security.TenantContext;
 import org.vfeeg.eegfaktura.billing.service.*;
 
@@ -25,15 +26,16 @@ public class BillingRunResource {
     private final BillingDocumentXlsxService billingDocumentXlsxService;
     private final BillingDocumentArchiveService billingDocumentArchiveService;
     private final BillingDocumentMailService billingDocumentMailService;
-
     private final ParticipantAmountService participantAmountService;
+    private final InMemoryLockRepository inMemoryLockRepository;
 
     public BillingRunResource(final BillingRunService billingRunService,
                               final BillingDocumentService billingDocumentService,
                               final BillingDocumentXlsxService billingDocumentXlsxService,
                               final BillingDocumentArchiveService billingDocumentArchiveService,
                               final BillingDocumentMailService billingDocumentMailService,
-                              final ParticipantAmountService participantAmountService
+                              final ParticipantAmountService participantAmountService,
+                              final InMemoryLockRepository inMemoryLockRepository
     ) {
         this.billingRunService = billingRunService;
         this.billingDocumentService = billingDocumentService;
@@ -41,6 +43,7 @@ public class BillingRunResource {
         this.billingDocumentArchiveService = billingDocumentArchiveService;
         this.billingDocumentMailService = billingDocumentMailService;
         this.participantAmountService = participantAmountService;
+        this.inMemoryLockRepository = inMemoryLockRepository;
     }
 
 //    @GetMapping
@@ -88,17 +91,25 @@ public class BillingRunResource {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
-        ByteArrayResource resource = new ByteArrayResource(
-                billingDocumentXlsxService.createXlsx(billingRunDTO.getId()));
+        Object lock = inMemoryLockRepository.getLock(billingRunDTO.getTenantId());
+        synchronized (lock) {
+            try {
+                ByteArrayResource resource = new ByteArrayResource(
+                        billingDocumentXlsxService.createXlsx(billingRunDTO.getId()));
 
-        return ResponseEntity.ok()
-                .contentType(MediaType.valueOf("application/octet-stream"))
-                .contentLength(resource.contentLength())
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment()
-                                .filename("abrechnung_"+billingRunDTO.getClearingPeriodIdentifier()+"_export.xlsx")
-                                .build().toString())
-                .body(resource);
+                return ResponseEntity.ok()
+                        .contentType(MediaType.valueOf("application/octet-stream"))
+                        .contentLength(resource.contentLength())
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                ContentDisposition.attachment()
+                                        .filename("abrechnung_"+billingRunDTO.getClearingPeriodIdentifier()+"_export.xlsx")
+                                        .build().toString())
+                        .body(resource);
+            } finally {
+                inMemoryLockRepository.releaseLock(billingRunDTO.getTenantId());
+            }
+        }
+
     }
 
     @GetMapping("/{id}/billingDocuments/archive")
@@ -107,34 +118,49 @@ public class BillingRunResource {
 
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
-        List<BillingDocumentDTO> billingDocumentDTOs = billingDocumentService.findByBillingRunId(id);
 
-        ByteArrayResource resource = new ByteArrayResource(
-                billingDocumentArchiveService.createArchive(id));
+        Object lock = inMemoryLockRepository.getLock(billingRunDTO.getTenantId());
+        synchronized (lock) {
+            try {
+                List<BillingDocumentDTO> billingDocumentDTOs = billingDocumentService.findByBillingRunId(id);
 
-        return ResponseEntity.ok()
-                .contentType(MediaType.valueOf("application/zip"))
-                .contentLength(resource.contentLength())
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment()
-                                .filename("abrechnung_"+billingRunDTO.getClearingPeriodIdentifier()+"_export.zip")
-                                .build().toString())
-                .body(resource);
+                ByteArrayResource resource = new ByteArrayResource(
+                        billingDocumentArchiveService.createArchive(id));
 
+                return ResponseEntity.ok()
+                        .contentType(MediaType.valueOf("application/zip"))
+                        .contentLength(resource.contentLength())
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                ContentDisposition.attachment()
+                                        .filename("abrechnung_"+billingRunDTO.getClearingPeriodIdentifier()+"_export.zip")
+                                        .build().toString())
+                        .body(resource);
+            } finally {
+                inMemoryLockRepository.releaseLock(billingRunDTO.getTenantId());
+            }
+        }
     }
 
     @GetMapping("/{id}/billingDocuments/sendmail")
     public ResponseEntity<String> sendAllBillingDocuments(
             @PathVariable(name = "id") final UUID id) {
-        log.error("Inside billingRunResource::sendAllBillingDocuments");
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
-        try {
-            String sendProtocol = billingDocumentMailService.sendAllBillingDocuments(id);
-            return new ResponseEntity<>(sendProtocol, HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+
+        Object lock = inMemoryLockRepository.getLock(billingRunDTO.getTenantId());
+        synchronized (lock) {
+            try {
+                try {
+                    String sendProtocol = billingDocumentMailService.sendAllBillingDocuments(id);
+                    return new ResponseEntity<>(sendProtocol, HttpStatus.OK);
+                } catch (Exception e) {
+                    return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            } finally {
+                inMemoryLockRepository.releaseLock(billingRunDTO.getTenantId());
+            }
         }
+
     }
 
 //    @PostMapping
@@ -157,8 +183,17 @@ public class BillingRunResource {
     public ResponseEntity<Void> deleteBillingRun(@PathVariable(name = "id") final UUID id) {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
-        billingRunService.delete(id);
-        return ResponseEntity.noContent().build();
+
+        Object lock = inMemoryLockRepository.getLock(billingRunDTO.getTenantId());
+        synchronized (lock) {
+            try {
+                billingRunService.delete(id);
+                return ResponseEntity.noContent().build();
+            } finally {
+                inMemoryLockRepository.releaseLock(billingRunDTO.getTenantId());
+            }
+        }
+
     }
 
 }

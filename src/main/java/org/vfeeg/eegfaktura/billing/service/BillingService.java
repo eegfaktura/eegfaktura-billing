@@ -43,7 +43,8 @@ public class BillingService {
                           final BillingConfigRepository billingConfigRepository,
                           final BillingDocumentFileRepository billingDocumentFileRepository,
                           final FileDataRepository fileDataRepository,
-                          final ParticipantAmountService participantAmountService) {
+                          final ParticipantAmountService participantAmountService,
+                          final InMemoryLockRepository inMemoryLockRepository) {
         this.billingPdfService = billingPdfService;
         this.billingMasterdataRepository = billingMasterdataRepository;
         this.billingDocumentNumberGenerator = billingDocumentNumberGenerator;

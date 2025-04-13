@@ -1,0 +1,1 @@
+alter table if exists billing_config alter column is_create_credit_notes_for_all_producers set default true;

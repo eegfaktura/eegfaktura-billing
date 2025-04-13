@@ -44,8 +44,6 @@ public class BillingConfigService {
     }
 
     private final FileDataRepository fileDataRepository;
-
-
     private final BillingConfigRepository billingConfigRepository;
 
     public BillingConfigService(final BillingConfigRepository billingConfigRepository
