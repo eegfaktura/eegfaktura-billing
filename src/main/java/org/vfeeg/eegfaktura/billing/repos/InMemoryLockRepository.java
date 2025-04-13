@@ -66,13 +66,8 @@ public class InMemoryLockRepository implements LockRepository<String> {
      * Entfernt alle abgelaufenen Locks aus der Map.
      */
     private void cleanupExpiredLocks() {
-        Iterator<Map.Entry<String, LockWithTimestamp>> iterator = locks.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<String, LockWithTimestamp> entry = iterator.next();
-            if (entry.getValue().isExpired(EXPIRATION_MINUTES)) {
-                iterator.remove();
-            }
-        }
+        locks.entrySet().removeIf(entry
+                -> entry.getValue().isExpired(EXPIRATION_MINUTES));
     }
 
     /**

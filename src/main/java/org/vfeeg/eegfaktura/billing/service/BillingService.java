@@ -43,8 +43,7 @@ public class BillingService {
                           final BillingConfigRepository billingConfigRepository,
                           final BillingDocumentFileRepository billingDocumentFileRepository,
                           final FileDataRepository fileDataRepository,
-                          final ParticipantAmountService participantAmountService,
-                          final InMemoryLockRepository inMemoryLockRepository) {
+                          final ParticipantAmountService participantAmountService) {
         this.billingPdfService = billingPdfService;
         this.billingMasterdataRepository = billingMasterdataRepository;
         this.billingDocumentNumberGenerator = billingDocumentNumberGenerator;
@@ -111,7 +110,7 @@ public class BillingService {
                             doBillingParams.getClearingPeriodIdentifier()
                     ));
                 }
-                billingRun = billingRunList.get(0);
+                billingRun = billingRunList.getFirst();
 
                 // Wenn der Abrechnungslauf bereits abgeschlossen oder storniert ist, dann mit Fehler beenden
                 if (billingRun.getRunStatus() == BillingRunStatus.DONE
@@ -176,7 +175,7 @@ public class BillingService {
                                          DoBillingParams doBillingParams, BillingRun billingRun,
                                          DoBillingResults doBillingResults) {
 
-        BillingMasterdata firstBillingMasterdata = billingMasterdataList.get(0);
+        BillingMasterdata firstBillingMasterdata = billingMasterdataList.getFirst();
         ParticipantAmount participantAmount = new ParticipantAmount();
         participantAmount.setId(UUID.fromString(firstBillingMasterdata.getParticipantId()));
 
@@ -241,8 +240,8 @@ public class BillingService {
             // Wenn der Erzeuger eine UID hat UND die EEG allen Erzeugern Gutschriften schickt,
             //     dann wird eine Reverse Charge Gutschrift erstellt mit UST UND den
             //     Fixtexten gem. BillingConfig INFO Dokumenten
-            final BillingDocument producerDocument = createBillingDocument(billingMasterdataList.get(0),
-                    StringUtils.isNotEmpty(billingMasterdataList.get(0).getParticipantVatId()) ?
+            final BillingDocument producerDocument = createBillingDocument(billingMasterdataList.getFirst(),
+                    StringUtils.isNotEmpty(billingMasterdataList.getFirst().getParticipantVatId()) ?
                             (doBillingParams.getBillingConfig().isCreateCreditNotesForAllProducers() ?
                                     BillingDocumentType.CREDIT_NOTE_RC : BillingDocumentType.INFO)
                             : BillingDocumentType.CREDIT_NOTE,
