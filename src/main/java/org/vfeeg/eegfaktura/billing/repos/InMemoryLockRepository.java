@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.repos;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Locks in der DB oder Verwendung anderer Lösungen ZooKeeper oder Redis o.ä.
  */
 @Repository
+@Slf4j
 public class InMemoryLockRepository implements LockRepository<String> {
 
     private final Map<String, LockWithTimestamp> locks = new ConcurrentHashMap<>();

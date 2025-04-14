@@ -20,6 +20,14 @@ services:
       interval: 10s
       retries: 20
 
+  pgadmin4:
+    image: dpage/pgadmin4
+    ports:
+      - 8010:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin@foobar.com"
+      PGADMIN_DEFAULT_PASSWORD: "S3cret"
+
   eegfaktura-billing:
     build: ..
     hostname: eegfaktura-billing
