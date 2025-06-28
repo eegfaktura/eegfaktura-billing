@@ -40,7 +40,7 @@
 	<parameter name="issuerMail" class="java.lang.String"/>
 	<parameter name="issuerWebsite" class="java.lang.String"/>
 	<parameter name="issuerCompanyRegisterNumber" class="java.lang.String"/>
-	<parameter name="issuerCreditorId" class="java.lang.String"/>
+	<parameter name="issuerBankCreditorId" class="java.lang.String"/>
 	<parameter name="documentType" class="java.lang.String"/>
 	<parameter name="documentDate" class="java.lang.String"/>
 	<parameter name="documentNumber" class="java.lang.String"/>
@@ -156,8 +156,8 @@
 			<expression><![CDATA[$P{logo} != null ? new java.io.ByteArrayInputStream($P{logo}) : null]]></expression>
 		</element>
 		<element kind="textField" uuid="530b7b2c-5120-4f7e-b320-d54a262c79c4" stretchType="ContainerHeight" x="240" y="300" width="270" height="15" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
-			<printWhenExpression><![CDATA[$P{issuerCreditorId}!=null]]></printWhenExpression>
-			<expression><![CDATA["Creditor-ID: "+$P{issuerCreditorId}]]></expression>
+			<printWhenExpression><![CDATA[$P{issuerBankCreditorId}!=null]]></printWhenExpression>
+			<expression><![CDATA["Creditor-ID: "+$P{issuerBankCreditorId}]]></expression>
 		</element>
 		<property name="com.jaspersoft.studio.unit.height" value="px"/>
 	</title>
