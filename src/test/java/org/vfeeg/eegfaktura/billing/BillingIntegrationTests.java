@@ -182,7 +182,9 @@ class BillingIntegrationTests {
                 //@TODO: Die weiteren Properties prüfen
                 hasProperty("eecName", is("Energiegemeinschaft Holy Grail")),
                 hasProperty("eecId", is("TE100100")),
-                hasProperty("tariffCreditAmountPerProducedkwh", is(BigDecimal.valueOf(19)))
+                hasProperty("tariffCreditAmountPerProducedkwh", is(BigDecimal.valueOf(19))),
+                hasProperty("tariffId", is("75d44a4f-35ef-11ef-9d95-b657056770ae")),
+                hasProperty("tariffVersion", is(13))
         ));
 
     }

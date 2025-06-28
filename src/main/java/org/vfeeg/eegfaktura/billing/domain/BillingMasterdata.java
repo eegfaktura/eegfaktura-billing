@@ -35,8 +35,10 @@ public class BillingMasterdata {
     private String participantBankName;
     private String participantBankIban;
     private String participantBankOwner;
-    private String participantSepaMandateReference;
-    private LocalDate participantSepaMandateIssueDate;
+    private String participantSepaMandateReference; // Mandatsreferenz Mitglied
+    private LocalDate participantSepaMandateIssueDate; // Mandatsdatum Mitglied
+    private String eecBankCreditorId; // Creditor ID Mitglied
+    private String participantSepaDirectDebit; // Einzugsart (NONE, B2B oder CORE) Mitglieds
     private String meteringPointId;
     private String equipmentNumber; // Anlagennummer
     private String meteringEquipmentName;
@@ -63,6 +65,8 @@ public class BillingMasterdata {
     private String tariffType;
     private String tariffName;
     private String tariffText;
+    private String tariffId;
+    private Integer tariffVersion;
     private String tariffBillingPeriod;
     private Boolean tariffUseVat;
     private BigDecimal tariffVatInPercent;

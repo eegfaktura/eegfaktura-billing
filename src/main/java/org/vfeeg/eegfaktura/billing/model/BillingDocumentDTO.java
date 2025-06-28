@@ -36,6 +36,7 @@ public class BillingDocumentDTO {
     private String recipientBankOwner;
     private String recipientSepaMandateReference;
     private LocalDate recipientSepaMandateIssueDate;
+    private String recipientSepaDirectDebit;
     private String recipientEmail;
     private String recipientTaxId;
     private String recipientVatId;
@@ -52,6 +53,7 @@ public class BillingDocumentDTO {
     private String issuerBankName;
     private String issuerBankIBAN;
     private String issuerBankOwner;
+    private String issuerBankCreditorId;
     private BigDecimal vat1Percent;
     private BigDecimal vat1SumInEuro;
     private BigDecimal vat2Percent;

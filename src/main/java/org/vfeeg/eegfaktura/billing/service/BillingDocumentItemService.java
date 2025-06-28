@@ -58,6 +58,7 @@ public class BillingDocumentItemService {
         billingDocumentItemRepository.deleteById(id);
     }
 
+    @SuppressWarnings("DuplicatedCode")
     private BillingDocumentItemDTO mapToDTO(final BillingDocumentItem billingDocumentItem,
             final BillingDocumentItemDTO billingDocumentItemDTO) {
         billingDocumentItemDTO.setId(billingDocumentItem.getId());
@@ -70,6 +71,8 @@ public class BillingDocumentItemService {
         billingDocumentItemDTO.setText(billingDocumentItem.getText());
         billingDocumentItemDTO.setDocumentText(billingDocumentItem.getDocumentText());
         billingDocumentItemDTO.setTariffName(billingDocumentItem.getTariffName());
+        billingDocumentItemDTO.setTariffId(billingDocumentItem.getTariffId());
+        billingDocumentItemDTO.setTariffVersion(billingDocumentItem.getTariffVersion());
         billingDocumentItemDTO.setUnit(billingDocumentItem.getUnit());
         billingDocumentItemDTO.setPricePerUnit(billingDocumentItem.getPricePerUnit());
         billingDocumentItemDTO.setPpuUnit(billingDocumentItem.getPpuUnit());
@@ -82,8 +85,9 @@ public class BillingDocumentItemService {
         return billingDocumentItemDTO;
     }
 
+    @SuppressWarnings("DuplicatedCode")
     private BillingDocumentItem mapToEntity(final BillingDocumentItemDTO billingDocumentItemDTO,
-            final BillingDocumentItem billingDocumentItem) {
+                                            final BillingDocumentItem billingDocumentItem) {
         billingDocumentItem.setTenantId(billingDocumentItemDTO.getTenantId());
         billingDocumentItem.setClearingPeriodType(billingDocumentItemDTO.getClearingPeriodType());
         billingDocumentItem.setClearingPeriodIdentifier(billingDocumentItemDTO.getClearingPeriodIdentifier());
@@ -93,6 +97,8 @@ public class BillingDocumentItemService {
         billingDocumentItem.setText(billingDocumentItemDTO.getText());
         billingDocumentItem.setDocumentText(billingDocumentItemDTO.getDocumentText());
         billingDocumentItem.setTariffName(billingDocumentItemDTO.getTariffName());
+        billingDocumentItem.setTariffId(billingDocumentItemDTO.getTariffId());
+        billingDocumentItem.setTariffVersion(billingDocumentItemDTO.getTariffVersion());
         billingDocumentItem.setUnit(billingDocumentItemDTO.getUnit());
         billingDocumentItem.setPricePerUnit(billingDocumentItemDTO.getPricePerUnit());
         billingDocumentItem.setPpuUnit(billingDocumentItemDTO.getPpuUnit());

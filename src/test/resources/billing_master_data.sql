@@ -17,8 +17,9 @@ create table if not exists base.billing_masterdata
     participant_bank_owner                varchar,
     participant_sepa_mandate_reference    varchar,
     participant_sepa_mandate_issue_date   varchar,
+    participant_sepa_direct_debit         varchar default 'NONE',
     metering_point_id                     varchar,
-    equipment_number                     varchar,
+    equipment_number                      varchar,
     metering_equipment_name               varchar,
     metering_point_type                   varchar,
     tenant_id                             varchar,
@@ -36,12 +37,15 @@ create table if not exists base.billing_masterdata
     eec_bank_name                         varchar,
     eec_bank_iban                         varchar,
     eec_bank_owner                        varchar,
+    eec_bank_creditor_id                  varchar default 'AT12ZZZ12345678901',
     participant_street                    varchar,
     participant_zip_code                  varchar,
     participant_city                      varchar,
     tariff_type                           varchar,
     tariff_name                           varchar,
     tariff_text                           varchar,
+    tariff_id                             varchar,
+    tariff_version                        integer,
     tariff_billing_period                 varchar,
     tariff_use_vat                        boolean,
     tariff_vat_in_percent                 numeric,
@@ -103,6 +107,8 @@ insert into base.billing_masterdata (
     tariff_type,
     tariff_name,
     tariff_text,
+    tariff_id,
+    tariff_version,
     tariff_billing_period,
     tariff_use_vat,
     tariff_vat_in_percent,
@@ -159,6 +165,8 @@ insert into base.billing_masterdata (
     'Verbraucher', --tariff_type
     'Standard', --tariff_name
     'Text zu Tarif Standard', --tariff_text
+    '75d44a4f-35ef-11ef-9d95-b657056770ae',
+    13,
     'Q', -- tariff_billing_period
     false, -- tariff_use_vat,
     0.0, -- tariff_vat_in_percent,
@@ -217,6 +225,8 @@ insert into base.billing_masterdata (
     tariff_type,
     tariff_name,
     tariff_text,
+    tariff_id,
+    tariff_version,
     tariff_billing_period,
     tariff_use_vat,
     tariff_vat_in_percent,
@@ -273,6 +283,8 @@ insert into base.billing_masterdata (
              'Verbraucher', --tariff_type
              'Standard', --tariff_name
              'Text zu Tarif Standard', --tariff_text
+             '75d44a4f-35ef-11ef-9d95-b657056770ae',
+             13,
              'Q', -- tariff_billing_period
              false, -- tariff_use_vat,
              0.0, -- tariff_vat_in_percent,
@@ -330,6 +342,8 @@ insert into base.billing_masterdata (
     participant_city,
     tariff_type,
     tariff_name,
+    tariff_id,
+    tariff_version,
     tariff_billing_period,
     tariff_use_vat,
     tariff_vat_in_percent,
@@ -384,6 +398,8 @@ insert into base.billing_masterdata (
              'Fuxholzen', --participant_city
              'Erzeuger', --tariff_type
              'Standard', --tariff_name
+             '75d44a4f-35ef-11ef-9d95-b657056770ae',
+             13,
              'Q', -- tariff_billing_period
              false, -- tariff_use_vat,
              0.0, -- tariff_vat_in_percent,
@@ -440,6 +456,8 @@ insert into base.billing_masterdata (
     participant_city,
     tariff_type,
     tariff_name,
+    tariff_id,
+    tariff_version,
     tariff_billing_period,
     tariff_use_vat,
     tariff_vat_in_percent,
@@ -494,6 +512,8 @@ insert into base.billing_masterdata (
              'Fuxholzen', --participant_city
              'Erzeuger', --tariff_type
              'Standard', --tariff_name
+             '75d44a4f-35ef-11ef-9d95-b657056770ae',
+             13,
              'Q', -- tariff_billing_period
              true, -- tariff_use_vat,
              10.0, -- tariff_vat_in_percent,
@@ -549,6 +569,8 @@ insert into base.billing_masterdata (
     participant_city,
     tariff_type,
     tariff_name,
+    tariff_id,
+    tariff_version,
     tariff_billing_period,
     tariff_use_vat,
     tariff_vat_in_percent,
@@ -606,6 +628,8 @@ insert into base.billing_masterdata (
              'Fuxholzen', --participant_city
              'Erzeuger mit ZP Gebühr', --tariff_type
              'Standard', --tariff_name
+             '75d44a4f-35ef-11ef-9d95-b657056770ae',
+             13,
              'Q', -- tariff_billing_period
              true, -- tariff_use_vat,
              10.0, -- tariff_vat_in_percent,

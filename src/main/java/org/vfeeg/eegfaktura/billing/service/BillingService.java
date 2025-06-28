@@ -322,6 +322,7 @@ public class BillingService {
         billingDocument.setIssuerBankName(billingMasterdata.getEecBankName());
         billingDocument.setIssuerBankIBAN(billingMasterdata.getEecBankIban());
         billingDocument.setIssuerBankOwner(billingMasterdata.getEecBankOwner());
+        billingDocument.setIssuerBankCreditorId(billingMasterdata.getEecBankCreditorId());
         billingDocument.setParticipantId(billingMasterdata.getParticipantId());
         billingDocument.setRecipientName(StringTools.nullSafeJoin(" ",
                         billingMasterdata.getParticipantTitleBefore(),
@@ -337,6 +338,7 @@ public class BillingService {
         billingDocument.setRecipientBankOwner(billingMasterdata.getParticipantBankOwner());
         billingDocument.setRecipientSepaMandateReference(billingMasterdata.getParticipantSepaMandateReference());
         billingDocument.setRecipientSepaMandateIssueDate(billingMasterdata.getParticipantSepaMandateIssueDate());
+        billingDocument.setRecipientSepaDirectDebit(billingMasterdata.getParticipantSepaDirectDebit());
         billingDocument.setRecipientEmail(billingMasterdata.getParticipantEmail());
         billingDocument.setRecipientTaxId(billingMasterdata.getParticipantTaxId());
         billingDocument.setRecipientVatId(billingMasterdata.getParticipantVatId());
@@ -407,6 +409,8 @@ public class BillingService {
         newBillingDocumentItem.setDocumentText(StringUtils.isNotEmpty(documentText) ?
                 documentText.replace("##", "\n"): documentText);
         newBillingDocumentItem.setTariffName(billingMasterdata.getTariffName());
+        newBillingDocumentItem.setTariffId(billingMasterdata.getTariffId());
+        newBillingDocumentItem.setTariffVersion(billingMasterdata.getTariffVersion());
 
         BigDecimal amount = BigDecimalTools.makeZeroIfNull(allocationMap.get(
                 billingMasterdata.getParticipantId()+"@"+billingMasterdata.getMeteringPointId()))

@@ -65,6 +65,7 @@ public class BillingPdfService {
         parameters.put("issuerMail", document.getIssuerMail());
         parameters.put("issuerWebsite", document.getIssuerWebsite());
         parameters.put("issuerCompanyRegisterNumber", document.getIssuerCompanyRegisterNumber());
+        parameters.put("issuerBankCreditorId", document.getIssuerBankCreditorId());
         parameters.put("documentType", BillingDocument.getDocumentTypeName(document.getBillingDocumentType())
                 .toUpperCase());
         parameters.put("documentDate", document.getDocumentDate().toString());
@@ -77,6 +78,7 @@ public class BillingPdfService {
                 document.getRecipientBankIban().substring(Math.max(0, document.getRecipientBankIban().length() - 4))
                 : ""));
         parameters.put("recipientBankOwner", document.getRecipientBankOwner());
+        parameters.put("recipientSepaMandateReference", document.getRecipientSepaMandateReference());
         parameters.put("recipientTaxId", document.getRecipientTaxId());
         parameters.put("recipientVatId", document.getRecipientVatId());
         parameters.put("recipientAddressLine1", document.getRecipientAddressLine1());

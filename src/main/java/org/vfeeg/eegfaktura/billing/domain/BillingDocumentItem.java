@@ -53,6 +53,12 @@ public class BillingDocumentItem {
     private String tariffName;
 
     @Column
+    private String tariffId;
+
+    @Column
+    private Integer tariffVersion;
+
+    @Column
     private String unit;
 
     @Column

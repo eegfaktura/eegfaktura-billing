@@ -105,6 +105,7 @@ public class BillingDocumentService {
         billingDocumentDTO.setRecipientBankOwner(billingDocument.getRecipientBankOwner());
         billingDocumentDTO.setRecipientSepaMandateReference(billingDocument.getRecipientSepaMandateReference());
         billingDocumentDTO.setRecipientSepaMandateIssueDate(billingDocument.getRecipientSepaMandateIssueDate());
+        billingDocumentDTO.setRecipientSepaDirectDebit(billingDocument.getRecipientSepaDirectDebit());
         billingDocumentDTO.setRecipientEmail(billingDocument.getRecipientEmail());
         billingDocumentDTO.setRecipientTaxId(billingDocument.getRecipientTaxId());
         billingDocumentDTO.setRecipientVatId(billingDocument.getRecipientVatId());
@@ -121,6 +122,7 @@ public class BillingDocumentService {
         billingDocumentDTO.setIssuerBankName(billingDocument.getIssuerBankName());
         billingDocumentDTO.setIssuerBankIBAN(billingDocument.getIssuerBankIBAN());
         billingDocumentDTO.setIssuerBankOwner(billingDocument.getIssuerBankOwner());
+        billingDocumentDTO.setIssuerBankCreditorId(billingDocument.getIssuerBankCreditorId());
         billingDocumentDTO.setVat1Percent(billingDocument.getVat1Percent());
         billingDocumentDTO.setVat1SumInEuro(billingDocument.getVat1SumInEuro());
         billingDocumentDTO.setVat2Percent(billingDocument.getVat2Percent());
@@ -157,6 +159,7 @@ public class BillingDocumentService {
         billingDocument.setRecipientBankOwner(billingDocumentDTO.getRecipientBankOwner());
         billingDocument.setRecipientSepaMandateReference(billingDocumentDTO.getRecipientSepaMandateReference());
         billingDocument.setRecipientSepaMandateIssueDate(billingDocumentDTO.getRecipientSepaMandateIssueDate());
+        billingDocument.setRecipientSepaDirectDebit(billingDocumentDTO.getRecipientSepaDirectDebit());
         billingDocument.setRecipientEmail(billingDocumentDTO.getRecipientEmail());
         billingDocument.setRecipientTaxId(billingDocumentDTO.getRecipientTaxId());
         billingDocument.setRecipientVatId(billingDocumentDTO.getRecipientVatId());
@@ -173,6 +176,7 @@ public class BillingDocumentService {
         billingDocument.setIssuerBankName(billingDocumentDTO.getIssuerBankName());
         billingDocument.setIssuerBankIBAN(billingDocumentDTO.getIssuerBankIBAN());
         billingDocument.setIssuerBankOwner(billingDocumentDTO.getIssuerBankOwner());
+        billingDocument.setIssuerBankCreditorId(billingDocumentDTO.getIssuerBankCreditorId());
         billingDocument.setVat1Percent(billingDocumentDTO.getVat1Percent());
         billingDocument.setVat1SumInEuro(billingDocumentDTO.getVat1SumInEuro());
         billingDocument.setVat2Percent(billingDocumentDTO.getVat2Percent());

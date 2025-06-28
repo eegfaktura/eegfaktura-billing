@@ -58,9 +58,11 @@ public class BillingDocumentXlsxService {
         createCell(xssfSheet, row, columnNumber++, "Empfänger Konto IBAN", style);
         createCell(xssfSheet, row, columnNumber++, "Empfänger Mandatsausstellung", style);
         createCell(xssfSheet, row, columnNumber++, "Empfänger Mandatsreferenz", style);
+        createCell(xssfSheet, row, columnNumber++, "Empfänger Einzugsart", style);
         createCell(xssfSheet, row, columnNumber++, "Ersteller Name", style);
         createCell(xssfSheet, row, columnNumber++, "Ersteller BankName", style);
         createCell(xssfSheet, row, columnNumber++, "Ersteller IBAN", style);
+        createCell(xssfSheet, row, columnNumber++, "Ersteller Creditor Id", style);
         createCell(xssfSheet, row, columnNumber++, "UST Satz 1 (%)", style);
         createCell(xssfSheet, row, columnNumber++, "UST Satz 1 Summe (Euro)", style);
         createCell(xssfSheet, row, columnNumber++, "UST Satz 2 (%)", style);
@@ -94,9 +96,11 @@ public class BillingDocumentXlsxService {
         createCell(xssfSheet, row, columnNumber++, "Empfänger Konto IBAN", style);
         createCell(xssfSheet, row, columnNumber++, "Empfänger Mandatsausstellung", style);
         createCell(xssfSheet, row, columnNumber++, "Empfänger Mandatsreferenz", style);
+        createCell(xssfSheet, row, columnNumber++, "Empfänger Einzugsart", style);
         createCell(xssfSheet, row, columnNumber++, "Ersteller Name", style);
         createCell(xssfSheet, row, columnNumber++, "Ersteller BankName", style);
         createCell(xssfSheet, row, columnNumber++, "Ersteller IBAN", style);
+        createCell(xssfSheet, row, columnNumber++, "Ersteller Creditor Id", style);
         createCell(xssfSheet, row, columnNumber++, "Pos. Zählpunkttyp", style);
         createCell(xssfSheet, row, columnNumber++, "Pos. Text", style);
         createCell(xssfSheet, row, columnNumber++, "Pos. Menge", style);
@@ -151,9 +155,11 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientBankIban(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientSepaMandateIssueDate(), dateStyle);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientSepaMandateReference(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientSepaDirectDebit(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerName(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerBankName(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerBankIBAN(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerBankCreditorId(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getVat1Percent(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getVat1SumInEuro(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getVat2Percent(), style);
@@ -191,9 +197,11 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientBankIban(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientSepaMandateIssueDate(), dateStyle);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientSepaMandateReference(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientSepaDirectDebit(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerName(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerBankName(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerBankIBAN(), style);
+            createCell(xssfSheet, row, columnNumber++, billingDocument.getIssuerBankCreditorId(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getMeteringPointType() != null ?
                     billingDocumentItem.getMeteringPointType() == MeteringPointType.PRODUCER ?
                             "Erzeuger" : "Verbraucher" : "" , style);

@@ -93,6 +93,9 @@ public class BillingDocument {
     private LocalDate recipientSepaMandateIssueDate;
 
     @Column
+    private String recipientSepaDirectDebit; // Einzugsart (B2B oder CORE) Mitglieds
+
+    @Column
     private String recipientEmail;
 
     @Column
@@ -139,6 +142,9 @@ public class BillingDocument {
 
     @Column
     private String issuerBankOwner;
+
+    @Column
+    private String issuerBankCreditorId; // Creditor ID Mitglied
 
     @Column
     private BigDecimal vat1Percent;

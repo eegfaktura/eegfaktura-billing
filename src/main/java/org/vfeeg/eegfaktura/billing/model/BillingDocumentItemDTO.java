@@ -33,6 +33,10 @@ public class BillingDocumentItemDTO {
 
     private String tariffName;
 
+    private String tariffId;
+
+    private Integer tariffVersion;
+
     private String unit;
 
     private BigDecimal pricePerUnit;

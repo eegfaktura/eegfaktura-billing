@@ -40,6 +40,7 @@
 	<parameter name="issuerMail" class="java.lang.String"/>
 	<parameter name="issuerWebsite" class="java.lang.String"/>
 	<parameter name="issuerCompanyRegisterNumber" class="java.lang.String"/>
+	<parameter name="issuerCreditorId" class="java.lang.String"/>
 	<parameter name="documentType" class="java.lang.String"/>
 	<parameter name="documentDate" class="java.lang.String"/>
 	<parameter name="documentNumber" class="java.lang.String"/>
@@ -49,6 +50,7 @@
 	<parameter name="recipientBankName" class="java.lang.String"/>
 	<parameter name="recipientBankIban" class="java.lang.String"/>
 	<parameter name="recipientBankOwner" class="java.lang.String"/>
+	<parameter name="recipientSepaMandateReference" class="java.lang.String"/>
 	<parameter name="recipientVatId" class="java.lang.String"/>
 	<parameter name="recipientTaxId" class="java.lang.String"/>
 	<parameter name="recipientAddressLine1" class="java.lang.String"/>
@@ -107,12 +109,12 @@
 				<expression><![CDATA[T($P{issuerAddressLine1}) + ", "+T($P{issuerAddressLine2}) + ", "+ T($P{issuerAddressLine3})]]></expression>
 			</element>
 		</element>
-		<element kind="textField" uuid="01493579-a577-41f0-ad23-1b1597627fbc" x="7" y="1" width="243" height="14" evaluationTime="Report" blankWhenNull="true" bold="true">
+		<element kind="textField" uuid="01493579-a577-41f0-ad23-1b1597627fbc" x="7" y="1" width="252" height="14" evaluationTime="Report" blankWhenNull="true" bold="true">
 			<expression><![CDATA[$P{issuerName}]]></expression>
 			<property name="com.jaspersoft.studio.unit.x" value="px"/>
 			<property name="com.jaspersoft.studio.unit.y" value="px"/>
 		</element>
-		<element kind="textField" uuid="77fb3dcf-a8a0-42ea-8c77-df8fb1f01937" x="7" y="15" width="243" height="45" fontSize="8.0" textAdjust="StretchHeight" evaluationTime="Report" blankWhenNull="true">
+		<element kind="textField" uuid="77fb3dcf-a8a0-42ea-8c77-df8fb1f01937" x="7" y="15" width="252" height="45" fontSize="8.0" textAdjust="StretchHeight" evaluationTime="Report" blankWhenNull="true">
 			<expression><![CDATA[$V{issuerAddress}+"\n"
 +$V{issuerContact}+"\n"
 +$V{issuerCompanyRegisterNumber}]]></expression>
@@ -131,27 +133,31 @@
 		<element kind="line" uuid="488b379f-ab77-4e6a-84dd-b341d5d9a66c" x="-39" y="258" width="24" height="1">
 			<pen lineWidth="0.25"/>
 		</element>
-		<element kind="textField" uuid="ccf1bcae-1f9d-47c7-926b-197d2c1c6904" stretchType="ContainerHeight" x="305" y="240" width="203" height="15" textAdjust="StretchHeight" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
+		<element kind="textField" uuid="ccf1bcae-1f9d-47c7-926b-197d2c1c6904" stretchType="ContainerHeight" x="305" y="240" width="205" height="15" textAdjust="StretchHeight" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
 			<printWhenExpression><![CDATA[$P{documentDate} != null]]></printWhenExpression>
 			<expression><![CDATA["Datum: "+$P{documentDate}]]></expression>
 		</element>
-		<element kind="textField" uuid="726444d1-3d0d-40ea-b14b-8c058164ed82" stretchType="ContainerHeight" x="240" y="255" width="268" height="15" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
+		<element kind="textField" uuid="726444d1-3d0d-40ea-b14b-8c058164ed82" stretchType="ContainerHeight" x="240" y="255" width="270" height="15" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
 			<printWhenExpression><![CDATA[$P{clearingPeriodIdentifier}!=null]]></printWhenExpression>
 			<expression><![CDATA["Abrechnungszeitraum: "+$P{clearingPeriodIdentifier}]]></expression>
 		</element>
-		<element kind="textField" uuid="d5d8bc3e-1ad8-4820-99bb-7c0909fae687" stretchType="ContainerHeight" x="305" y="270" width="203" height="15" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
+		<element kind="textField" uuid="d5d8bc3e-1ad8-4820-99bb-7c0909fae687" stretchType="ContainerHeight" x="240" y="270" width="270" height="15" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
 			<printWhenExpression><![CDATA[$P{issuerTaxId}!=null]]></printWhenExpression>
 			<expression><![CDATA["Steuernummer: "+$P{issuerTaxId}]]></expression>
 		</element>
-		<element kind="textField" uuid="655baf3a-2ea8-4da0-b1cf-9f7c00559e15" stretchType="ContainerHeight" x="305" y="285" width="203" height="15" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
+		<element kind="textField" uuid="655baf3a-2ea8-4da0-b1cf-9f7c00559e15" stretchType="ContainerHeight" x="240" y="285" width="270" height="15" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
 			<printWhenExpression><![CDATA[$P{issuerVatId}!=null]]></printWhenExpression>
 			<expression><![CDATA["Umsatzsteuernummer: "+$P{issuerVatId}]]></expression>
 		</element>
-		<element kind="textField" uuid="5c501b78-ae9b-4fb5-9070-2c28911a4096" stretchType="ContainerHeight" x="305" y="225" width="203" height="15" textAdjust="StretchHeight" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" bold="true" hTextAlign="Right">
+		<element kind="textField" uuid="5c501b78-ae9b-4fb5-9070-2c28911a4096" stretchType="ContainerHeight" x="305" y="225" width="205" height="15" textAdjust="StretchHeight" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" bold="true" hTextAlign="Right">
 			<expression><![CDATA[LEN(T($P{documentNumber}))>0 ? "Nummer: "+$P{documentNumber} : "-- E N T W U R F --"]]></expression>
 		</element>
 		<element kind="image" uuid="b896e690-51ec-4ebf-b642-630a3a99f6d5" x="260" y="0" width="248" height="85" onErrorType="Blank" usingCache="true">
 			<expression><![CDATA[$P{logo} != null ? new java.io.ByteArrayInputStream($P{logo}) : null]]></expression>
+		</element>
+		<element kind="textField" uuid="530b7b2c-5120-4f7e-b320-d54a262c79c4" stretchType="ContainerHeight" x="240" y="300" width="270" height="15" blankWhenNull="true" printRepeatedValues="false" removeLineWhenBlank="true" hTextAlign="Right">
+			<printWhenExpression><![CDATA[$P{issuerCreditorId}!=null]]></printWhenExpression>
+			<expression><![CDATA["Creditor-ID: "+$P{issuerCreditorId}]]></expression>
 		</element>
 		<property name="com.jaspersoft.studio.unit.height" value="px"/>
 	</title>
@@ -161,13 +167,13 @@
 			<property name="com.jaspersoft.studio.unit.height" value="px"/>
 			<pen lineWidth="2.0" lineColor="#999999"/>
 		</element>
-		<element kind="textField" uuid="d5c38951-d81b-432f-84f6-1e0fe5cdb5eb" x="7" y="1" width="222" height="19" evaluationTime="Page" blankWhenNull="true" bold="true">
+		<element kind="textField" uuid="d5c38951-d81b-432f-84f6-1e0fe5cdb5eb" x="7" y="1" width="251" height="19" evaluationTime="Page" blankWhenNull="true" bold="true">
 			<expression><![CDATA[$P{issuerName}]]></expression>
 			<property name="com.jaspersoft.studio.unit.x" value="px"/>
 			<property name="com.jaspersoft.studio.unit.y" value="px"/>
 			<property name="com.jaspersoft.studio.unit.height" value="px"/>
 		</element>
-		<element kind="textField" uuid="d61a743c-f685-43fc-bc15-3a83a77eaa3a" x="7" y="15" width="223" height="45" fontSize="8.0" textAdjust="StretchHeight" evaluationTime="Page" blankWhenNull="true">
+		<element kind="textField" uuid="d61a743c-f685-43fc-bc15-3a83a77eaa3a" x="7" y="15" width="252" height="45" fontSize="8.0" textAdjust="StretchHeight" evaluationTime="Page" blankWhenNull="true">
 			<expression><![CDATA[$V{issuerAddress}+"\n"
 +$V{issuerContact}+"\n"
 +$V{issuerCompanyRegisterNumber}]]></expression>
@@ -179,6 +185,7 @@
 		<element kind="image" uuid="a5d0d701-7811-437a-a381-1885e2adb0b2" x="260" y="0" width="248" height="85" onErrorType="Blank" usingCache="true">
 			<expression><![CDATA[$P{logo} != null ? new java.io.ByteArrayInputStream($P{logo}) : null]]></expression>
 		</element>
+		<property name="com.jaspersoft.studio.unit.height" value="pixel"/>
 	</pageHeader>
 	<columnHeader splitType="Stretch">
 		<printWhenExpression><![CDATA[false]]></printWhenExpression>
@@ -201,7 +208,8 @@
 				<property name="com.jaspersoft.studio.unit.y" value="px"/>
 				<property name="com.jaspersoft.studio.unit.height" value="px"/>
 			</element>
-			<element kind="line" uuid="b4c0335f-dc7a-4163-a022-dc897d82fda7" x="1" y="0" width="1" height="37">
+			<element kind="line" uuid="b4c0335f-dc7a-4163-a022-dc897d82fda7" x="1" y="0" width="1" height="50">
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
 				<pen lineWidth="2.0" lineColor="#999999"/>
 			</element>
 			<element kind="textField" uuid="1790b2ac-2281-4d93-af26-c2eca61780d0" x="7" y="26" width="502" height="12" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
@@ -210,6 +218,14 @@
 (LEN(T($P{recipientBankName})) > 0 ? T($P{recipientBankName})+" | " : "")+
 (LEN(T($P{recipientBankIban})) > 0 ? T($P{recipientBankIban})+" | " : "")+
 (LEN(T($P{recipientBankOwner})) > 0 ? T($P{recipientBankOwner}) : "")]]></expression>
+				<property name="com.jaspersoft.studio.unit.x" value="px"/>
+				<property name="com.jaspersoft.studio.unit.y" value="px"/>
+				<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			</element>
+			<element kind="textField" uuid="e974c378-9226-47e9-b114-0d3cb54e58f4" x="7" y="38" width="502" height="12" fontSize="8.0" textAdjust="StretchHeight" blankWhenNull="true">
+				<printWhenExpression><![CDATA[LEN(T($P{recipientSepaMandateReference})) > 0]]></printWhenExpression>
+				<expression><![CDATA["SEPA Mandatsreferenz: "+T($P{recipientSepaMandateReference})]]></expression>
 				<property name="com.jaspersoft.studio.unit.x" value="px"/>
 				<property name="com.jaspersoft.studio.unit.y" value="px"/>
 				<property name="com.jaspersoft.studio.unit.width" value="px"/>
