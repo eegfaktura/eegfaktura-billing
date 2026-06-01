@@ -34,8 +34,9 @@ public class EmailService {
         if (!StringHelper.isNullOrEmptyString(cc)) {
             String[] ccArray = cc.split(";");
             helper.setCc(ccArray);
-            helper.setReplyTo(ccArray[0]);
-            message.setHeader("return-path", ccArray[0]);
+            // Remove replyTo and return Path header because it might increase SPAM score
+            // helper.setReplyTo(ccArray[0]);
+            // message.setHeader("return-path", ccArray[0]);
         }
         helper.setSubject(subject);
         helper.setText(htmlBody, true);
