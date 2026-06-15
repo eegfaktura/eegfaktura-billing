@@ -16,7 +16,10 @@ on:
 
 env:
   REGISTRY: "ghcr.io"
-  IMAGE_NAME: ${{ github.repository }}
+  # Image landet im Development-Tier (vfeeg-development), nicht im Release-Tier
+  # (eegfaktura). Siehe ADR-0005 im Platform-Repo. Repo-Name bleibt dynamisch,
+  # damit das Template ohne Aenderung in andere Source-Repos uebernehmbar ist.
+  IMAGE_NAME: vfeeg-development/${{ github.event.repository.name }}
 
 jobs:
   build-and-push-image:
@@ -65,11 +68,15 @@ jobs:
             org.opencontainers.image.repository.url=${{ github.event.repository.html_url || '' }}
 
       - name: Login to Container Registry
+        # Push cross-org nach vfeeg-development/* — GITHUB_TOKEN reicht dafuer
+        # nicht (scope ist auf den source-repo beschraenkt). Nutzen den Classic-PAT
+        # VFEEG_DEV_PUSH_PAT (write:packages auf vfeeg-development, 90-Tage-Expiry).
+        # GHCR validiert via Token, nicht via username — github.actor bleibt.
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.VFEEG_DEV_PUSH_PAT }}
 
       - name: Build and push Docker image
         id: push
