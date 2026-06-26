@@ -1,6 +1,6 @@
 ![eegfaktura Logo](https://github.com/eegfaktura/eegfaktura-billing/blob/master/eegfaktura-logo.PNG)
 
-# eegfaktura-billingj
+# eegfaktura-billing
 > Do the actual billing
 
 This service is part of the eegfaktura software. This software allows renewable energy communities (EEGs)
@@ -19,11 +19,14 @@ In order to run this container you'll need docker installed.
 
 ## Built with
 
-* Spring Boot 3.2.4
-* JDK 17
+* Spring Boot 3.5.3
+* Java 21
+* Maven
 * Flyway 9.16
-* JasperReports 6.21.2
-* OpenAPI 2.1.0
+* JasperReports 7.0.2
+* springdoc-openapi 2.3.0
+* Apache POI 5.4.1
+* PostgreSQL
 
 ## Developing
 
