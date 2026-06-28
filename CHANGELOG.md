@@ -1,29 +1,29 @@
 # Changelog
 
-Alle nennenswerten Änderungen an **eegfaktura-billing (Java Rechnungs-/Abrechnungs-Service)** werden hier dokumentiert.
+All notable changes to **eegfaktura-billing (Java invoicing/billing service)** are documented here.
 
-Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
-die Versionierung an den Deployment-Release-Tags. Detail-Diffs bleiben im `git log`;
-dieser Changelog hebt die für Überblick und Betrieb relevanten Änderungen hervor.
+The format is based on [Keep a Changelog](https://keepachangelog.com/), and
+versioning follows the deployment release tags. Detailed diffs stay in the `git log`;
+this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
 ## [1.0.0] – 2026-06-28
 
-Teil des einheitlichen Source-Build-Cutovers der eegfaktura-Suite.
+Part of the unified source-build cutover of the eegfaktura suite.
 
 ### Changed
-- CI: Push in den Development-Tier der Registry (ADR-0005). (#20)
-- Multi-Stage-Docker-Build mit Version-Glob im Runtime-Stage. (#18)
-- README mit Service-Überblick und Tech-Stack ergänzt. (#21)
+- CI: push to the registry's development tier (ADR-0005). (#20)
+- Multi-stage Docker build with a version glob in the runtime stage. (#18)
+- Added README with service overview and tech stack. (#21)
 
-## Frühere Releases
+## Earlier releases
 
-Vor dem 1.0.0-Cutover wurde billing eigenständig versioniert (`v0.1.9`–`v0.1.23`,
-2024-04 bis 2025-06). Vollständige Liste: [GitHub Releases](https://github.com/eegfaktura/eegfaktura-billing/releases).
-Auswahl:
+Before the 1.0.0 cutover, billing was versioned independently (`v0.1.9`–`v0.1.23`,
+2024-04 to 2025-06). Full list: [GitHub Releases](https://github.com/eegfaktura/eegfaktura-billing/releases).
+Selected:
 
-- **v0.1.23** (2025-06-28): JRXML-Template zeigt issuer/bank creditorId; u. a.
-  creditorId, SEPA-Lastschrift, Tarif-ID/Version in Rechnungen/XLSX-Export.
-- **v0.1.22** (2025-04-16): zusätzliche Mail-Header (Reply-To, Return-Path).
-- **v0.1.21** (2025-04-14) … **v0.1.9** (2024-04-04): siehe Releases.
+- **v0.1.23** (2025-06-28): JRXML template shows issuer/bank creditorId; among others
+  creditorId, SEPA direct debit, tariff ID/version in invoices/XLSX export.
+- **v0.1.22** (2025-04-16): additional mail headers (Reply-To, Return-Path).
+- **v0.1.21** (2025-04-14) … **v0.1.9** (2024-04-04): see releases.
