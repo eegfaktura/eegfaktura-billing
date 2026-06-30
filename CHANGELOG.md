@@ -8,6 +8,12 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.0.1] – 2026-06-30
+
+### Changed
+- Bump `jasperreports` 7.0.2 -> 7.0.4. (#24)
+- CI: Snyk Code (SAST) workflow + SARIF upload to code scanning. (#25, #26)
+
 ## [1.0.0] – 2026-06-28
 
 Part of the unified source-build cutover of the eegfaktura suite.
