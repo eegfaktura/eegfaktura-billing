@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   snyk-code:
@@ -24,4 +25,9 @@ jobs:
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk code test --severity-threshold=high
+        run: snyk code test --severity-threshold=high --sarif-file-output=snyk.sarif
+      - name: Upload SARIF to GitHub Code Scanning
+        if: ${{ always() && hashFiles('snyk.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@35632bdbd38dba649ce80e15482f7a399a32d400 # v3.27.9
+        with:
+          sarif_file: snyk.sarif
