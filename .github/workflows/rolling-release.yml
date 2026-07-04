@@ -11,6 +11,7 @@ on:
     branches:
       - master
       - main
+      - 'preview/**'
     tags:
       - v*
 
@@ -118,3 +119,30 @@ jobs:
           )
           echo "$PAYLOAD" | gh api repos/vfeeg-development/eegfaktura-platform/dispatches --input -
           echo "Dispatched deploy-billing for sha=${GITHUB_SHA:0:8}"
+
+  # Preview-Deploy (ADR-0007): Push auf preview/** -> pinned Deploy des sha-Builds
+  # in die Dev-Zone, ohne main/Release anzufassen. Nur auf preview/**-Branches.
+  dispatch-preview-deploy:
+    needs: build-and-push-image
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/preview/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger pinned preview deploy in platform repo
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_DEPLOY_PAT }}
+        run: |
+          PAYLOAD=$(cat <<EOF
+          {
+            "event_type": "deploy-billing",
+            "client_payload": {
+              "mode": "pinned",
+              "image_tag": "sha-${GITHUB_SHA:0:7}",
+              "source_sha": "${GITHUB_SHA}",
+              "source_repo": "${GITHUB_REPOSITORY}",
+              "source_ref": "${GITHUB_REF}"
+            }
+          }
+          EOF
+          )
+          echo "$PAYLOAD" | gh api repos/vfeeg-development/eegfaktura-platform/dispatches --input -
+          echo "Dispatched pinned preview deploy-billing for sha-${GITHUB_SHA:0:7}"
