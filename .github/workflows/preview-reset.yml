@@ -1,0 +1,20 @@
+# ADR-0007: Auto-Reset der Dev-Zone, wenn ein preview/**-Branch geloescht wird.
+# Feuert den bestehenden deploy-billing-Dispatch OHNE Payload -> Receiver macht latest
+# (rollout restart zieht :latest = main-Stand).
+name: Reset dev preview on branch delete
+
+on:
+  delete:
+
+jobs:
+  reset-preview:
+    if: github.event.ref_type == 'branch' && startsWith(github.event.ref, 'preview/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch latest-reset to platform
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_DEPLOY_PAT }}
+        run: |
+          gh api repos/vfeeg-development/eegfaktura-platform/dispatches \
+            -f event_type=deploy-billing
+          echo "Reset dev to :latest for billing (deleted ${{ github.event.ref }})"
