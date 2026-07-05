@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.0.2] – 2026-07-05
+
 ### Fixed
 - Mail send no longer hands raw recipient strings to the mail parser ("Illegal address",
   observed in prod for addresses with leading/trailing whitespace): to/cc are normalized per
@@ -23,6 +25,7 @@ this changelog highlights the changes relevant for overview and operations.
   issuer cc) are reported as a warning on the OK line, NOT as FEHLER — flagging a delivered
   invoice as failed would invite manual re-sends and duplicate invoices.
 - CI: Preview-Deployments (ADR-0007) — Push auf `preview/**` baut+deployt on-demand in die Dev-Zone (sha-pinned, kein `:latest`), Auto-Reset bei Branch-Delete.
+
 
 ## [1.0.1] – 2026-06-30
 
