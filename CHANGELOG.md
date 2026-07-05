@@ -19,7 +19,9 @@ this changelog highlights the changes relevant for overview and operations.
 ### Changed
 - Billing run send protocol: a failed send now names the member (participant number + name)
   next to the address — a blank/garbage address used to produce an unattributable
-  "  FEHLER" entry.
+  "  FEHLER" entry. Rejected address parts on an otherwise delivered mail (e.g. an invalid
+  issuer cc) are reported as a warning on the OK line, NOT as FEHLER — flagging a delivered
+  invoice as failed would invite manual re-sends and duplicate invoices.
 
 ## [1.0.0] – 2026-06-28
 
