@@ -22,6 +22,13 @@ this changelog highlights the changes relevant for overview and operations.
   "  FEHLER" entry. Rejected address parts on an otherwise delivered mail (e.g. an invalid
   issuer cc) are reported as a warning on the OK line, NOT as FEHLER — flagging a delivered
   invoice as failed would invite manual re-sends and duplicate invoices.
+- CI: Preview-Deployments (ADR-0007) — Push auf `preview/**` baut+deployt on-demand in die Dev-Zone (sha-pinned, kein `:latest`), Auto-Reset bei Branch-Delete.
+
+## [1.0.1] – 2026-06-30
+
+### Changed
+- Bump `jasperreports` 7.0.2 -> 7.0.4. (#24)
+- CI: Snyk Code (SAST) workflow + SARIF upload to code scanning. (#25, #26)
 
 ## [1.0.0] – 2026-06-28
 
