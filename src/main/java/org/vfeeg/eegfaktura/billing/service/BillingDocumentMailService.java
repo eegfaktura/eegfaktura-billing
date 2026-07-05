@@ -125,8 +125,14 @@ public class BillingDocumentMailService {
                     billingDocument.getBillingDocumentType()) + " " +billingDocument.getClearingPeriodIdentifier();
             String htmlBody = FreeMarkerTemplateUtils.processTemplateIntoString(freemarkerTemplate, templateModel);
 
-            emailService.sendEmail(
+            var rejected = emailService.sendEmail(
                     from,to, cc, subject, htmlBody, attachments);
+            if (!rejected.isEmpty()) {
+                // Delivery to the valid recipients already happened —
+                // surface the invalid parts so the run protocol shows them.
+                throw new RuntimeException("ungültige Empfänger nicht zugestellt: "
+                        + String.join(";", rejected));
+            }
         } catch (Exception e) {
             throw new RuntimeException("Mailversand ("+billingDocument.getRecipientEmail()+") fehlgeschlagen aufgrund: "+e.getMessage(), e);
         }
@@ -160,7 +166,13 @@ public class BillingDocumentMailService {
                 sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" OK,");
             } catch (Exception e) {
                 log.error("Failed to send mail: {}", e.getMessage(), e);
-                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" FEHLER,");
+                // Identify the member behind the failed address — with a
+                // blank/garbage address the bare e-mail ("  FEHLER") is
+                // impossible to attribute for the tenant admin.
+                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail())
+                        .append(" (MitgliedsNr ").append(billingDocument.getRecipientParticipantNumber())
+                        .append(", ").append(billingDocument.getRecipientName()).append(")")
+                        .append(" FEHLER,");
             }
         }
         billingRun.setMailStatus("SENT");
