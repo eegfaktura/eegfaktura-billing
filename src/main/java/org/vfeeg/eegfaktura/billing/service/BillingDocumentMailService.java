@@ -26,6 +26,7 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -85,7 +86,7 @@ public class BillingDocumentMailService {
         return defaultTemplate;
     }
 
-    private void createAndSendMail(BillingDocument billingDocument) {
+    private List<String> createAndSendMail(BillingDocument billingDocument) {
 
         try {
             List<BillingDocumentFile> billingDocumentFiles = billingDocumentFileRepository.findByBillingDocumentId(
@@ -125,7 +126,11 @@ public class BillingDocumentMailService {
                     billingDocument.getBillingDocumentType()) + " " +billingDocument.getClearingPeriodIdentifier();
             String htmlBody = FreeMarkerTemplateUtils.processTemplateIntoString(freemarkerTemplate, templateModel);
 
-            emailService.sendEmail(
+            // Rejected parts are NOT a failed send — the mail went out to
+            // the valid recipients. Reporting them as FEHLER would trigger
+            // manual re-sends (duplicate invoices); they surface as a
+            // warning in the run protocol instead.
+            return emailService.sendEmail(
                     from,to, cc, subject, htmlBody, attachments);
         } catch (Exception e) {
             throw new RuntimeException("Mailversand ("+billingDocument.getRecipientEmail()+") fehlgeschlagen aufgrund: "+e.getMessage(), e);
@@ -156,11 +161,24 @@ public class BillingDocumentMailService {
                 .append(": ");
         for(BillingDocument billingDocument : billingDocuments) {
             try {
-                createAndSendMail(billingDocument);
-                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" OK,");
+                var rejected = createAndSendMail(billingDocument);
+                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" OK");
+                if (!rejected.isEmpty()) {
+                    // Delivered, but some address parts (e.g. an invalid cc)
+                    // were dropped — warn without flagging the send as failed.
+                    sendProtocolStringBuilder.append(" (nicht zugestellt an ungültige Adresse: ")
+                            .append(String.join(";", rejected)).append(")");
+                }
+                sendProtocolStringBuilder.append(",");
             } catch (Exception e) {
                 log.error("Failed to send mail: {}", e.getMessage(), e);
-                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" FEHLER,");
+                // Identify the member behind the failed address — with a
+                // blank/garbage address the bare e-mail ("  FEHLER") is
+                // impossible to attribute for the tenant admin.
+                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail())
+                        .append(" (MitgliedsNr ").append(Objects.toString(billingDocument.getRecipientParticipantNumber(), "-"))
+                        .append(", ").append(Objects.toString(billingDocument.getRecipientName(), "-")).append(")")
+                        .append(" FEHLER,");
             }
         }
         billingRun.setMailStatus("SENT");
