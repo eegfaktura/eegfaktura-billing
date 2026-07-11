@@ -201,7 +201,7 @@ public class BillingPdfService {
             if (discountPercent != null) {
                 header.append(" (Rabatt ").append(BigDecimalTools.makeGermanString(discountPercent, "%")).append(")");
             }
-            rows.add(labelOnlyRow("<b>" + escapeStyled(header.toString()) + "</b>"));
+            rows.add(labelOnlyRow("<b>" + escapeStyled(header.toString()) + "</b>", "H"));
 
             BigDecimal netSum = BigDecimal.ZERO;
             BigDecimal vatSum = BigDecimal.ZERO;
@@ -211,6 +211,7 @@ public class BillingPdfService {
                 row.put("text", escapeStyled(blockRowText(item, meteringPointId)));
                 // Rabatt steht in der Blockkopfzeile - Zeilen-Suffix unterdruecken
                 row.put("discountPercent", "0,00 %");
+                row.put("rowType", "I");
                 rows.add(row);
                 netSum = netSum.add(BigDecimalTools.makeZeroIfNull(item.getNetValue()));
                 vatSum = vatSum.add(BigDecimalTools.makeZeroIfNull(item.getVatValueInEuro()));
@@ -218,7 +219,7 @@ public class BillingPdfService {
             }
 
             HashMap<String, String> subtotal = labelOnlyRow(
-                    "<b>" + escapeStyled("Zwischensumme Zählpunkt " + meteringPointId) + "</b>");
+                    "<b>" + escapeStyled("Zwischensumme Zählpunkt " + meteringPointId) + "</b>", "S");
             subtotal.put("netValue", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(netSum, "€")) + "</b>");
             subtotal.put("vatPercent", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(vatSum, "€")) + "</b>");
             subtotal.put("grossValue", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(grossSum, "€")) + "</b>");
@@ -230,6 +231,7 @@ public class BillingPdfService {
         for (BillingDocumentItem item : participantLevelItems) {
             HashMap<String, String> row = createParamMapForItem(item);
             row.put("text", escapeStyled(row.get("text")));
+            row.put("rowType", "I");
             rows.add(row);
         }
         return rows;
@@ -264,7 +266,7 @@ public class BillingPdfService {
         return item.getText() != null && item.getText().startsWith(BillingService.ZAEHLPUNKTGEBUEHR_TEXT);
     }
 
-    private static HashMap<String, String> labelOnlyRow(String styledText) {
+    private static HashMap<String, String> labelOnlyRow(String styledText, String rowType) {
         HashMap<String, String> row = new HashMap<>();
         row.put("text", styledText);
         row.put("amount", "");
@@ -274,6 +276,7 @@ public class BillingPdfService {
         row.put("vatValueInEuro", "");
         row.put("grossValue", "");
         row.put("discountPercent", "0,00 %"); // unterdrueckt den "Rabatt:"-Zeilen-Suffix
+        row.put("rowType", rowType);          // H=Blockkopf, S=Zwischensumme (grau hinterlegt)
         return row;
     }
 
