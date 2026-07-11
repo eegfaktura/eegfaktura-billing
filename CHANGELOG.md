@@ -8,7 +8,32 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Added
+- **Time-of-use tariffs (ZVT)**: a time-based tariff prices up to two named
+  daytime windows (T1/T2) plus a base price. The caller (web) sends per
+  metering point the window sums from energystore (`allocations[].buckets:
+  [{key: BASE|T1|T2, kWh}]`) plus the used window definitions
+  (`allocations[].timeWindows`) — billing prices each bucket separately
+  (1–3 positions per metering point, labels `Tarif: Basis` /
+  `Tarif: <Name> (HH:MM - HH:MM)`), discount/VAT/rounding per position as
+  before. Fail-loud contract guards: a time-based tariff without buckets, a
+  mismatch between the sent windows and the current masterdata windows (the
+  view is live, no tariff snapshot) or buckets on a simple tariff abort the
+  run with a clear error (`FAILED` + errorSummary in the async path). New
+  masterdata fields come from the extended backend view
+  `base.billing_masterdata` (no billing-side Flyway). Free kWh remain
+  simple-mode-only.
+
 ### Changed
+- **PDF layout: items are now grouped per metering point on ALL documents**
+  (invoice, credit note, RC credit note, info): a bold block header
+  `Zählpunkt <nr> - <name> (Rabatt xx %)`, the item rows without the
+  repeated metering point id, the metering point fee inside its block, and
+  a bold `Zwischensumme Zählpunkt <nr>` (net/VAT/gross) per block.
+  Participant-level positions (membership fee) follow after the blocks.
+  Metering point fee items now carry the `metering_point_id` (grouping
+  key); per-metering-point amounts in the API aggregate multiple positions
+  per metering point into one entry.
 - **Billing run is now asynchronous** (`POST /api/billing` → `202 Accepted` + `billingRunId`,
   progress via polling `GET /api/billingRuns/{id}`): the synchronous call used to run for
   minutes on large communities, hit proxy timeouts (504 while the run kept going server-side)
@@ -22,7 +47,6 @@ this changelog highlights the changes relevant for overview and operations.
   Preview runs end back at `NEW` (unchanged semantics), final runs at `DONE`;
   `DONE`/`CANCELLED` still reject new starts.
 
-### Added
 - Flyway `V1_15`: `billing_run.error_summary` column + unique index on
   `(tenant_id, clearing_period_type, clearing_period_identifier)` (closes the first-creation
   race of two parallel starts; fails visibly if pre-existing duplicate rows need manual cleanup).
