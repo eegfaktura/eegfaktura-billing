@@ -219,7 +219,7 @@ public class BillingPdfService {
             }
 
             HashMap<String, String> subtotal = labelOnlyRow(
-                    "<b>" + escapeStyled("Zwischensumme Zählpunkt " + meteringPointId) + "</b>", "S");
+                    "<b>" + escapeStyled("Zwischensumme Zählpunkt") + "</b>", "S");
             subtotal.put("netValue", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(netSum, "€")) + "</b>");
             subtotal.put("vatPercent", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(vatSum, "€")) + "</b>");
             subtotal.put("grossValue", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(grossSum, "€")) + "</b>");
