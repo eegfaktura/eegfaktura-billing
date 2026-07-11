@@ -36,7 +36,8 @@ this changelog highlights the changes relevant for overview and operations.
   per metering point into one entry. The `Zwischensumme Zählpunkt` row is
   framed by a faint separator line above and below (no line between the
   individual tariff-variant rows, no grey background); the subtotal label
-  reads `Zwischensumme Zählpunkt` without the metering point id.
+  reads `Zwischensumme Zählpunkt` without the metering point id and also
+  shows the summed energy amount (kWh) of the block's energy positions.
 - **Billing run is now asynchronous** (`POST /api/billing` → `202 Accepted` + `billingRunId`,
   progress via polling `GET /api/billingRuns/{id}`): the synchronous call used to run for
   minutes on large communities, hit proxy timeouts (504 while the run kept going server-side)
