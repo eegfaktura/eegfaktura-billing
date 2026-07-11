@@ -31,8 +31,23 @@ public class BillingRunLauncher {
             billingService.executeBillingRun(billingRunId, doBillingParams);
         } catch (Exception e) {
             log.error("Abrechnung fehlgeschlagen (billingRunId={})", billingRunId, e);
-            billingService.markBillingRunFailed(billingRunId,
-                    "Abrechnung fehlgeschlagen: " + e.getMessage());
+            billingService.markBillingRunFailed(billingRunId, toErrorSummary(e));
         }
+    }
+
+    /**
+     * errorSummary geht via BillingRunDTO an den Client: fachliche Meldungen
+     * (eigene RuntimeExceptions) durchreichen, technische Exceptions (DB/
+     * Persistenz - koennen SQL-/Schema-Details enthalten) nur generisch
+     * zusammenfassen; Details stehen im Server-Log (Security-Review-Finding).
+     */
+    private static String toErrorSummary(Exception e) {
+        boolean technical = e instanceof org.springframework.dao.DataAccessException
+                || e instanceof jakarta.persistence.PersistenceException
+                || e instanceof java.sql.SQLException
+                || e.getMessage() == null;
+        return technical
+                ? "Abrechnung fehlgeschlagen: technischer Fehler - Details im Server-Log."
+                : "Abrechnung fehlgeschlagen: " + e.getMessage();
     }
 }

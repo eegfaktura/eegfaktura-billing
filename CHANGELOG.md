@@ -26,6 +26,7 @@ this changelog highlights the changes relevant for overview and operations.
 - Flyway `V1_15`: `billing_run.error_summary` column + unique index on
   `(tenant_id, clearing_period_type, clearing_period_identifier)` (closes the first-creation
   race of two parallel starts; fails visibly if pre-existing duplicate rows need manual cleanup).
+- OCI image labels (title, description, vendor, licenses) for registry and SBOM consumers. (#34)
 
 ### Security
 - The runtime image now starts from `eclipse-temurin:21-jre-jammy` instead of the full JDK
