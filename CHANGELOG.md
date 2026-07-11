@@ -8,6 +8,25 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Changed
+- **Billing run is now asynchronous** (`POST /api/billing` → `202 Accepted` + `billingRunId`,
+  progress via polling `GET /api/billingRuns/{id}`): the synchronous call used to run for
+  minutes on large communities, hit proxy timeouts (504 while the run kept going server-side)
+  and an impatient second click queued a full second run behind the per-tenant in-memory lock.
+  Duplicate starts now get `409 Conflict` with the id of the already-running run; a full
+  executor answers `503` and rolls the status claim back. The in-memory lock is replaced by an
+  atomic DB status claim (`RUNNING` only from `NEW`/`FAILED`) — safe across replicas.
+- `BillingRunStatus` gains `RUNNING` and `FAILED` (appended — ordinal mapping!); a failed run
+  persists a short `errorSummary` on the billing run (previously the error only lived in the
+  ephemeral HTTP response) and can be restarted (cleanup of partial documents included).
+  Preview runs end back at `NEW` (unchanged semantics), final runs at `DONE`;
+  `DONE`/`CANCELLED` still reject new starts.
+
+### Added
+- Flyway `V1_15`: `billing_run.error_summary` column + unique index on
+  `(tenant_id, clearing_period_type, clearing_period_identifier)` (closes the first-creation
+  race of two parallel starts; fails visibly if pre-existing duplicate rows need manual cleanup).
+
 ## [1.0.2] – 2026-07-05
 
 ### Fixed
