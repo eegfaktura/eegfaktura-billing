@@ -206,6 +206,8 @@ public class BillingPdfService {
             BigDecimal netSum = BigDecimal.ZERO;
             BigDecimal vatSum = BigDecimal.ZERO;
             BigDecimal grossSum = BigDecimal.ZERO;
+            BigDecimal amountSum = BigDecimal.ZERO;
+            boolean hasEnergy = false;
             for (BillingDocumentItem item : blockItems) {
                 HashMap<String, String> row = createParamMapForItem(item);
                 row.put("text", escapeStyled(blockRowText(item, meteringPointId)));
@@ -216,10 +218,18 @@ public class BillingPdfService {
                 netSum = netSum.add(BigDecimalTools.makeZeroIfNull(item.getNetValue()));
                 vatSum = vatSum.add(BigDecimalTools.makeZeroIfNull(item.getVatValueInEuro()));
                 grossSum = grossSum.add(BigDecimalTools.makeZeroIfNull(item.getGrossValue()));
+                // Nur Energiepositionen tragen eine kWh-Menge (Zaehlpunktgebuehr nicht)
+                if (item.getMeteringPointType() != null) {
+                    amountSum = amountSum.add(BigDecimalTools.makeZeroIfNull(item.getAmount()));
+                    hasEnergy = true;
+                }
             }
 
             HashMap<String, String> subtotal = labelOnlyRow(
                     "<b>" + escapeStyled("Zwischensumme Zählpunkt") + "</b>", "S");
+            if (hasEnergy) {
+                subtotal.put("amount", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(amountSum, "kWh")) + "</b>");
+            }
             subtotal.put("netValue", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(netSum, "€")) + "</b>");
             subtotal.put("vatPercent", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(vatSum, "€")) + "</b>");
             subtotal.put("grossValue", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(grossSum, "€")) + "</b>");

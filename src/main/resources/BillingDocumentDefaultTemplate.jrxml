@@ -298,7 +298,7 @@
 								<printWhenExpression><![CDATA["S".equals($F{rowType})]]></printWhenExpression>
 								<pen lineWidth="0.5" lineColor="#D0D0D0"/>
 							</element>
-							<element kind="textField" uuid="4c381b98-0be0-4cdf-84c1-4a380301f8eb" x="3" y="2" width="54" height="12" fontSize="8.0" textAdjust="StretchHeight" hTextAlign="Right">
+							<element kind="textField" uuid="4c381b98-0be0-4cdf-84c1-4a380301f8eb" x="3" y="2" width="54" height="12" fontSize="8.0" markup="styled" textAdjust="StretchHeight" hTextAlign="Right">
 								<expression><![CDATA[$F{amount}]]></expression>
 								<property name="com.jaspersoft.studio.unit.width" value="pixel"/>
 							</element>
