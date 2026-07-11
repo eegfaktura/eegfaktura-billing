@@ -205,7 +205,7 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getMeteringPointType() != null ?
                     billingDocumentItem.getMeteringPointType() == MeteringPointType.PRODUCER ?
                             "Erzeuger" : "Verbraucher" : "" , style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getText(), style);
+            createCell(xssfSheet, row, columnNumber++, xlsxPositionText(billingDocumentItem), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getAmount(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getMeteringPointType()!=null ?
                     "kWh" : "", style);
@@ -217,14 +217,52 @@ public class BillingDocumentXlsxService {
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getVatPercent(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getVatValueInEuro(), style);
             createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getGrossValue(), style);
-            createCell(xssfSheet, row, columnNumber++, billingDocumentItem.getTariffName() != null
-                    ? billingDocumentItem.getTariffName() : "", style);
+            createCell(xssfSheet, row, columnNumber++, xlsxPositionTariff(billingDocumentItem), style);
             createCell(xssfSheet, row, columnNumber++, billingDocument.getRecipientFirstname() != null
                     ? billingDocument.getRecipientFirstname() : "", style);
             createCell(xssfSheet, row, columnNumber, billingDocument.getRecipientLastname() != null
                     ? billingDocument.getRecipientLastname() : "", style);
         }
     }
+    /**
+     * Spalte "Pos. Text": fuer Erzeuger-/Verbraucher-Positionen nur die
+     * Anlagen-/Zaehlpunkt-Zeilen (Anlage-Name / Anlage-Nr. / ZP), ohne das
+     * ZVT-Fensterlabel ("Tarif: ...") und den freeKWh-Zusatz ("Menge (...").
+     */
+    private static String xlsxPositionText(BillingDocumentItem item) {
+        String text = item.getText();
+        if (text == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (String line : text.split("\n")) {
+            if (line.startsWith("Tarif:") || line.startsWith("Menge (")) continue;
+            if (sb.length() > 0) sb.append("\n");
+            sb.append(line);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Spalte "Pos. Tarif": bei zeitbasierten Positionen die Auspraegung als
+     * "<Tarifname> - <Zeitraum-Name>" (Basis / Zeitraum-1 / Zeitraum-2); bei
+     * Einfach-Positionen unveraendert der Tarifname.
+     */
+    private static String xlsxPositionTariff(BillingDocumentItem item) {
+        String tariffName = item.getTariffName() != null ? item.getTariffName() : "";
+        String text = item.getText();
+        if (text != null) {
+            for (String line : text.split("\n")) {
+                if (line.startsWith("Tarif:")) {
+                    String zone = line.substring("Tarif:".length()).trim();
+                    int p = zone.indexOf(" (");        // Zeiten "(HH:MM - HH:MM)" abschneiden
+                    String zoneName = p > 0 ? zone.substring(0, p).trim() : zone;
+                    if (zoneName.isEmpty()) zoneName = zone; // leerer Fenstername -> ganze Auspraegung
+                    return tariffName.isEmpty() ? zoneName : tariffName + " - " + zoneName;
+                }
+            }
+        }
+        return tariffName;
+    }
+
     public byte[] createXlsx (UUID billingRunId) throws IOException {
 
         List<BillingDocument> billingDocuments = billingDocumentRepository.findByBillingRunId(billingRunId);
