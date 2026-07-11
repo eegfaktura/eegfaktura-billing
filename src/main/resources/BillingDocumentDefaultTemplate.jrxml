@@ -259,18 +259,14 @@
 								<bottomPen lineWidth="1.0" lineStyle="Solid"/>
 							</box>
 						</columnHeader>
-						<detailCell height="25">
-							<element kind="rectangle" uuid="00000001-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="200" height="25" mode="Opaque" forecolor="#E4E4E4" backcolor="#E4E4E4" stretchType="ContainerHeight">
-								<printWhenExpression><![CDATA["H".equals($F{rowType}) || "S".equals($F{rowType})]]></printWhenExpression>
-								<pen lineWidth="0.0"/>
-							</element>
-							<element kind="textField" uuid="076bb6e8-fa9a-4d53-a9fc-9e6f61986264" x="3" y="3" width="194" height="19" fontSize="8.0" markup="styled" textAdjust="StretchHeight">
+						<detailCell height="16">
+							<element kind="textField" uuid="076bb6e8-fa9a-4d53-a9fc-9e6f61986264" x="3" y="2" width="194" height="12" fontSize="8.0" markup="styled" textAdjust="StretchHeight">
 								<expression><![CDATA[$F{text}
 +(!T($F{discountPercent}).startsWith("0,00") ? "\nRabatt: "+$F{discountPercent} : "")]]></expression>
 							</element>
 							<property name="com.jaspersoft.studio.unit.width" value="px"/>
 							<property name="com.jaspersoft.studio.unit.height" value="px"/>
-							<box padding="0"/>
+							<box padding="0"><bottomPen lineWidth="0.5" lineColor="#D0D0D0"/></box>
 						</detailCell>
 						<property name="com.jaspersoft.studio.components.table.model.column.name" value="Column1"/>
 						<property name="com.jaspersoft.studio.unit.width" value="px"/>
@@ -285,17 +281,13 @@
 								<bottomPen lineWidth="1.0" lineStyle="Solid"/>
 							</box>
 						</columnHeader>
-						<detailCell height="25">
-							<element kind="rectangle" uuid="00000002-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="60" height="25" mode="Opaque" forecolor="#E4E4E4" backcolor="#E4E4E4" stretchType="ContainerHeight">
-								<printWhenExpression><![CDATA["H".equals($F{rowType}) || "S".equals($F{rowType})]]></printWhenExpression>
-								<pen lineWidth="0.0"/>
-							</element>
-							<element kind="textField" uuid="4c381b98-0be0-4cdf-84c1-4a380301f8eb" x="3" y="3" width="54" height="19" fontSize="8.0" textAdjust="StretchHeight" hTextAlign="Right">
+						<detailCell height="16">
+							<element kind="textField" uuid="4c381b98-0be0-4cdf-84c1-4a380301f8eb" x="3" y="2" width="54" height="12" fontSize="8.0" textAdjust="StretchHeight" hTextAlign="Right">
 								<expression><![CDATA[$F{amount}]]></expression>
 								<property name="com.jaspersoft.studio.unit.width" value="pixel"/>
 							</element>
 							<property name="com.jaspersoft.studio.unit.width" value="px"/>
-							<box padding="0"/>
+							<box padding="0"><bottomPen lineWidth="0.5" lineColor="#D0D0D0"/></box>
 						</detailCell>
 						<property name="com.jaspersoft.studio.components.table.model.column.name" value="Column2"/>
 						<property name="com.jaspersoft.studio.unit.width" value="px"/>
@@ -311,16 +303,12 @@
 								<bottomPen lineWidth="1.0" lineStyle="Solid"/>
 							</box>
 						</columnHeader>
-						<detailCell height="25">
-							<element kind="rectangle" uuid="00000003-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="60" height="25" mode="Opaque" forecolor="#E4E4E4" backcolor="#E4E4E4" stretchType="ContainerHeight">
-								<printWhenExpression><![CDATA["H".equals($F{rowType}) || "S".equals($F{rowType})]]></printWhenExpression>
-								<pen lineWidth="0.0"/>
-							</element>
-							<element kind="textField" uuid="05bcd929-b265-44ad-bf2f-903667647fd5" x="3" y="3" width="54" height="19" fontSize="8.0" textAdjust="StretchHeight" hTextAlign="Right">
+						<detailCell height="16">
+							<element kind="textField" uuid="05bcd929-b265-44ad-bf2f-903667647fd5" x="3" y="2" width="54" height="12" fontSize="8.0" textAdjust="StretchHeight" hTextAlign="Right">
 								<expression><![CDATA[$F{pricePerUnit}]]></expression>
 							</element>
 							<property name="com.jaspersoft.studio.unit.width" value="px"/>
-							<box padding="0"/>
+							<box padding="0"><bottomPen lineWidth="0.5" lineColor="#D0D0D0"/></box>
 						</detailCell>
 						<property name="com.jaspersoft.studio.components.table.model.column.name" value="Column3"/>
 						<property name="com.jaspersoft.studio.unit.width" value="px"/>
@@ -335,16 +323,12 @@
 								<bottomPen lineWidth="1.0" lineStyle="Solid"/>
 							</box>
 						</columnHeader>
-						<detailCell height="25">
-							<element kind="rectangle" uuid="00000004-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="60" height="25" mode="Opaque" forecolor="#E4E4E4" backcolor="#E4E4E4" stretchType="ContainerHeight">
-								<printWhenExpression><![CDATA["H".equals($F{rowType}) || "S".equals($F{rowType})]]></printWhenExpression>
-								<pen lineWidth="0.0"/>
-							</element>
-							<element kind="textField" uuid="dd0369c0-3249-4a7a-93d6-36d9bfb32208" x="3" y="3" width="54" height="19" fontSize="8.0" markup="styled" textAdjust="StretchHeight" hTextAlign="Right">
+						<detailCell height="16">
+							<element kind="textField" uuid="dd0369c0-3249-4a7a-93d6-36d9bfb32208" x="3" y="2" width="54" height="12" fontSize="8.0" markup="styled" textAdjust="StretchHeight" hTextAlign="Right">
 								<expression><![CDATA[$F{netValue}]]></expression>
 							</element>
 							<property name="com.jaspersoft.studio.unit.width" value="px"/>
-							<box padding="0">
+							<box padding="0"><bottomPen lineWidth="0.5" lineColor="#D0D0D0"/>
 								<rightPen lineWidth="0.0"/>
 							</box>
 						</detailCell>
@@ -361,16 +345,12 @@
 								<bottomPen lineWidth="1.0" lineStyle="Solid"/>
 							</box>
 						</columnHeader>
-						<detailCell height="25">
-							<element kind="rectangle" uuid="00000005-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="60" height="25" mode="Opaque" forecolor="#E4E4E4" backcolor="#E4E4E4" stretchType="ContainerHeight">
-								<printWhenExpression><![CDATA["H".equals($F{rowType}) || "S".equals($F{rowType})]]></printWhenExpression>
-								<pen lineWidth="0.0"/>
-							</element>
-							<element kind="textField" uuid="23dc9741-c19c-4e48-9f9c-619974198b35" x="3" y="3" width="54" height="19" fontSize="8.0" markup="styled" textAdjust="StretchHeight" hTextAlign="Right">
+						<detailCell height="16">
+							<element kind="textField" uuid="23dc9741-c19c-4e48-9f9c-619974198b35" x="3" y="2" width="54" height="12" fontSize="8.0" markup="styled" textAdjust="StretchHeight" hTextAlign="Right">
 								<expression><![CDATA[$F{vatPercent}]]></expression>
 							</element>
 							<property name="com.jaspersoft.studio.unit.width" value="px"/>
-							<box padding="0"/>
+							<box padding="0"><bottomPen lineWidth="0.5" lineColor="#D0D0D0"/></box>
 						</detailCell>
 						<property name="com.jaspersoft.studio.components.table.model.column.name" value="Column5"/>
 						<property name="com.jaspersoft.studio.unit.width" value="px"/>
@@ -386,16 +366,12 @@
 								<bottomPen lineWidth="1.0" lineStyle="Solid"/>
 							</box>
 						</columnHeader>
-						<detailCell height="25">
-							<element kind="rectangle" uuid="00000006-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="60" height="25" mode="Opaque" forecolor="#E4E4E4" backcolor="#E4E4E4" stretchType="ContainerHeight">
-								<printWhenExpression><![CDATA["H".equals($F{rowType}) || "S".equals($F{rowType})]]></printWhenExpression>
-								<pen lineWidth="0.0"/>
-							</element>
-							<element kind="textField" uuid="892b5ed8-9d95-4bfc-9f79-9268e341b7a0" x="3" y="3" width="54" height="19" fontSize="8.0" markup="styled" textAdjust="StretchHeight" hTextAlign="Right">
+						<detailCell height="16">
+							<element kind="textField" uuid="892b5ed8-9d95-4bfc-9f79-9268e341b7a0" x="3" y="2" width="54" height="12" fontSize="8.0" markup="styled" textAdjust="StretchHeight" hTextAlign="Right">
 								<expression><![CDATA[$F{grossValue}]]></expression>
 							</element>
 							<property name="com.jaspersoft.studio.unit.width" value="px"/>
-							<box padding="0"/>
+							<box padding="0"><bottomPen lineWidth="0.5" lineColor="#D0D0D0"/></box>
 						</detailCell>
 						<property name="com.jaspersoft.studio.components.table.model.column.name" value="Column6"/>
 						<property name="com.jaspersoft.studio.unit.width" value="px"/>
