@@ -15,6 +15,7 @@ import org.vfeeg.eegfaktura.billing.util.ClearingPeriodIdentifierTool;
 import org.vfeeg.eegfaktura.billing.util.StringTools;
 
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -48,6 +49,7 @@ public class BillingPdfService {
     }
 
     public BillingDocumentFile createAndSavePDF(final BillingDocument document, final List<BillingDocumentItem> items,
+                                                final Map<String, String> meteringPointNames,
                                                 final UUID headerImageFileDataId, final UUID footerImageFileDataId,
                                                 boolean isPreview)  {
 
@@ -106,24 +108,22 @@ public class BillingPdfService {
             Optional<FileData> footerImageFileData = fileDataRepository.findById(footerImageFileDataId);
             footerImageFileData.ifPresent(fileData -> parameters.put("footerImage", fileData.getData()));
         }
-        ArrayList<Map<String,?>> itemsParameters = new ArrayList<>();
+        // Dokumenttexte der Tarife sammeln (unveraendert), Items dagegen je
+        // Zaehlpunkt als Block rendern: Kopfzeile, Positionszeilen, Zwischensumme.
         ArrayList<String> documentTextsFromTariffs = new ArrayList<>();
-        for (BillingDocumentItem billingDocumentItem : items.stream().sorted(
-                Comparator.comparing(BillingDocumentItem::getText)).toList()) {
-            HashMap<String,String> itemParameters = createParamMapForItem(billingDocumentItem);
-            itemsParameters.add(itemParameters);
+        for (BillingDocumentItem billingDocumentItem : items) {
             String billingDocumentItemDocumentText = billingDocumentItem.getDocumentText();
             if (!ObjectUtils.isEmpty(billingDocumentItemDocumentText)
                     && !documentTextsFromTariffs.contains(billingDocumentItemDocumentText)) {
                 documentTextsFromTariffs.add(billingDocumentItemDocumentText);
             }
         }
-        itemsParameters.sort(Comparator.comparing(o -> ((String) o.get("text"))));
         parameters.put("afterItemsText", StringTools.nullSafeJoin("\n"
                 , String.join("\n", documentTextsFromTariffs)
                 , document.getAfterItemsText()));
 
-        parameters.put("items", new JRMapCollectionDataSource(itemsParameters));
+        parameters.put("items", new JRMapCollectionDataSource(
+                buildGroupedItemRows(items, meteringPointNames)));
 
         byte[] pdfDataBytes;
         try {
@@ -157,6 +157,130 @@ public class BillingPdfService {
         pdfFile.setFileDataId(pdfFileData.getId());
         return billingDocumentFileRepository.save(pdfFile);
 
+    }
+
+    /**
+     * Baut die Tabellenzeilen: je Zaehlpunkt ein Block (Kopfzeile fett,
+     * Positionszeilen, Zwischensumme fett), danach die Teilnehmer-Positionen
+     * ohne Zaehlpunkt (z.B. Mitgliedsbeitrag). Die Detailzellen des Templates
+     * rendern styled markup - alle Texte werden escaped, fette Zeilen in
+     * <b>...</b> gesetzt.
+     */
+    private ArrayList<Map<String,?>> buildGroupedItemRows(List<BillingDocumentItem> items,
+                                                          Map<String, String> meteringPointNames) {
+        ArrayList<Map<String,?>> rows = new ArrayList<>();
+
+        // Bloecke: alle Items mit Zaehlpunkt, sortiert nach ZP-Nummer;
+        // Reihenfolge innerhalb des Blocks = Erzeugungsreihenfolge (Basis, T1, T2, Gebuehr).
+        Map<String, List<BillingDocumentItem>> blocks = new TreeMap<>();
+        List<BillingDocumentItem> participantLevelItems = new ArrayList<>();
+        for (BillingDocumentItem item : items) {
+            if (item.getMeteringPointId() != null) {
+                blocks.computeIfAbsent(item.getMeteringPointId(), k -> new ArrayList<>()).add(item);
+            } else {
+                participantLevelItems.add(item);
+            }
+        }
+
+        for (Map.Entry<String, List<BillingDocumentItem>> block : blocks.entrySet()) {
+            String meteringPointId = block.getKey();
+            List<BillingDocumentItem> blockItems = block.getValue();
+
+            // Rabatt der Energie-Positionen (ein Rabatt fuer alle) -> Kopfzeile
+            BigDecimal discountPercent = blockItems.stream()
+                    .filter(i -> !isMeteringPointFeeItem(i))
+                    .map(BillingDocumentItem::getDiscountPercent)
+                    .filter(d -> !BigDecimalTools.isNullOrZero(d))
+                    .findFirst().orElse(null);
+
+            String name = meteringPointNames != null ? meteringPointNames.get(meteringPointId) : null;
+            StringBuilder header = new StringBuilder("Zählpunkt ").append(meteringPointId);
+            if (!ObjectUtils.isEmpty(name)) {
+                header.append(" - ").append(name);
+            }
+            if (discountPercent != null) {
+                header.append(" (Rabatt ").append(BigDecimalTools.makeGermanString(discountPercent, "%")).append(")");
+            }
+            rows.add(labelOnlyRow("<b>" + escapeStyled(header.toString()) + "</b>"));
+
+            BigDecimal netSum = BigDecimal.ZERO;
+            BigDecimal vatSum = BigDecimal.ZERO;
+            BigDecimal grossSum = BigDecimal.ZERO;
+            for (BillingDocumentItem item : blockItems) {
+                HashMap<String, String> row = createParamMapForItem(item);
+                row.put("text", escapeStyled(blockRowText(item, meteringPointId)));
+                // Rabatt steht in der Blockkopfzeile - Zeilen-Suffix unterdruecken
+                row.put("discountPercent", "0,00 %");
+                rows.add(row);
+                netSum = netSum.add(BigDecimalTools.makeZeroIfNull(item.getNetValue()));
+                vatSum = vatSum.add(BigDecimalTools.makeZeroIfNull(item.getVatValueInEuro()));
+                grossSum = grossSum.add(BigDecimalTools.makeZeroIfNull(item.getGrossValue()));
+            }
+
+            HashMap<String, String> subtotal = labelOnlyRow(
+                    "<b>" + escapeStyled("Zwischensumme Zählpunkt " + meteringPointId) + "</b>");
+            subtotal.put("netValue", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(netSum, "€")) + "</b>");
+            subtotal.put("vatPercent", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(vatSum, "€")) + "</b>");
+            subtotal.put("grossValue", "<b>" + escapeStyled(BigDecimalTools.makeGermanString(grossSum, "€")) + "</b>");
+            rows.add(subtotal);
+        }
+
+        // Teilnehmer-Positionen (z.B. Mitgliedsbeitrag) nach den Bloecken
+        participantLevelItems.sort(Comparator.comparing(BillingDocumentItem::getText));
+        for (BillingDocumentItem item : participantLevelItems) {
+            HashMap<String, String> row = createParamMapForItem(item);
+            row.put("text", escapeStyled(row.get("text")));
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /** Positionstext einer Blockzeile ohne die Kopf-Redundanz (ZP-Id/Anlage-Zeilen). */
+    private static String blockRowText(BillingDocumentItem item, String meteringPointId) {
+        if (isMeteringPointFeeItem(item)) {
+            return BillingService.ZAEHLPUNKTGEBUEHR_TEXT;
+        }
+        String text = item.getText() != null ? item.getText() : "";
+        List<String> remaining = new ArrayList<>();
+        for (String line : text.split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.equals(meteringPointId)
+                    || trimmed.startsWith("Anlage-Name: ")
+                    || trimmed.startsWith("Anlage-Nr.: ")) {
+                continue;
+            }
+            if (!trimmed.isEmpty()) {
+                remaining.add(trimmed);
+            }
+        }
+        if (!remaining.isEmpty()) {
+            return String.join("\n", remaining);
+        }
+        // Einfach-Tarif ohne Zusatzzeilen: Tarifname als Zeilenlabel
+        return ObjectUtils.isEmpty(item.getTariffName()) ? "Energiemenge" : "Tarif: " + item.getTariffName();
+    }
+
+    private static boolean isMeteringPointFeeItem(BillingDocumentItem item) {
+        return item.getText() != null && item.getText().startsWith(BillingService.ZAEHLPUNKTGEBUEHR_TEXT);
+    }
+
+    private static HashMap<String, String> labelOnlyRow(String styledText) {
+        HashMap<String, String> row = new HashMap<>();
+        row.put("text", styledText);
+        row.put("amount", "");
+        row.put("pricePerUnit", "");
+        row.put("netValue", "");
+        row.put("vatPercent", "");
+        row.put("vatValueInEuro", "");
+        row.put("grossValue", "");
+        row.put("discountPercent", "0,00 %"); // unterdrueckt den "Rabatt:"-Zeilen-Suffix
+        return row;
+    }
+
+    /** XML-Escaping fuer styled-markup Textzellen. */
+    private static String escapeStyled(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     private HashMap<String,String> createParamMapForItem(BillingDocumentItem billingDocumentItem) {

@@ -63,7 +63,65 @@ create table if not exists base.billing_masterdata
     tariff_metering_point_fee             numeric,
     tariff_metering_point_fee_text        varchar,
     tariff_metering_point_vat             numeric,
-    tariff_use_metering_point_fee         boolean default false
+    tariff_use_metering_point_fee         boolean default false,
+    tariff_use_time_tariff                boolean default false,
+    tariff_time1_active                   boolean default false,
+    tariff_time1_name                     varchar,
+    tariff_time1_from                     varchar,
+    tariff_time1_to                       varchar,
+    tariff_time1_cent_per_kwh             numeric,
+    tariff_time2_active                   boolean default false,
+    tariff_time2_name                     varchar,
+    tariff_time2_from                     varchar,
+    tariff_time2_to                       varchar,
+    tariff_time2_cent_per_kwh             numeric
+);
+
+-- ZVT-Testdaten: Verbraucher-ZP mit zeitbasiertem Tarif (Basis 12.83 ct,
+-- Tag 06:00-08:00 22.5 ct, Nacht 20:00-06:00 (Mitternachtsueberlauf) 5.5 ct,
+-- Rabatt 10%). Eigener Teilnehmer, damit Bestands-Tests unberuehrt bleiben.
+insert into base.billing_masterdata (
+    participant_id, participant_firstname, participant_lastname,
+    participant_email, participant_number,
+    participant_bank_name, participant_bank_iban, participant_bank_owner,
+    participant_sepa_mandate_reference, participant_sepa_mandate_issue_date,
+    metering_point_id, equipment_number, metering_equipment_name, metering_point_type,
+    tenant_id, eec_id, eec_name, eec_email, eec_subject_to_vat,
+    eec_street, eec_zip_code, eec_city,
+    eec_bank_name, eec_bank_iban, eec_bank_owner,
+    participant_street, participant_zip_code, participant_city,
+    tariff_type, tariff_name, tariff_text, tariff_id, tariff_version, tariff_billing_period,
+    tariff_use_vat, tariff_vat_in_percent,
+    tariff_participant_fee, tariff_participant_fee_name,
+    tariff_participant_fee_use_vat, tariff_participant_fee_vat_in_percent,
+    tariff_participant_fee_discount, tariff_basic_fee, tariff_discount,
+    tariff_working_fee_per_consumedkwh, tariff_credit_amount_per_producedkwh,
+    tariff_metering_point_vat, tariff_freekwh,
+    tariff_use_time_tariff,
+    tariff_time1_active, tariff_time1_name, tariff_time1_from, tariff_time1_to, tariff_time1_cent_per_kwh,
+    tariff_time2_active, tariff_time2_name, tariff_time2_from, tariff_time2_to, tariff_time2_cent_per_kwh
+) values (
+    '11111111-2222-3333-4444-555555555555',
+    'Zita', 'Zeitfenster',
+    'zita.zeitfenster@example.com', '',
+    'Postsparkasse', 'AT01-5555-5555-5555', 'Zita Zeitfenster',
+    'REF5555', '2023-01-01',
+    'C0000000000000000000005555', 'Anlagenr 5555', 'Wohnung EG', '1',
+    'TE100100', 'TE100100', 'Energiegemeinschaft Holy Grail', 'eeg-holy-grail@gmx.at', false,
+    'Feldweg 12', '1234', 'Fuxholzen',
+    'Sparkasse OoE', 'AT01-4321-4321-4321', 'Energiegemeinschaft Holy Grail',
+    'Zeitweg 5', '1234', 'Fuxholzen',
+    'Verbraucher', 'Standard ZVT', 'Text zu Tarif Standard ZVT',
+    '85d44a4f-35ef-11ef-9d95-b657056770ae', 1, 'Q',
+    false, 0.0,
+    10.0, 'Mitgliedsbeitrag',
+    false, 0.0,
+    0.0, 0.0, 10.0,
+    12.83, 19,
+    0, 0,
+    true,
+    true, 'Tag', '06:00', '08:00', 22.5,
+    true, 'Nacht', '20:00', '06:00', 5.5
 );
 
 insert into base.billing_masterdata (
