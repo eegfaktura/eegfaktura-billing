@@ -33,7 +33,9 @@ this changelog highlights the changes relevant for overview and operations.
   Participant-level positions (membership fee) follow after the blocks.
   Metering point fee items now carry the `metering_point_id` (grouping
   key); per-metering-point amounts in the API aggregate multiple positions
-  per metering point into one entry.
+  per metering point into one entry. Block header and subtotal rows have a
+  full-width light-grey background so the per-metering-point blocks are
+  clearly separated.
 - **Billing run is now asynchronous** (`POST /api/billing` → `202 Accepted` + `billingRunId`,
   progress via polling `GET /api/billingRuns/{id}`): the synchronous call used to run for
   minutes on large communities, hit proxy timeouts (504 while the run kept going server-side)
