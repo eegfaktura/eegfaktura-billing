@@ -56,23 +56,129 @@ public class BillingService {
         this.participantAmountService = participantAmountService;
     }
 
+    /**
+     * Annahme-Teil des Abrechnungslaufs (laeuft im Request-Thread): validiert
+     * das Belegdatum, laedt oder erzeugt den BillingRun und prueft den
+     * DONE/CANCELLED-Guard. Wirft bei Ablehnung - der Lauf selbst wird hier
+     * noch NICHT gerechnet (siehe executeBillingRun).
+     */
     @Transactional
-    public DoBillingResults doBilling(DoBillingParams doBillingParams) {
+    public BillingRun acceptBillingRun(DoBillingParams doBillingParams) {
 
-        DoBillingResults doBillingResults = new DoBillingResults();
-        BillingRun billingRun = null;
+        // Pruefe das gewuenschte Belegdatum. Dieses darf nicht in die Zukunft
+        // datiert werden => Fehler
+        if (doBillingParams.getClearingDocumentDate()!=null
+                && doBillingParams.getClearingDocumentDate().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException(String.format("Ungültiges Belegdatum (%s): Rechnung darf nicht vordatiert werden.",
+                    doBillingParams.getClearingDocumentDate()
+            ));
+        }
 
-        try {
+        // Hole oder erzeuge den Datensatz für den Abrechnungslauf (BillingRun)
+        List<BillingRun> billingRunList = billingRunRepository.findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(
+                doBillingParams.getTenantId(),
+                doBillingParams.getClearingPeriodType(),
+                doBillingParams.getClearingPeriodIdentifier()
+        );
 
-            // Pruefe das gewuenschte Belegdatum. Dieses darf nicht in die Zukunft
-            // datiert werden => Fehler
-            if (doBillingParams.getClearingDocumentDate()!=null
-                    && doBillingParams.getClearingDocumentDate().isAfter(LocalDate.now())) {
-                throw new RuntimeException(String.format("Ungültiges Belegdatum (%s): Rechnung darf nicht vordatiert werden.",
-                        doBillingParams.getClearingDocumentDate()
+        // Kein passender Abrechnungslauf gefunden: Neuen erstellen!
+        BillingRun billingRun;
+        if (billingRunList.isEmpty()) {
+            billingRun = new BillingRun();
+            billingRun.setClearingPeriodIdentifier(doBillingParams.getClearingPeriodIdentifier());
+            billingRun.setClearingPeriodType(doBillingParams.getClearingPeriodType());
+            billingRun.setTenantId(doBillingParams.getTenantId());
+            billingRun.setRunStatus(BillingRunStatus.NEW);
+            billingRun.setRunStatusDateTime(LocalDateTime.now());
+            billingRun = billingRunRepository.save(billingRun);
+        } else {
+            // Mehr als ein Abrechnungslauf gefunden? Dürfte nicht passieren!
+            // (Seit V1_15 zusaetzlich durch Unique-Index abgesichert.)
+            if (billingRunList.size() > 1) {
+                throw new IllegalStateException(String.format("Mehr als ein Abrechnungslauf gefunden?! TenantId=%s," +
+                                "ClearingPeriodType=%s, ClearingPeriodIdentifier=%s",
+                        doBillingParams.getTenantId(),
+                        doBillingParams.getClearingPeriodType(),
+                        doBillingParams.getClearingPeriodIdentifier()
                 ));
             }
+            billingRun = billingRunList.get(0);
 
+            // Wenn der Abrechnungslauf bereits abgeschlossen oder storniert ist, dann mit Fehler beenden
+            if (billingRun.getRunStatus() == BillingRunStatus.DONE
+                    || billingRun.getRunStatus() == BillingRunStatus.CANCELLED) {
+                throw new BillingRunAlreadyClosedException(String.format("Abrechnungslauf bereits abgeschlossen" +
+                                " oder storniert! TenantId=%s," +
+                                "ClearingPeriodType=%s, ClearingPeriodIdentifier=%s",
+                        doBillingParams.getTenantId(),
+                        doBillingParams.getClearingPeriodType(),
+                        doBillingParams.getClearingPeriodIdentifier()
+                ));
+            }
+        }
+        return billingRun;
+    }
+
+    /** Bereits abgeschlossener/stornierter Lauf - vom Aufrufer als Konflikt zu behandeln. */
+    public static class BillingRunAlreadyClosedException extends RuntimeException {
+        public BillingRunAlreadyClosedException(String message) { super(message); }
+    }
+
+    /**
+     * Atomarer Status-Claim (RUNNING nur aus NEW/FAILED) - genau ein Gewinner,
+     * auch bei konkurrierenden Starts ueber mehrere Replicas.
+     */
+    @Transactional
+    public boolean claimBillingRun(UUID billingRunId) {
+        return billingRunRepository.claimRun(billingRunId, LocalDateTime.now()) > 0;
+    }
+
+    /**
+     * Rollback eines Claims (z.B. Executor voll): RUNNING -> vorheriger Status.
+     */
+    @Transactional
+    public void revertBillingRunClaim(UUID billingRunId, BillingRunStatus previousStatus) {
+        if (billingRunRepository.releaseClaim(billingRunId, previousStatus, null, LocalDateTime.now()) == 0) {
+            log.warn("Claim-Rollback ohne Wirkung (Run {} nicht mehr RUNNING)", billingRunId);
+        }
+    }
+
+    /**
+     * Markiert einen laufenden Abrechnungslauf als FAILED und persistiert eine
+     * kurze fachliche Fehlerzusammenfassung (keine Stacktraces).
+     */
+    @Transactional
+    public void markBillingRunFailed(UUID billingRunId, String errorSummary) {
+        if (billingRunRepository.releaseClaim(billingRunId, BillingRunStatus.FAILED, errorSummary, LocalDateTime.now()) == 0) {
+            log.warn("FAILED-Markierung ohne Wirkung (Run {} nicht mehr RUNNING)", billingRunId);
+        }
+    }
+
+    /**
+     * Synchrone Komposition aus Annahme + Berechnung - fuer Tests und
+     * interne Aufrufer. Der asynchrone Pfad laeuft ueber acceptBillingRun /
+     * claimBillingRun / BillingRunLauncher.
+     */
+    @Transactional
+    public DoBillingResults doBilling(DoBillingParams doBillingParams) {
+        BillingRun billingRun = acceptBillingRun(doBillingParams);
+        return executeBillingRun(billingRun.getId(), doBillingParams);
+    }
+
+    /**
+     * Rechen-Teil des Abrechnungslaufs (laeuft asynchron im Launcher bzw.
+     * synchron via doBilling). Exceptions propagieren - der fruehere
+     * catch-all lebt jetzt im BillingRunLauncher (-> Status FAILED).
+     */
+    @Transactional
+    public DoBillingResults executeBillingRun(UUID billingRunId, DoBillingParams doBillingParams) {
+
+        DoBillingResults doBillingResults = new DoBillingResults();
+
+        BillingRun billingRun = billingRunRepository.findById(billingRunId)
+                .orElseThrow(() -> new IllegalStateException("Abrechnungslauf nicht gefunden: " + billingRunId));
+
+        {
             // Hole Abrechnungsrelevante Daten zu EEG, Teilnehmer, Zählpunkt und Tarif
             List<BillingMasterdata> billingMasterdataList = billingMasterdataRepository
                     .findByTenantId(doBillingParams.getTenantId());
@@ -84,55 +190,12 @@ public class BillingService {
             }
             doBillingParams.setBillingConfig(billingConfig.get());
 
-            // Hole oder erzeuge den Datensatz für den Abrechnungslauf (BillingRun)
-            List<BillingRun> billingRunList = billingRunRepository.findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(
-                    doBillingParams.getTenantId(),
-                    doBillingParams.getClearingPeriodType(),
-                    doBillingParams.getClearingPeriodIdentifier()
-            );
-
-            // Kein passender Abrechnungslauf gefunden: Neuen erstellen!
-            if (billingRunList.isEmpty()) {
-                billingRun = new BillingRun();
-                billingRun.setClearingPeriodIdentifier(doBillingParams.getClearingPeriodIdentifier());
-                billingRun.setClearingPeriodType(doBillingParams.getClearingPeriodType());
-                billingRun.setTenantId(doBillingParams.getTenantId());
-                billingRun.setRunStatus(BillingRunStatus.NEW);
-                billingRun.setRunStatusDateTime(LocalDateTime.now());
-                billingRun = billingRunRepository.save(billingRun);
-            } else {
-                // Mehr als ein Abrechnungslauf gefunden? Dürfte nicht passieren!
-                if (billingRunList.size() > 1) {
-                    throw new IllegalStateException(String.format("Mehr als ein Abrechnungslauf gefunden?! TenantId=%s," +
-                                    "ClearingPeriodType=%s, ClearingPeriodIdentifier=%s",
-                            doBillingParams.getTenantId(),
-                            doBillingParams.getClearingPeriodType(),
-                            doBillingParams.getClearingPeriodIdentifier()
-                    ));
-                }
-                billingRun = billingRunList.get(0);
-
-                // Wenn der Abrechnungslauf bereits abgeschlossen oder storniert ist, dann mit Fehler beenden
-                if (billingRun.getRunStatus() == BillingRunStatus.DONE
-                        || billingRun.getRunStatus() == BillingRunStatus.CANCELLED) {
-                    //@TODO: doBillingResult mit Inhalten der gefundenen Abrechnung befüllen
-                    throw new RuntimeException(String.format("Abrechnungslauf bereits abgeschlossen" +
-                                    " oder storniert! TenantId=%s," +
-                                    "ClearingPeriodType=%s, ClearingPeriodIdentifier=%s",
-                            doBillingParams.getTenantId(),
-                            doBillingParams.getClearingPeriodType(),
-                            doBillingParams.getClearingPeriodIdentifier()
-                    ));
-                }
-
-                // Wenn der Abrechnungslauf noch nicht abgeschlossen ist, dann wird im Folgenden
-                // eine Preview oder der finale Abrechnungslauf durchgeführt. Für diesen Fall
-                // löschen wir ggf. zuvor erstellte Abrechnungsdokumente
-                fileDataRepository.deleteByBillingRunId(billingRun.getId());
-                billingDocumentFileRepository.deleteByBillingRunId(billingRun.getId());
-                billingDocumentItemRepository.deleteByBillingRunId(billingRun.getId());
-                billingDocumentRepository.deleteByBillingRunId(billingRun.getId());
-            }
+            // Vor der (Neu-)Berechnung loeschen wir ggf. zuvor erstellte
+            // Abrechnungsdokumente (Preview-Wiederholung oder FAILED-Neustart)
+            fileDataRepository.deleteByBillingRunId(billingRun.getId());
+            billingDocumentFileRepository.deleteByBillingRunId(billingRun.getId());
+            billingDocumentItemRepository.deleteByBillingRunId(billingRun.getId());
+            billingDocumentRepository.deleteByBillingRunId(billingRun.getId());
 
             // Aus den Daten des Eingangsparameters erstellen wir eine Map aus dem Tupel
             // Teilnehmer/Zaehlpunkt (key) mit ihren zugehoerigen Verbrauchs/Erzeugerdaten (value)
@@ -152,20 +215,16 @@ public class BillingService {
                 doBillingForParticipant(p, allocationMap, doBillingParams, billingRun, doBillingResults);
             }
 
-            if (!doBillingParams.isPreview()) {
-                billingRun.setRunStatus(BillingRunStatus.DONE);
-                billingRun.setRunStatusDateTime(LocalDateTime.now());
-            }
+            // Preview-Laeufe bleiben wiederholbar (NEW), finale Laeufe sind DONE.
+            // Explizit setzen - im Async-Pfad steht der Lauf hier auf RUNNING.
+            billingRun.setRunStatus(doBillingParams.isPreview() ? BillingRunStatus.NEW : BillingRunStatus.DONE);
+            billingRun.setRunStatusDateTime(LocalDateTime.now());
 
             billingRun = billingRunRepository.save(billingRun);
 
             doBillingResults.setBillingRunId(billingRun.getId());
             doBillingResults.setAbstractText("Abrechnung " + (doBillingParams.isPreview() ? "(Vorschau)" : "")
                     + ": erfolgreich abgeschlossen.");
-        } catch (Exception e) {
-            log.error("Abrechnung fehlgeschlagen", e);
-            doBillingResults.setAbstractText("Abrechnung fehlgeschlagen: "+e.getMessage());
-            doBillingResults.setBillingRunId(billingRun!=null ? billingRun.getId() : null);
         }
         return doBillingResults;
     }

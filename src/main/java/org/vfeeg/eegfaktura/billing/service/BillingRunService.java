@@ -74,6 +74,7 @@ public class BillingRunService {
         billingRunDTO.setTenantId(billingRun.getTenantId());
         billingRunDTO.setRunStatus(billingRun.getRunStatus());
         billingRunDTO.setRunStatusDateTime(billingRun.getRunStatusDateTime());
+        billingRunDTO.setErrorSummary(billingRun.getErrorSummary());
         billingRunDTO.setMailStatus(billingRun.getMailStatus());
         billingRunDTO.setMailStatusDateTime(billingRun.getMailStatusDateTime());
         billingRunDTO.setSendMailProtocol(billingRun.getSendMailProtocol());
