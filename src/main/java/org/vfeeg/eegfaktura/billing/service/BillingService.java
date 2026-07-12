@@ -490,7 +490,7 @@ public class BillingService {
                     BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffCreditAmountPerProducedkwh());
 
             createEnergyDocumentItem(billingDocument, billingDocumentItems, billingMasterdata,
-                    amount, tariffPpuInCent, null, true);
+                    amount, tariffPpuInCent, null, true, false);
             return;
         }
 
@@ -524,9 +524,10 @@ public class BillingService {
                         billingMasterdata.getMeteringPointId(), bucket.getKey()));
             }
             // freie kWh gelten nur im Einfach-Modus (Nutzer-Festlegung) und
-            // werden hier bewusst nicht beruecksichtigt.
+            // werden hier bewusst nicht beruecksichtigt. keepZeroPosition=true:
+            // jede Tarifoption (Basis/Zeitraum) erscheint auch bei 0 kWh.
             createEnergyDocumentItem(billingDocument, billingDocumentItems, billingMasterdata,
-                    amount, BigDecimalTools.makeZeroIfNull(price), label, false);
+                    amount, BigDecimalTools.makeZeroIfNull(price), label, false, true);
         }
     }
 
@@ -652,7 +653,8 @@ public class BillingService {
                                           BigDecimal amount,
                                           BigDecimal tariffPpuInCent,
                                           String timeWindowLabel,
-                                          boolean applyFreeKwh) {
+                                          boolean applyFreeKwh,
+                                          boolean keepZeroPosition) {
 
         BillingDocumentItem newBillingDocumentItem = new BillingDocumentItem();
         newBillingDocumentItem.setMeteringPointId(billingMasterdata.getMeteringPointId());
@@ -700,7 +702,10 @@ public class BillingService {
         }
         BigDecimal grossValue = netValue.add(vatEuro);
 
-        if (BigDecimalTools.isNullOrZero(grossValue)) return; // Keine Nullposition!
+        // Nullpositionen werden i.d.R. unterdrueckt. ZVT-Positionen (Basis/Zeitraum)
+        // werden bewusst AUCH bei 0 kWh gezeigt (keepZeroPosition), damit alle
+        // konfigurierten Tarifoptionen sichtbar sind und keine zu fehlen scheint.
+        if (!keepZeroPosition && BigDecimalTools.isNullOrZero(grossValue)) return;
 
         newBillingDocumentItem.setAmount(amount);
         newBillingDocumentItem.setPricePerUnit(tariffPpuInCent);

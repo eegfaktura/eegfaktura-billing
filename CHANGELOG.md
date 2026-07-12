@@ -25,6 +25,11 @@ this changelog highlights the changes relevant for overview and operations.
   simple-mode-only.
 
 ### Changed
+- **ZVT: all tariff options are shown, even at 0 kWh**: for a time-based
+  tariff every configured position (`Tarif: Basis` / the active windows) is
+  rendered even when its quantity is 0 kWh (0,00 €), so no option appears to
+  be missing to the reader. The general "no zero position" suppression still
+  applies to simple tariffs.
 - **PDF layout: items are now grouped per metering point on ALL documents**
   (invoice, credit note, RC credit note, info): a bold block header
   `Zählpunkt <nr> - <name> (Rabatt xx %)`, the item rows without the
