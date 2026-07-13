@@ -8,6 +8,11 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Docs
+- Add `docs/konzept-zeitvariable-tarife.md` — the ZVT (zeitvariabler Tarif) feature concept
+  + tech design + acceptance criteria. billing is the lead component for this cross-component
+  feature (backend/energystore/web); the concept lives here as the canonical spec.
+
 ## [1.0.2] – 2026-07-05
 
 ### Fixed
