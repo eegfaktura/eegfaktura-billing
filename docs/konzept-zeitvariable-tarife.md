@@ -197,8 +197,7 @@ Ein Tarif im **Einfach**-Modus erzeugt weiterhin genau **eine** Positionszeile p
   **nicht** je Zeitfenster vervielfachen.
 - **Wechsel Einfach↔Zeitbasiert zwischen Läufen:** ⚠️ es gibt **keinen** Tarif-Snapshot — die
   Masterdata-View joint `base.activetariff` = **MAX(version), live**; ein Nachlauf einer alten
-  Periode bepreist mit der **aktuellen** Tarif-Version (Bestandsverhalten, im Fable-Review B2
-  aufgedeckt). Für ZVT abgesichert durch den Konsistenz-Guard (`timeWindows`-Vergleich → Abbruch
+  Periode bepreist mit der **aktuellen** Tarif-Version (Bestandsverhalten). Für ZVT abgesichert durch den Konsistenz-Guard (`timeWindows`-Vergleich → Abbruch
   bei Abweichung); der generelle Nicht-Snapshot bleibt bewusst Bestand.
 - **Nur Basispreis (kein Zeitfenster aktiv):** verhält sich rechnerisch wie ein Einfach-Tarif
   ohne freeKWh → genau eine „Basis"-Position.
@@ -221,8 +220,7 @@ Ein Tarif im **Einfach**-Modus erzeugt weiterhin genau **eine** Positionszeile p
   `konzept-energystore-alle-energiedaten.md`.
 
 ## Offene Fragen
-_Alle Kernfragen im `/grill-me` (2026-07-11) entschieden — siehe Tech Design §G. Für die Umsetzung
-verbleibend:_
+_Für die Umsetzung verbleibend:_
 - **energystore v1 + v2:** die Fenster-Summierung muss in **beiden** Repos (`eegfaktura-energystore`
   und `eegfaktura-energystore-v2`) gebaut werden; welche Variante im Testbed `env-billing` läuft,
   bestimmt Test-first-Reihenfolge (Impl-Check für `/backend`, keine Design-Frage).
@@ -282,7 +280,7 @@ Report-Request, die Summen an billing) — **kein** synchroner Service-zu-Servic
 Ausgangsverbindung. Saubere Trennung **Preis↔Menge**. **Payload bleibt bei ~heute** (≤3 statt 1 Zahl/ZP;
 bei 2000 ZP ~0,2 MB statt ~2 MB) — der maßgebliche Grund gegen die 96-Slot-Variante.
 
-_Verworfene Alternativen (Skalierung + Entkopplung, siehe §G):_
+_Verworfene Alternativen (Skalierung + Entkopplung):_
 - **96-Slot-¼h-Tagesprofil über web durchreichen:** mathematisch elegant/tarif-agnostisch, aber
   ~2 MB `POST /api/billing` bei 2000 ZP → sprengt das Ingress-Body-Limit (1 MB). **Verworfen (Payload).**
 - **billing zieht das Profil/die Summen selbst aus energystore:** wäre der **erste** synchrone
@@ -305,7 +303,7 @@ _Verworfene Alternativen (Skalierung + Entkopplung, siehe §G):_
 
 - **`base.activeTariff` (View):** um die 11 neuen Spalten (camelCase durchgereicht wie der Bestand)
   erweitern.
-- **`base.billing_masterdata` (View, backend!):** ⚠️ **Korrektur aus dem Fable-Review:**
+- **`base.billing_masterdata` (View, backend!):**
   `billing_masterdata` ist **keine billing-Tabelle**, sondern eine **View im backend-Schema**
   (`schema.sql:271`, joint `base.activetariff`), die billing per Hibernate
   `@Subselect("… from base.billing_masterdata")` **direkt liest** (`BillingMasterdata.java:15`).
@@ -319,12 +317,11 @@ _Verworfene Alternativen (Skalierung + Entkopplung, siehe §G):_
 - Inline statt Kind-Tabelle: fix 2 Fenster + view-geflatteter Bestand → keine Aggregation nötig. Fiele das
   Limit später, wäre eine `base.tariff_time_slot` (FK auf `(id, version)`) die Migration wert.
 
-**eegfaktura-billing** — **kein Flyway für Masterdata** (Korrektur, s. o.):
+**eegfaktura-billing** — **kein Flyway für Masterdata**:
 - Nur **JPA-Entity-Felder** in `BillingMasterdata.java` (`@Subselect`-Spalten ergänzen) — die Daten
   kommen aus der erweiterten backend-View.
 - ⚠️ **Kein Tarif-„Snapshot":** die View joint `base.activetariff` = **MAX(version), live** — ein
-  Re-Run einer alten Periode bepreist mit der **aktuellen** Tarif-Version (Bestandsverhalten, bisher
-  falsch als „Snapshot" beschrieben). Für ZVT abgesichert über den **Konsistenz-Guard** (s. §A/Kontrakt):
+  Re-Run einer alten Periode bepreist mit der **aktuellen** Tarif-Version (Bestandsverhalten). Für ZVT abgesichert über den **Konsistenz-Guard** (s. §A/Kontrakt):
   web sendet die verwendeten Fenster-Definitionen mit, billing vergleicht gegen die Masterdata und
   bricht bei Abweichung ab (fail-loud statt stiller Preis/Mengen-Mix).
 - `Allocation` (Transport-DTO, **kein Schema**): je ZP die **≤3 Fenster-Teilsummen** (Basis/F1/F2), z. B.
@@ -367,8 +364,7 @@ bricht der Lauf ab — ein stiller Basispreis-Fallback wäre eine stille Fehlabr
 1. **Mengen-Summierung in energystore (≤3 Fenster-Summen), Bepreisung in billing, web orchestriert**
    (siehe A) — Preis↔Menge sauber getrennt, **Entkopplung gewahrt** (billing ohne Ausgangsverbindung),
    **minimaler Payload** (≤3 statt 96 Zahlen/ZP). energystore erhält nur generische Von/Bis-Zeiten,
-   keine Tarif-Kenntnis. Grund: Skalierung (2000+ ZP) + bewusst keine synchrone Service-zu-Service-REST
-   (§G).
+   keine Tarif-Kenntnis. Grund: Skalierung (2000+ ZP) + bewusst keine synchrone Service-zu-Service-REST.
 2. **`centPerKWh` = Basispreis wiederverwenden** (keine neue Basispreis-Spalte) → Einfach-Tarife bit-identisch,
    minimale Migration, kein Regressionsrisiko.
 3. **Inline-Spalten** (nicht Kind-Tabelle) — passt zum Bestand, keine Join/Aggregations-Reibung bei fix 2 Fenstern.
@@ -380,7 +376,7 @@ bricht der Lauf ab — ein stiller Basispreis-Fallback wäre eine stille Fehlabr
    (Nutzer-Festlegung), der Fall tritt nicht auf. Leere Buckets (0 kWh) erzeugen — wie heute — **keine**
    Position (`isNullOrZero(grossValue)` → skip). Davon getrennt: zeitbasierter Tarif **ohne `buckets` im
    Payload** = Protokollfehler → **Lauf-Abbruch** (§A-Kontrakt, kein stiller Basispreis-Fallback).
-6b. **Zeitzone der Faltung: explizit `Europe/Vienna`** (Fable-Review B4) — **nicht** `time.Local`: die
+6b. **Zeitzone der Faltung: explizit `Europe/Vienna`** — **nicht** `time.Local`: die
    v1-RowIds entstehen heute aus `time.Local` (`timeUtils.go`, `importFunctions.go`); ohne `TZ`-Env läuft
    der Container in UTC → HH:MM-Fenster wären um 1–2 h verschoben. Vor der Implementierung je Umgebung
    verifizieren, in welcher TZ die v1-Badger-Keys tatsächlich vorliegen (und v2-`timestamptz`-Semantik);
@@ -402,66 +398,6 @@ bricht der Lauf ab — ein stiller Basispreis-Fallback wäre eine stille Fehlabr
 - **DST-Edge:** die 96-Slot-Faltung erfolgt nach **lokaler Tageszeit**; Tage mit 23/25 h (Zeitumstellung)
   tragen entsprechend weniger/mehr zu den betroffenen Slots bei — beim `/qa` mit einem Umstell-Tag verifizieren.
 
-### G) Grill-Me — geklärte Punkte (2026-07-11)
-Codebasis-Befunde + Nutzer-Entscheidungen aus dem Stresstest:
-1. **`report.intermediate[]` ist grob** (Tages-/Segment-Chartreihe, [EEGCalculationV2.go:379-398]) → die
-   Fenster-Summen müssen **neu aus rohen ¼h** in energystore gefaltet werden, nicht wiederverwendet.
-2. **Rundung pro Position** (`setScale(2, HALF_UP)`, auch `amount`; [BillingService.java:417/444]) → 3 Buckets
-   = 3 Rundungen, Σ-Drift ≤ ~1–2 Cent. AC auf „innerhalb Toleranz" aufgeweicht. Bewusst akzeptiert.
-3. **Erzeuger-Menge bleibt `production − allocation`** (Nutzer) — unveränderte Semantik, kein Risiko; ZVT
-   faltet dieselbe Größe zeitaufgelöst. (Frage, ob die Formel fachlich der EEG-Anteil sein sollte, bewusst
-   NICHT hier gelöst.)
-4. **Kein Fallback** — ¼h-Profil ist Pflicht-Vorbedingung (Nutzer); nicht als Pfad zu bauen.
-5. **PDF-Gruppierung für ALLE Dokumente** (Nutzer) — heute flach, neu Group-Band+Zwischensumme; betrifft
-   jede Rechnung → Regressionsfläche. Items brauchen ZP-Gruppierungsschlüssel + ZP-Name im Jasper-DTO.
-6. **Gebühren:** Zählpunktgebühr im ZP-Block (in Zwischensumme), Mitgliedsbeitrag als Teilnehmer-Position
-   nach den Blöcken (Nutzer).
-7. **DST:** Faltung nach lokaler Wanduhrzeit; 23/25-h-Tag im `/qa` prüfen.
-8. **Skalierung + Entkopplung (Operator-Entscheid 2026-07-11):** bei 2000 ZP wäre ein 96-Slot-Profil
-   je ZP ~2 MB im `POST /api/billing` → über dem Ingress-Body-Limit (1 MB). **Kommunikationsmuster der
-   Suite geprüft:** kein Backend-Dienst ruft synchron einen Schwester-Dienst; Inter-Service = **MQTT**
-   (backend↔eda-xp↔energystore); **billing und filestore sind bewusst entkoppelte web-facing Endpunkte
-   ohne jede Ausgangsverbindung**. Daher: **keine** `billing→energystore`-Kopplung (wäre der erste sync
-   Service-REST). Stattdessen **energystore summiert je Fenster und liefert nur ≤3 Summen/ZP**
-   (~0,2 MB, wie heute); web bleibt Orchestrator. Trade-off bewusst akzeptiert: energystore erhält
-   generische Von/Bis-Zeitfenster im Report-Request (keine Tarif-Kenntnis, wiederverwendbare
-   Time-of-Use-Aggregation).
-
-### H) Unabhängiges Design-Review (Fable, 2026-07-11) — eingearbeitete Blocker
-
-Vor `/backend` wurde ein unabhängiges Modell-Review durchgeführt. Urteil: Architektur tragfähig,
-aber 4 Blocker — alle oben eingearbeitet:
-- **B1 Masterdata-Pfad korrigiert:** `billing_masterdata` = **backend-View** (nicht billing-Tabelle);
-  Felder via backend-Migration in `base.billing_masterdata`-View, billing nur `@Subselect`-JPA;
-  billing↔backend-Shared-DB als Bestandsentscheidung explizit benannt (§B, §C).
-- **B2 Kein Snapshot:** Live-View MAX(version) → Nachlauf nutzt aktuelle Tarif-Version;
-  Konsistenz-Guard (`timeWindows`-Mitsendung + Vergleich + Abbruch) eingeführt (§A, Edge Cases).
-- **B3 Fail-loud statt stiller Fallback:** zeitbasiert ohne `buckets` → Abbruch; Kontrakt einheitlich
-  `buckets` benannt (`dayProfile`-Reste entfernt) (§A, §C, AC).
-- **B4 Zeitzone:** Faltung fest in `Europe/Vienna` (nicht `time.Local`); TZ der v1-RowIds je Umgebung
-  vor Implementierung verifizieren; DST-ACs mit Erwartungswerten (§E 6b, AC).
-- Übernommene SOLLTE-Punkte: `BASE` als **Residuum** (kWh exakt, §E 6c); €-Drift-Schranke; ACs
-  Preview==Final / gemischter Lauf / Erzeuger-Dokumenttypen / 15-min-Raster; Fenster stammen aus dem
-  **ZP-Tarif** (`meter.tariff_id`), nicht `participant.tariffId` (§A-Kontrakt).
-- **PDF-Detailrisiken (S2, für die Implementierung):** Items gehen heute als fertig formatierte
-  String-Maps in eine `jr:table` (kein klassisches Group-Band möglich) → ZP-Zwischensummen in Java
-  vorberechnen; Sortierung von Text- auf ZP-Schlüssel umstellen (ändert Reihenfolge aller
-  Bestandsdokumente); Zählpunktgebühr-Items tragen heute **kein** `meteringPointId` (nur im Text) →
-  Gruppierungsschlüssel ergänzen; Erzeuger-ZP-Gebühren stehen auf der **Verbraucher-Rechnung** →
-  Blöcke, die nur eine Gebühr enthalten (Blockkopf ohne „Rabatt"-Zusatz definieren).
-- Nice-to-have notiert: XLSX-Export bleibt flach (bewusst); Fensterlabel nicht in `tariffName`
-  ablegen (kollidiert mit Auswertungen) → nur in `documentText`/eigenem Feld; freeKWh-Restwert beim
-  Umschalten strikt an `useTimeTariff=false` koppeln + UI-Hinweis.
-
-**Nächste Schritte:** **(0) Vorgezogen: `konzept-async-billing-run.md`** — der synchrone
-`POST /api/billing` (per-Tenant-Lock über die gesamte Laufzeit, kein RUNNING-Status, Doppelklick
-reiht Vollläufe ein) wird VOR ZVT auf asynchron (202 + Statuspolling) umgestellt, da ZVT die
-Laufzeit weiter verlängert (Operator-Entscheid 2026-07-11). Danach `/backend` für ZVT
-(backend-Migration Spalten+beide Views + Tarif-Validierung → energystore v1+v2 Fenster-Summierung →
-billing Positionen/Guard → Jasper-Gruppierung) und `/frontend` (Tarif-Dialog + Fenster-Weitergabe).
-`/security-review` vor PR. Impl-Check: energystore v1 vs v2 im Testbed `env-billing`; TZ-Verifikation
-der ¼h-Keys (B4).
-
 ## Implementierung (2026-07-11, alle Branches lokal/ungepusht)
 
 | Repo | Branch / Worktree | Stand |
@@ -472,11 +408,11 @@ der ¼h-Keys (B4).
 | eegfaktura-backend | `feat/zvt-time-tariff` (c:\temp\backend-zvt) | Migration `20260711120000` (11 Spalten + BEIDE Views, up+down gegen frisches Postgres verifiziert, `to_char HH24:MI`), Tarif-Validierung serverseitig (11 Testfälle grün), schema.sql/schema.hcl/atlas.sum synchron |
 | eegfaktura-web | `feat/zvt-time-tariff` auf `feat/async-billing-poll` gestackt (c:\temp\web-zvt) | Tarif-Dialog Einfach\|Zeitbasiert (Client-Plausiprüfung gespiegelt), Report-Request mit `timeWindows` je zeitbasiertem ZP (ParticipantProvider), `buckets`+`timeWindows` in Allocation (ParticipantPane.functions); pnpm vite build + 21/21 vitest grün |
 
-**B4-Verifikation (vor Implementierung):** v1-Badger-RowIds tragen lokale Wanduhrzeit; das v1-Image baked `TZ=Europe/Berlin` (offsetgleich Europe/Vienna, im env-billing-Pod verifiziert), v2 baked `TZ=Europe/Vienna` → die Faltung vergleicht direkt gegen die im Key kodierte HH:MM (kein TZ-Umweg). 25h-Tag: v1 kollidiert im Key-Raum beim Import (Bestandsverhalten, Stunde zählt einfach), v2 zählt doppelt.
+**Zeitzonen-Verifikation (vor Implementierung):** v1-Badger-RowIds tragen lokale Wanduhrzeit; das v1-Image baked `TZ=Europe/Berlin` (offsetgleich Europe/Vienna, im env-billing-Pod verifiziert), v2 baked `TZ=Europe/Vienna` → die Faltung vergleicht direkt gegen die im Key kodierte HH:MM (kein TZ-Umweg). 25h-Tag: v1 kollidiert im Key-Raum beim Import (Bestandsverhalten, Stunde zählt einfach), v2 zählt doppelt.
 
 **Export-Pfade (Operator-Frage, am Code verifiziert):**
 - **SEPA:** Der pain-XML-Export lebt in web (`sepa.converter.ts`) und liest `Rechnungsbetrag Brutto/Netto` aus der XLSX-„Liste" — also **Dokument-Gesamtsummen**, nie Positionen. ZVT ändert nur die Positionsanzahl; die Dokumentsumme bleibt Σ der gerundeten Positionen → SEPA unverändert korrekt, keine Anpassung nötig.
-- **billing-XLSX:** „Liste" (Dokumentsummen) unverändert; „Details" (1 Zeile je Position) zeigt ZVT automatisch als 2–3 Zeilen je ZP. Fensterlabel steht in `Pos. Text` („Tarif: <Name> (HH:MM - HH:MM)"), `Pos. Tarif` bleibt der Tarifname (Fable-Hinweis umgesetzt). Bewusst flach, keine Blockstruktur (§H).
+- **billing-XLSX:** „Liste" (Dokumentsummen) unverändert; „Details" (1 Zeile je Position) zeigt ZVT automatisch als 2–3 Zeilen je ZP. Fensterlabel steht in `Pos. Text` („Tarif: <Name> (HH:MM - HH:MM)"), `Pos. Tarif` bleibt der Tarifname. Bewusst flach, keine Blockstruktur.
 - **energystore-Excel (Energie-Report):** reine Rohdaten, keine Tarif-Kenntnis → unberührt.
 - **Rechnungsvorschau web-GUI:** Die Vorschau zeigt (1) die per-ZP-Beträge aus `participantAmounts` — dort werden ZVT-Positionen jetzt **je ZP zu EINEM Betrag aggregiert** (`ParticipantAmountService`, gleiches Verhalten wie bisher bei 1 Position) — und (2) das Vorschau-PDF aus billing, das das neue Blocklayout (Kopf/Positionen/Zwischensumme je ZP) bereits enthält. Die web-GUI rendert selbst keine Positionsliste → kein web-Umbau der Vorschau nötig.
 
