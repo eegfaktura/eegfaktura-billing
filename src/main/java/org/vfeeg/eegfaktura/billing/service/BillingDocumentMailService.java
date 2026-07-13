@@ -122,8 +122,10 @@ public class BillingDocumentMailService {
             String to = billingDocument.getRecipientEmail();
             String cc = billingDocument.getIssuerMail();
             String from = appProperties.getNoReplyTo();
+            String issuer = billingDocument.getIssuerName();
             String subject = BillingDocument.getDocumentTypeName(
-                    billingDocument.getBillingDocumentType()) + " " +billingDocument.getClearingPeriodIdentifier();
+                    billingDocument.getBillingDocumentType()) + " " + billingDocument.getClearingPeriodIdentifier()
+                    + (issuer != null && !issuer.isBlank() ? " - " + issuer : "");
             String htmlBody = FreeMarkerTemplateUtils.processTemplateIntoString(freemarkerTemplate, templateModel);
 
             // Rejected parts are NOT a failed send — the mail went out to
