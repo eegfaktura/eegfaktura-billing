@@ -60,6 +60,13 @@ this changelog highlights the changes relevant for overview and operations.
   `(tenant_id, clearing_period_type, clearing_period_identifier)` (closes the first-creation
   race of two parallel starts; fails visibly if pre-existing duplicate rows need manual cleanup).
 
+### Changed
+- Mail deliverability: document mails now go out as **multipart/alternative** (a plain-text part
+  derived from the rendered HTML — a lone `text/html` body is a spam signal), carry an
+  `Auto-Submitted: auto-generated` header, and use a **Message-ID with the `eegfaktura.at` domain**
+  instead of the pod hostname (`spring.mail.properties.mail.from`). The document mail subject now
+  includes the EEG name; the default mail template declares `lang="de"`.
+
 ## [1.0.2] – 2026-07-05
 
 ### Fixed

@@ -62,7 +62,10 @@ public class EmailService {
             // message.setHeader("return-path", ccArray[0]);
         }
         helper.setSubject(subject);
-        helper.setText(htmlBody, true);
+        // multipart/alternative: a plain-text part next to the HTML. A lone
+        // text/html body is a notable spam signal; the text is derived from
+        // the rendered HTML (no separate template to maintain).
+        helper.setText(htmlToPlainText(htmlBody), htmlBody);
         for (Map.Entry<String, byte[]> attachment : attachments.entrySet()) {
             if (attachment.getKey().contains(".png")) {
                 helper.addInline(attachment.getKey(), new ByteArrayDataSource(attachment.getValue(),
@@ -72,8 +75,35 @@ public class EmailService {
                         "application/pdf"));
             }
         }
+        // Mark system-generated mail so filters don't treat it like bulk/personal mail.
+        message.setHeader("Auto-Submitted", "auto-generated");
         emailSender.send(message);
 
         return rejected;
+    }
+
+    /**
+     * Derives a plain-text alternative from the rendered HTML body. Good enough
+     * for readability alongside the HTML part — not a full HTML renderer.
+     */
+    static String htmlToPlainText(String html) {
+        if (html == null) {
+            return "";
+        }
+        String t = html
+                .replaceAll("(?is)<(script|style)[^>]*>.*?</\\1>", "")
+                .replaceAll("(?i)<br\\s*/?>", "\n")
+                .replaceAll("(?i)</(p|div|tr|li|h[1-6]|table)>", "\n")
+                .replaceAll("(?s)<[^>]+>", "");
+        t = t.replace("&nbsp;", " ")
+                .replace("&auml;", "ä").replace("&ouml;", "ö").replace("&uuml;", "ü")
+                .replace("&Auml;", "Ä").replace("&Ouml;", "Ö").replace("&Uuml;", "Ü")
+                .replace("&szlig;", "ß")
+                .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                .replace("&quot;", "\"").replace("&#39;", "'");
+        return t.replaceAll("[ \\t]+", " ")
+                .replaceAll("(?m)^[ \\t]+", "")
+                .replaceAll("\\n{3,}", "\n\n")
+                .trim();
     }
 }
