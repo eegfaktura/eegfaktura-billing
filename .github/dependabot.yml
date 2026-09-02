@@ -1,0 +1,20 @@
+# Dependabot-Konfiguration.
+#
+# BEWUSST NUR das docker-Oekosystem: Security-Updates fuer die Sprach-Oekosysteme
+# (gomod/npm/maven/pip) laufen bereits ohne Konfigdatei. Fuer `docker` gibt es KEINE
+# Security-Updates — Base-Image-Aktualisierungen kommen ausschliesslich ueber
+# Version-Updates, und die brauchen genau diese Datei. Das war die Luecke, durch die
+# CVE-2026-18963 (Keycloak, CVSS 9.1) drei Monate unbemerkt blieb.
+#
+# Die Sprach-Oekosysteme hier NICHT zu ergaenzen ist Absicht: das wuerde Version-Update-PRs
+# in Serie erzeugen, waehrend ohnehin ein Rueckstau offener Dependabot-PRs besteht.
+#
+# Ergaenzend laeuft im Platform-Repo ein woechentlicher Trivy-Scan der Base-Images
+# (weekly-base-image-scan.yml) — der meldet Schwachstellen, waehrend Dependabot nur
+# meldet, dass eine neuere Version existiert.
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
