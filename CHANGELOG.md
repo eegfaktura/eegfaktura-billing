@@ -8,6 +8,18 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Security
+- The runtime image now starts from `eclipse-temurin:21-jre-jammy` instead of the full JDK
+  image, and runs as a non-root user (UID/GID 1001). The builder stage still carries the JDK
+  for `mvn package`, so the build is unchanged — the shipped image simply no longer contains a
+  compiler toolchain it never uses. The UID is numeric because kubelet can only verify
+  `runAsNonRoot` against a numeric `USER` directive; a named user yields
+  `CreateContainerConfigError`. Prerequisite for the Pod-Security-Admission `restricted`
+  profile. (#34)
+
+### Added
+- OCI image labels (title, description, vendor, licenses) for registry and SBOM consumers. (#34)
+
 ## [1.0.3] – 2026-09-07
 
 ### Docs
