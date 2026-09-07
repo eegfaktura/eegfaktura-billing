@@ -3,7 +3,7 @@
 # also kann ein Source-Build-Workflow nicht direkt das alte single-stage
 # `COPY target/...jar` nutzen.
 
-FROM maven:3-eclipse-temurin-21 AS builder
+FROM maven:3-eclipse-temurin-26 AS builder
 WORKDIR /build
 
 # Dependencies separat cachen (langsamer initial-build, schneller bei Source-Changes)
