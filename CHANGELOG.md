@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.0.3] – 2026-09-07
+
 ### Docs
 - Add `docs/konzept-zeitvariable-tarife.md` — the ZVT (zeitvariabler Tarif) feature concept
   + tech design + acceptance criteria. billing is the lead component for this cross-component
