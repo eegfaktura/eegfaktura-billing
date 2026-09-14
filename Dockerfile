@@ -14,7 +14,7 @@ COPY src ./src
 RUN mvn -B -ntp clean package -DskipTests
 
 # JRE statt JDK (kleineres Image, weniger CVE-Surface).
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 
 LABEL org.opencontainers.image.title="eegfaktura-billing"
 LABEL org.opencontainers.image.description="EEG Faktura Abrechnungs-Service (Rechnungen, Gutschriften, SEPA, Mail-Versand)"
