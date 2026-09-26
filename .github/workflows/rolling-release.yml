@@ -12,6 +12,7 @@ on:
       - master
       - main
       - 'preview/**'
+      - 'env/**'
     tags:
       - v*
 
@@ -146,3 +147,37 @@ jobs:
           )
           echo "$PAYLOAD" | gh api repos/vfeeg-development/eegfaktura-platform/dispatches --input -
           echo "Dispatched pinned preview deploy-billing for sha-${GITHUB_SHA:0:7}"
+
+  # Feature-Env-Deploy (ADR-0008): Push auf env/<name> -> pinned Deploy des sha-Builds
+  # in den Namespace env-<name>. Die Env muss bereits provisioniert sein
+  # (overlays/env/<name> im platform-Repo); dieser Job deployt nur hinein.
+  dispatch-env-deploy:
+    needs: build-and-push-image
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/env/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger pinned env deploy in platform repo
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_DEPLOY_PAT }}
+        run: |
+          set -eu
+          ENV_NAME="${GITHUB_REF#refs/heads/env/}"
+          case "$ENV_NAME" in
+            *[!a-z0-9-]*|-*|*-|"") echo "Ungueltiger Env-Name aus '$GITHUB_REF' — erlaubt: a-z, 0-9, '-'" >&2; exit 1 ;;
+          esac
+          PAYLOAD=$(cat <<EOF
+          {
+            "event_type": "deploy-billing",
+            "client_payload": {
+              "mode": "pinned",
+              "env": "${ENV_NAME}",
+              "image_tag": "sha-${GITHUB_SHA:0:7}",
+              "source_sha": "${GITHUB_SHA}",
+              "source_repo": "${GITHUB_REPOSITORY}",
+              "source_ref": "${GITHUB_REF}"
+            }
+          }
+          EOF
+          )
+          echo "$PAYLOAD" | gh api repos/vfeeg-development/eegfaktura-platform/dispatches --input -
+          echo "Dispatched pinned env deploy-billing for sha-${GITHUB_SHA:0:7} -> env-${ENV_NAME}"

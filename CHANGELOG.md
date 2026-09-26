@@ -19,6 +19,12 @@ this changelog highlights the changes relevant for overview and operations.
 
 ### Added
 - OCI image labels (title, description, vendor, licenses) for registry and SBOM consumers. (#34)
+- CI builds `env/**` branches and deploys the resulting image into the matching feature
+  environment (ADR-0008): a push to `env/billing` pins `eegfaktura-billing` in namespace
+  `env-billing` to that branch's `sha-…` image. Until now only `master`/`main`, tags and
+  `preview/**` produced an image at all, so a feature branch had to be built and rolled out
+  by hand — that is how the ZVT end-to-end test ran in July. The environment itself is still
+  provisioned manually; this only deploys into an existing one.
 
 ## [1.0.3] – 2026-09-07
 
