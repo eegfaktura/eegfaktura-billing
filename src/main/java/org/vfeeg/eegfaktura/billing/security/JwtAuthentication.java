@@ -53,4 +53,17 @@ public class JwtAuthentication implements Authentication {
     public String getName() {
         return username;
     }
+
+    /**
+     * Traegt das Token den angefragten Mandanten? Die Rollen-Eintraege (ROLE_...) liegen
+     * in derselben Liste, stoeren hier aber nicht: ein Mandant heisst nie so.
+     */
+    public boolean hasTenant(final String tenant) {
+        if (tenant == null || tenant.isBlank()) {
+            return false;
+        }
+        return authorities.stream()
+                .map(Authority::getAuthority)
+                .anyMatch(tenant::equalsIgnoreCase);
+    }
 }
