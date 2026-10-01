@@ -2,6 +2,23 @@
 
 One entry per AI session, newest first. Format: date, task, changes, decisions, verification, open.
 
+## 2026-10-01 — Concept: improve the test coverage (no code change)
+
+**Task.** The user: a concept how to improve test coverage **without changing any code**; errors
+found are noted, not fixed; as a Markdown file in `docs/improve-testting-environment/`.
+
+**Changes.** `docs/improve-testting-environment/konzept-testabdeckung.md` (German): measured
+baseline, weaknesses of the existing tests (T1–T12), 18 defects (F1–F18), test obstacles, six
+phases, target figures. `known-errors.md` #12–#29 (= F1–F18), `open-points.md` B-11–B-13. No file
+under `src/` or `pom.xml` changed.
+
+**Verification.** Coverage measured with JaCoCo 0.8.13 from the command line (not in the POM),
+`mvn clean` first, JDK 21 builder image: 23/23 green, lines 55.6 % (1026/1845), branches 56.1 %
+(192/342); `rest` 17.9 %, `security` branches 0 %. The defects come from reading the code (a
+read-only review plus spot checks of F1, F2, F3, F5, F10 by hand); none was reproduced by a run.
+
+**Open.** B-11–B-13; the phases need the user's go one by one.
+
 ## 2026-10-01 — Working agreement from eegfaktura-v3, test environment repaired
 
 **Task.** The user: add the best practices of eegfaktura-v3 (AGENTS.md, agent log, open points,
