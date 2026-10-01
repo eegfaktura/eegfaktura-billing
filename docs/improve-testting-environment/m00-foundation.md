@@ -1,9 +1,10 @@
 # M0 — Foundation: CI, JaCoCo, builders
 
-**Concept:** phase 0 · **Status:** open · **Production code:** none (`pom.xml`, CI, test code)
-**Depends on:** `open-points.md` B-2 (tests in CI) and B-11 (JaCoCo) — both approved 2026-10-01; B-17
-(CI runner and trigger) and B-19 (`lombok.config`) answered or their defaults accepted.
-**Effort:** 1 – 1.5 days (mostly CI plumbing; the builder cross-check may push it to 2).
+**Concept:** phase 0 · **Status:** open · **Production code:** none (`pom.xml`, CI, `lombok.config`, test code)
+**Depends on:** `open-points.md` B-2 (tests in CI), B-11 (JaCoCo), B-17 (hosted `ubuntu-latest`, reusable
+`test.yml`) and B-19 (`lombok.config` first, then the baseline) — all decided 2026-10-01.
+**Effort:** 1.25 – 1.75 days (CI plumbing; the second baseline run with and without `lombok.config` adds
+about 0.25 day; the builder cross-check may push it to 2).
 
 ## Goal
 
@@ -27,9 +28,15 @@ written cheaply. Without M0 the later milestones have no safety net in CI.
    `report`, `check`; `check` is bound to `verify`, so `./mvnw test` stays the fast loop and does
    not gate on coverage. `argLine` is passed through as `@{argLine}` (Mockito/agent conflict). The
    report `target/site/jacoco` is uploaded as a CI artefact.
-3. **Threshold that may only rise.** One `check` rule per package (`BUNDLE` for the total) with the
-   line and branch ratio of concept §2.2 (re-measured at the end of M0 with `mvn clean`), rounded
-   **down** to the full percent. Packages without branches get a line rule only. Raised at the end
+3. **`lombok.config` and the re-measured baseline (B-19, decided).** New file `lombok.config` in the
+   repo root with `lombok.addLombokGeneratedAnnotation = true`. It is not a code change, but it
+   changes how coverage is counted: JaCoCo then ignores Lombok-generated accessors and
+   `equals`/`hashCode` branches. The concept §2.2 percentages (55.6 % lines, 56.1 % branches) were
+   measured **without** it, so M0 measures twice with `mvn clean` — first without, then with the
+   file — and records **both** figures in `AGENT_LOG.md` and the concept. The thresholds start from
+   the **new** baseline; the targets of concept §8 are re-confirmed after that measurement.
+   **Threshold that may only rise.** One `check` rule per package (`BUNDLE` for the total) with the
+   line and branch ratio of the new baseline, rounded **down** to the full percent. Packages without branches get a line rule only. Raised at the end
    of every milestone.
 4. **Test-data builders** in `src/test/java/org/vfeeg/eegfaktura/billing/support/`:
    `PostgresContainerHolder` (one *singleton* `postgres:15-alpine` container started in a static
@@ -48,7 +55,7 @@ written cheaply. Without M0 the later milestones have no safety net in CI.
    classpath through `spring-boot-starter-test`/`hamcrest-all` (T1 hygiene).
 6. **Docs and tracking:** `mvn clean` rule (T12) in the repo `README.md`; `EXTERNAL_SOURCES.md` row
    for JaCoCo; `CHANGELOG.md` `[Unreleased]` entry (a red test now blocks the image — relevant for
-   operation); `open-points.md` B-2 and B-11 → Decided; `AGENT_LOG.md`.
+   operation); `lombok.config`; `open-points.md` B-2 and B-11 → Decided; `AGENT_LOG.md`.
 
 ## Out of scope
 
@@ -58,7 +65,7 @@ T10 (M3); pinning the existing floating tags (B-3).
 
 ## Tasks
 
-- [ ] Decide B-19 (`lombok.config` with `lombok.addLombokGeneratedAnnotation = true`; without it JaCoCo counts generated accessors and `equals`/`hashCode` branches); then baseline: `./mvnw -B clean verify` on a clean tree, JaCoCo CSV saved; figures into `AGENT_LOG.md`
+- [ ] Baseline run 1 without `lombok.config` (JaCoCo via command line, `mvn clean`), CSV saved; then add `lombok.config` (B-19) and baseline run 2; both figures into `AGENT_LOG.md` and concept §2.2; confirm the §8 targets
 - [ ] `pom.xml`: JaCoCo plugin with exact version, report + check, `@{argLine}`
 - [ ] Thresholds from the baseline (rounded down) as `check` rules
 - [ ] CI: `test` job, `needs: test` on the image job, report upload, pinned new actions
@@ -70,15 +77,16 @@ T10 (M3); pinning the existing floating tags (B-3).
 ## Acceptance criteria
 
 - A deliberately red test on a throw-away pull request yields a red `test` job; a red test on a throw-away `preview/` branch yields **no** image (shown once; links in `AGENT_LOG.md`).
-- `./mvnw -B clean verify` is green locally and in CI with the 23 existing tests (37 once `fix-tenant-claim` is merged) plus the new one(s); `./mvnw test` still runs the suite without the coverage gate.
+- `./mvnw -B clean verify` is green locally and in CI with the 23 existing tests (`master` as it is) plus the new one(s); `./mvnw test` still runs the suite without the coverage gate.
 - `target/site/jacoco/index.html` exists as a CI artefact; raising one package threshold by 1 point on a throw-away branch fails `verify`.
 - The packaged jar lists the same classes before and after (`unzip -l target/*.jar | sort` diff is empty apart from the build timestamp/version).
 - The builder cross-check produces the same document count (5) and gross amounts as the `BillingIntegrationTests` assertions for the SQL fixture.
-- `git diff --stat src/main` is empty.
+- `git diff --stat src/main` is empty; the only new non-test files are `lombok.config` (repo root), `.github/workflows/test.yml` and the `pom.xml` change.
 
 ## Risks
 
-- Runner without Docker or with another Docker API → Testcontainers fail before the first test; fallback is a self-hosted runner (B-17).
+- Runner without Docker or with another Docker API → Testcontainers fail before the first test; fallback is a self-hosted runner (B-17 chose the hosted runner; revisit only if it fails).
+- `lombok.config` lowers the line/branch counts of the model/domain classes and may raise the percentages; old and new figures are not comparable, hence both are recorded.
 - Threshold too tight → flaky red builds; rounded-down values, measured on a clean run.
 - The builders' DDL copy drifts from the fixture's `create table` → both are replaced by the contract test in M6.
 - `check` in `verify` is not part of `./mvnw test` (AGENTS.md §10.3 gate): a coverage drop is only seen in CI; accepted.
