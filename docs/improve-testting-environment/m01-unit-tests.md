@@ -1,7 +1,7 @@
 # M1 — Cheap unit tests
 
 **Concept:** phase 1 · **Status:** open · **Production code:** none
-**Depends on:** M0 (builders, JaCoCo, CI). **Effort:** about 2 days.
+**Depends on:** M0 (builders, JaCoCo, CI); B-18 (decided: plain `@Disabled`); B-20 only for the F13 test (open, proposal in `open-points.md`). **Effort:** about 2 days (the F13 invariant test adds ~0.25 day once the convention is chosen).
 
 ## Goal
 
@@ -23,7 +23,7 @@ Package `org.vfeeg.eegfaktura.billing` + the sub-package of the class under test
 | `InMemoryLockRepository` | `repos.InMemoryLockRepositoryTests` | same tenant returns the same lock, two tenants two locks, release removes; three threads on one tenant using the controller's pattern (`getLock` → `synchronized` → `releaseLock`) must never overlap | F3 |
 | `EmailService` (`JavaMailSender` mocked) | `service.EmailServiceTests` | rejected addresses returned, embedded image vs. attachment | – |
 | `BillingDocumentMailService.sendAllBillingDocuments` (mocks) | `service.BillingDocumentMailServiceTests` | status sequence, status after a throwing sender | F7 |
-| `ParticipantAmountService` (repositories mocked) | `service.ParticipantAmountServiceTests` | producer/consumer, participant fee | F13 (after clarification) |
+| `ParticipantAmountService` (repositories mocked) | `service.ParticipantAmountServiceTests` | producer/consumer, participant fee; invariant: participant amount = Σ meter-point amounts + participantFee + meteringPointFeeSum (B-20 proposal) | F13 (#24), disabled only if the invariant fails |
 | `BillingDocument.getDocumentTypeName` (static) | `domain.BillingDocumentTests` | every `BillingDocumentType` | – |
 
 Not testable in M1 without a code change: the 15-minute **expiry** of the lock
@@ -37,7 +37,7 @@ change in this milestone it is annotated `@Disabled("known-errors #NN")` (the on
 milestones, README "Rules"; JUnit 5 needs no setup for it) and listed in the milestone report; it
 is enabled in the change that fixes the defect (AGENTS.md §10.1; B-18 records the skip as the
 documented exception to §15).
-Here: F3 = #14, F4 = #15, F7 = #18. F13 (#24) needs the business answer first — no test until then.
+Here: F3 = #14, F4 = #15, F7 = #18. F13 (#24): the invariant test of the B-20 proposal is written regardless of the sign convention; it is `@Disabled("known-errors #24")` only if it fails on real data (expected for a participant with a producer item) — the maintainer's choice of the convention (B-20, open) decides the fix, not the test.
 Everything else is expected green.
 
 ## Tasks

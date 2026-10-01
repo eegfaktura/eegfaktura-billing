@@ -2,7 +2,8 @@
 
 **Concept:** phase 3 · **Status:** open · **Production code:** none
 **Depends on:** M0 (builders, `PostgresContainerHolder`); PDFBox approved (`open-points.md` B-12); business answer B-13 for S11
-(S11 waits, it does not block the milestone). **Effort:** 4 – 5 days (scenarios 3, helpers and cleanup 1 – 2).
+(S11 waits, it does not block the milestone); B-16 (v3 data, decided) only for the two optional items below.
+**Effort:** 4 – 5 days (scenarios 3, helpers and cleanup 1 – 2); the optional items add 1 – 1.5 days if taken.
 
 ## Goal
 
@@ -44,6 +45,34 @@ These scenarios clean up with `DELETE`/`TRUNCATE` in `@AfterEach` — including 
 **Outputs.** Extract PDF text with PDFBox (`Loader.loadPDF`, `PDFTextStripper`) and check amount,
 VAT, document number and name; read the XLSX with POI and check sums and row count (T2).
 
+## Optional (B-16): v3 world as data source and amount oracle
+
+Not mandatory; the hand-built M0 builders remain the default. Both use `/mnt/src/eegfaktura-v3`
+(AGPL-3.0, commit `b43e864` at the time of writing; paths verified 2026-10-01).
+
+1. **Deterministic scenario data from the v3 world.** `tools/demo/make-legacy-world.py <out.json> --seed 7`
+   writes a manifest of four communities (members, meter points, tariffs with a price change, bank
+   accounts); `tools/bench/load-base.sh`/`load-base.sql` load it into the legacy `base.*` tables
+   (`scripts/demo/demo-world.sh` drives it with docker, jq, python3). No tool emits a
+   `billing_masterdata`-shaped file directly, so a one-off conversion step is needed: load the manifest
+   into the M6 base schema, select from the legacy view, export the rows for the wanted communities as
+   SQL/JSON. Commit the result as a **snapshot** in `src/test/resources/v3world/` (S1 – S3, S6, S7 only),
+   with a README: source repository, commit id, seed, command line, the date, and the **refresh
+   procedure** (re-run by hand, review the diff, replace the files). **The generator is never run in
+   billing's build; no network; no sibling checkout in CI** — only the committed snapshot is read.
+   Cost 1 day (conversion script, scenarios on top of the builders' assertions); benefit: realistic
+   names, tariffs and sizes instead of invented rows; risk: the expected amounts must still be derived
+   independently, not from billing's own output.
+2. **Expected-amount oracle.** v3's `energy-mock/src/main/kotlin/at/eegfaktura/mock/billing/BillingRules.kt`
+   computes the expected invoice lines (rows 1 – 5, 8 – 10, 12, 14 of v3's arithmetic table, a deliberate
+   second implementation with the same `HALF_UP` points) and `DayGenerator.kt` the energy; both
+   subprojects share the golden file `…/src/test/resources/golden/billing-arithmetic-cases.json`
+   (found in `energy-mock` and `backend`). Option: copy that JSON (with commit id) and assert billing's
+   item amounts against it for S1/S3/S6/S7. Cost/benefit: ~0.5 day for the copy and an assertion
+   helper; gain an oracle that was not written by billing's authors (it can catch a rule both sides
+   share wrongly only if the two tables differ); limit: it follows v3's reading of the rules, so a
+   disagreement is a question (B-13 for rounding), not automatically a billing defect. Not mandatory.
+
 ## Defect tests
 
 S4, S5, S7 (VAT-less fee), S8, S9, S12 expose F1, F5, F6, F2, F11. They assert the **correct**
@@ -76,7 +105,7 @@ classes (T1), assert the XLSX test (T2), restore or delete commented-out asserti
 
 ## Risks
 
-- The data come from a table the fixture creates, not from the real backend view; scenarios prove billing logic, not the contract (M6).
+- The data come from a table the fixture creates, not from the real legacy view; scenarios prove billing logic, not the contract (M6). A v3 snapshot (optional) has the same limit.
 - Jasper compiles the template on the first PDF run (slow); the shared context keeps it to once.
 - Non-transactional scenarios leave data behind if cleanup fails; use a distinct tenant id per scenario.
 - Disabled F1 scenarios are only meaningful if they would have failed: verify each once against the current code by enabling it locally (record the red result).
