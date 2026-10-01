@@ -7,7 +7,7 @@ One entry per AI session, newest first. Format: date, task, changes, decisions, 
 **Task.** The user: a concept how to improve test coverage **without changing any code**; errors
 found are noted, not fixed; as a Markdown file in `docs/improve-testting-environment/`.
 
-**Changes.** `docs/improve-testting-environment/konzept-testabdeckung.md` (German): measured
+**Changes.** `docs/improve-testting-environment/test-coverage-concept.md` (English since the review; was `konzept-testabdeckung.md`): measured
 baseline, weaknesses of the existing tests (T1–T12), 18 defects (F1–F18), test obstacles, six
 phases, target figures. `known-errors.md` #12–#29 (= F1–F18), `open-points.md` B-11–B-13. No file
 under `src/` or `pom.xml` changed.
