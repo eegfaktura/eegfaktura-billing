@@ -3,7 +3,7 @@
 **Concept:** phase 4 · **Status:** **blocked and optional** — postponed on 2026-10-01
 **Production code:** **yes** — the only milestone that changes production code.
 **Depends on:** M3 complete (the scenarios are the safety net); M5 recommended before 4b (the
-concurrency tests prove the lock fix); B-21; the maintainer's explicit go. Nothing else in the plan depends
+concurrency tests prove the lock fix); B-21 (decided 2026-10-01: **not now**, M4 stays blocked); the maintainer's explicit go. Nothing else in the plan depends
 on this milestone. **Effort:** 5 – 6.5 working days (AI-assisted work; maintainer review extra,
 concept §7).
 
@@ -34,8 +34,8 @@ Fast calculation unit tests, a PIT score for the calculation, deterministic year
 ## Entry conditions (all must hold before work starts)
 
 - [ ] M3 done: S1 – S12 green or disabled-with-reason, thresholds raised; M5 done or consciously skipped
-- [ ] Answers to B-13 (rounding) and B-20 (producer sign, F13 = #24), or the decision to keep today's behaviour and mark the tests as such
-- [ ] B-21: the maintainer's go for M4 itself
+- [ ] Answers to B-13 (rounding) and B-20 (producer sign, F13 = #24; a 2-line fix needs no M4 — see the proposal in `open-points.md`), or the decision to keep today's behaviour and mark the tests as such
+- [ ] B-21: decided "not now" on 2026-10-01; a new go for M4 itself is needed
 - [ ] Agreement that a failed run leaves nothing behind (4d) — visible to callers; `CHANGELOG.md` note
 - [ ] Migration concept check (AGENTS.md §8.1): no schema change expected; if one appears, stop and write `docs/migrations/V1_<N>-<slug>.md` first
 - [ ] PIT (`pitest-maven` 1.30.0, `pitest-junit5-plugin` 1.2.3, Apache-2.0, approved B-12) added to the `pom.xml` in 4e with exact versions ≥ 7 days old and an `EXTERNAL_SOURCES.md` row
