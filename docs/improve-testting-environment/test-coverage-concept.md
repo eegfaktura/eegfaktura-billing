@@ -55,6 +55,13 @@ thresholds start from the new one and the §8 targets are re-confirmed after it)
 | `rest` | 33 / 184 | **17.9 %** | – |
 | **Total** | **1026 / 1845** | **55.6 %** | **56.1 %** (192 / 342) |
 
+**Re-measured in M0 (2026-10-01, `mvn clean`, JDK 21, 23 tests, JaCoCo 0.8.13 via the POM):** without
+`lombok.config` 1026 / 1845 lines (55.61 %), 192 / 342 branches (56.14 %); with `lombok.config`
+(B-19) **identical** to the line, per package too (the `jacoco.csv` files are byte-identical).
+Reason: Lombok 1.18.38 (Spring Boot 3.5.3) already puts `@lombok.Generated` on generated methods without
+the setting, and JaCoCo filters it; the file is kept as an explicit guard. So the figures above are
+valid as they stand. With the M0 builder test (24 tests): branches 196 / 342 (57.31 %), lines unchanged.
+
 The total hides the distribution: the calculation logic is reached well through the integration
 tests, almost everything around it is not.
 
@@ -308,6 +315,8 @@ layout of the fix needs phase 4.
 | Billing scenarios | 1 | 1 | 12 | 12 + unit |
 | Tests in CI | no | yes | yes | yes |
 | Mutation score of the calculator (PIT) | – | – | – | measured, then a threshold |
+
+M0 re-confirmation: the "today" column stands (identical with `lombok.config`); the targets are unchanged.
 
 The percentages are estimates, not derived from the code: **targets to be confirmed by measurement**
 at the end of each milestone (the milestone report states the measured value; a target is lowered

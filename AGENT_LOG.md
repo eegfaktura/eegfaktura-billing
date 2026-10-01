@@ -2,6 +2,32 @@
 
 One entry per AI session, newest first. Format: date, task, changes, decisions, verification, open.
 
+## 2026-10-01 — M0: CI test job, JaCoCo with thresholds, lombok.config, test builders
+
+**Task.** Implement milestone M0 of `docs/improve-testting-environment/` without touching `src/main`.
+
+**Changes.** `pom.xml` (JaCoCo 0.8.13: prepare-agent, report in `test`, check in `verify`, per-package floors;
+surefire `argLine=@{argLine}`), `lombok.config`, `.github/workflows/test.yml` (new, reusable, on `pull_request`
+and `workflow_call`), `rolling-release.yml` (job `test`, `needs: test` on the image job), test support classes
+`PostgresContainerHolder`, `BillingMasterdataBuilder`, `AllocationBuilder`, `BillingRunFixture`,
+`BuilderCrossCheckTests`, `src/test/resources/base_masterdata_ddl.sql`, `show-sql=false`; docs: repo README
+(`mvn clean`), `HOWTO-run-tests.md`, concept §2.2/§8, m00 ticked, EXTERNAL_SOURCES, CHANGELOG, open-points
+(B-2, B-11 decided; B-23 new), known-errors #6 mitigated, AGENTS.md CI line.
+
+**Decisions.** JaCoCo stays on 0.8.13 (approved B-11; 0.8.14 published 2025-10-11 and 0.8.15 2026-06-04 exist,
+B-23). Actions pinned by SHA, verified with `git ls-remote` and the GitHub API: checkout v4.2.2
+(11bd719, the SHA `snyk.yml` already uses), setup-java v6.0.1 (de7274f, 2026-09-09), upload-artifact v7.0.1
+(043fb46, 2026-04-10), all older than 7 days. No new test dependency.
+
+**Verification.** No local JDK 21/Maven (host JDK 25): ran in `maven:3-eclipse-temurin-21` with the docker.sock
+mount (command in `HOWTO-run-tests.md`). Baseline without `lombok.config` and with it, 23 tests, `mvn clean`:
+both 1026/1845 lines (55.61 %), 192/342 branches (56.14 %), CSV identical — Lombok 1.18.38 marks generated code
+by default. Final `clean verify`: 24 tests green, lines 55.61 %, branches 57.31 %, coverage checks met.
+Raising `rest` to 0.18 failed `jacoco:check` as expected. YAML parsed with python; **the real CI run is not
+verified**, neither are the throw-away-branch checks nor the jar class-list diff. `git diff --stat src/main` empty.
+
+**Open.** First CI run on GitHub; B-23; thresholds to be raised after M1.
+
 ## 2026-10-01 — Concept: improve the test coverage (no code change)
 
 **Task.** The user: a concept how to improve test coverage **without changing any code**; errors
