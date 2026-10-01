@@ -9,7 +9,7 @@ fixed**; they are also in `known-errors.md` (#12 – #29).
 **Decisions taken (2026-10-01):** JaCoCo, PDFBox and GreenMail are approved (section 6, B-11/B-12).
 PIT (mutation tests) is approved because its licence is compatible (section 9). Decided 2026-10-01:
 B-15 `fix-tenant-claim` is **not** merged first (M2 builds on `master`, #1/#19 rows disabled), B-16 test
-data and view SQL from eegfaktura-v3 (AGPL), B-17, B-18, B-19 yes, B-21 not now; B-13, B-14, B-20 open. **Phase 4 is
+data and view SQL from eegfaktura-v3 (AGPL), B-17, B-18, B-19 yes, B-21 not now, B-14 (403 stays), B-20 (no change in billing); B-13 open. **Phase 4 is
 blocked and optional; it will be done later.** All other measures stand as proposed. The effort of
 phase 4 is estimated in section 7, its limits in section 7.1.
 
@@ -121,7 +121,7 @@ defect first (section 6).
 | F10 | medium | **`GET /{id}/footerImage` requires a file upload** (`@RequestParam MultipartFile`) and is unusable; `GET …/logoImage` without an image → 500. | `BillingConfigResource.java:94, 103-108` | read | WebMvc test |
 | F11 | medium | **Deleting a billing run fails** as soon as it has documents (foreign key without cascade) → 500. | `BillingRunService.java:67`; `V1_0__init_schema.sql:8` | read | Integration test |
 | F12 | low | **Rounding:** kWh are rounded to 2 places before pricing; VAT is rounded per item and then summed (not per rate on the net sum). To be clarified with the business (`open-points.md` B-13). | `BillingService.java:417, 451, 605` | read | Unit tests with boundary values, after clarification |
-| F13 | low | **`ParticipantAmountService`:** amounts of the meter points are negative for producers, the sum however comes from positive gross values. | `ParticipantAmountService.java:50-52` | suspicion | Unit test, after clarification with the frontend |
+| F13 | low | **`ParticipantAmountService`:** amounts of the meter points are negative for producers, the sum however comes from positive gross values. | `ParticipantAmountService.java:50-52` | read | Not tested; accepted, not changed in billing (B-20, 2026-10-01, #24) |
 | F14 | low | **Time zone:** `LocalDate.now()` in the JVM zone determines the document year and so the number sequence; at the year change this depends on the server time zone. | `BillingService.java:70, 274`; `BillingDocumentService.java:42` | suspicion | Test with a fixed clock (needs a code change, phase 4) |
 | F15 | low | `BillingConfigService.DEFAULT` is a public, mutable static object handed into every run without a configuration. | `BillingConfigService`; `BillingService.java:83` | suspicion | Unit test: two runs without a configuration |
 | F16 | low | Replacing an image deletes the old one before the update; a wrong file type ends as 500. | `BillingConfigService.java:75-88` | read | WebMvc test |
@@ -166,7 +166,7 @@ code, only new tests.
 | `InMemoryLockRepository` | lock, release, expiry; F3 with three threads (red until fixed) |
 | `EmailService` (`JavaMailSender` mocked) | rejected addresses, embedded image vs. attachment |
 | `BillingDocumentMailService` (mocks) | status sequence, failure while sending (F7) |
-| `ParticipantAmountService` | producer/consumer, participant fee (F13 after clarification) |
+| `ParticipantAmountService` | consumer amounts, participant fee (F13 not tested, #24) |
 | `BillingDocument.getDocumentTypeName` | all document types |
 
 ### Phase 2 — Web layer (`@WebMvcTest` with the real security configuration)
@@ -179,7 +179,7 @@ a record, "invalid body" for the 3 with a validated body:
 
 | Case | Expectation |
 |---|---|
-| no token | 403 today (`JwtSecurityConfig` sets no authentication entry point; to be confirmed by the first test; 401 would be a contract change, `open-points.md` B-14) |
+| no token | 403, accepted contract (`JwtSecurityConfig` sets no authentication entry point; `open-points.md` B-14 decided) |
 | token without role `EEG_ADMIN` | 403 |
 | own tenant | 200 / 201 / 204 |
 | foreign tenant in header or record | 403 (today 500, F9) |
@@ -269,7 +269,7 @@ changes from section 5 (+1 day each).
 
 Risks that move the figure:
 
-- **Business questions** (rounding F12/B-13, producer sign F13) are not part of the effort. If the
+- **Business questions** (rounding F12/B-13) are not part of the effort. If the
   calculator is extracted before they are answered, it keeps today's behaviour and the tests are
   marked as such.
 - **Behaviour changes in 4b/4d** (a failed run now leaves nothing behind) are visible to callers;

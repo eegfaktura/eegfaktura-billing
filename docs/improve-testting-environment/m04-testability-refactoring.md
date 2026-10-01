@@ -34,7 +34,7 @@ Fast calculation unit tests, a PIT score for the calculation, deterministic year
 ## Entry conditions (all must hold before work starts)
 
 - [ ] M3 done: S1 – S12 green or disabled-with-reason, thresholds raised; M5 done or consciously skipped
-- [ ] Answers to B-13 (rounding) and B-20 (producer sign, F13 = #24; a 2-line fix needs no M4 — see the proposal in `open-points.md`), or the decision to keep today's behaviour and mark the tests as such
+- [ ] Answer to B-13 (rounding), or the decision to keep today's behaviour and mark the tests as such
 - [ ] B-21: decided "not now" on 2026-10-01; a new go for M4 itself is needed
 - [ ] Agreement that a failed run leaves nothing behind (4d) — visible to callers; `CHANGELOG.md` note
 - [ ] Migration concept check (AGENTS.md §8.1): no schema change expected; if one appears, stop and write `docs/migrations/V1_<N>-<slug>.md` first
