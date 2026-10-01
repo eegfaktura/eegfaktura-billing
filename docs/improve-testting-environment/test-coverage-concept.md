@@ -7,7 +7,9 @@ It changes **no code**. Defects found during the analysis are recorded in sectio
 fixed**; they are also in `known-errors.md` (#12 – #29).
 
 **Decisions taken (2026-10-01):** JaCoCo, PDFBox and GreenMail are approved (section 6, B-11/B-12).
-PIT (mutation tests) is approved because its licence is compatible (section 9). **Phase 4 is
+PIT (mutation tests) is approved because its licence is compatible (section 9). Decided 2026-10-01:
+B-15 `fix-tenant-claim` is **not** merged first (M2 builds on `master`, #1/#19 rows disabled), B-16 test
+data and view SQL from eegfaktura-v3 (AGPL), B-17, B-18, B-19 yes, B-21 not now; B-13, B-14, B-20 open. **Phase 4 is
 blocked and optional; it will be done later.** All other measures stand as proposed. The effort of
 phase 4 is estimated in section 7, its limits in section 7.1.
 
@@ -37,7 +39,9 @@ All 23 tests are green (JDK 21, Docker 29, after the test-environment repairs in
 ### 2.2 Coverage
 
 Measured with JaCoCo 0.8.13 from the command line, **without** changing the `pom.xml`
-(section 8.1):
+(section 8.1) and **without** `lombok.config` (B-19 adds `lombok.addLombokGeneratedAnnotation = true`
+in M0: the percentages below count Lombok-generated code; M0 re-measures, records both figures, the
+thresholds start from the new one and the §8 targets are re-confirmed after it):
 
 | Package | Lines | Lines % | Branches % |
 |---|---:|---:|---:|
@@ -184,8 +188,8 @@ a record, "invalid body" for the 3 with a validated body:
 | invalid body | 400 with `fieldErrors` |
 
 Plus F8, F10, F16 and the error format of `RestExceptionHandler`. The tests for the tenant check
-already exist on `fix-tenant-claim` (`JwtRequestFilterTests`, `JwtTokenServiceTests`,
-`BillingConfigResourceTests`); they arrive with the merge.
+are **not** assumed from the unmerged branch `fix-tenant-claim` (B-15): M2 builds on `master`; rows that
+fail because of #1/#19 are disabled defect tests, enabled when the fix is merged.
 
 ### Phase 3 — Billing scenarios (integration, Testcontainers)
 
@@ -207,6 +211,10 @@ result text.
 | S10 | preview, then final billing, then preview again | deleting old documents, numbers only when final |
 | S11 | rounding boundaries (x.xx5 €, very small quantities) | **F12**, after business clarification |
 | S12 | delete a run after final billing | **F11** |
+
+Optional (M3, not mandatory): scenario data sets generated once from the eegfaktura-v3 demo world and
+committed as snapshots (B-16), and the v3 `energy-mock` `BillingRules.kt` as an independent expected-amount
+cross-check; details and cost/benefit in `m03-billing-scenarios.md`.
 
 Outputs: extract PDF text with **PDFBox** and check the key values (**approved**, B-12); read the XLSX
 with POI and check sums (T2).
@@ -232,8 +240,8 @@ Effort: section 7.
 
 ### Phase 6 — Contracts with the neighbours
 
-- **Master-data view:** a test that builds the view `base.billing_masterdata` from the migrations of
-  `eegfaktura-backend` and checks that every column `BillingMasterdata` reads exists
+- **Master-data view:** a test that builds the view `base.billing_masterdata` from the legacy view SQL
+  hosted in eegfaktura-v3 (`docker/legacy-base/`, AGPL-3.0, copied with commit id; B-16) and checks that every column `BillingMasterdata` reads exists
   (`known-errors.md` #10).
 - **Callers:** the DTOs that `eegfaktura-web` and eegfaktura-v3 send, as JSON fixtures; one test per
   endpoint that they are accepted.
@@ -295,7 +303,7 @@ layout of the fix needs phase 4.
 | Lines total | 55.6 % | ≥ 65 % | ≥ 75 % | ≥ 85 % |
 | Branches total | 56.1 % | ≥ 60 % | ≥ 70 % | ≥ 80 % |
 | `rest` lines | 17.9 % | ≥ 85 % | ≥ 85 % | ≥ 90 % |
-| `security` branches | 0 % | 100 % | 100 % | 100 % |
+| `security` branches | 0 % | reachable ones; 100 % only once the tenant fix is merged (B-15) | same | same |
 | Endpoints with the tenant matrix | 0 of 31 | all | all | all |
 | Billing scenarios | 1 | 1 | 12 | 12 + unit |
 | Tests in CI | no | yes | yes | yes |
