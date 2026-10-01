@@ -9,6 +9,21 @@ this changelog highlights the changes relevant for overview and operations.
 ## [Unreleased]
 
 ### Security
+- **The tenant check never ran — in any direction.** `JwtRequestFilter` was meant to reject a
+  request whose tenant is not in the caller's token. Three separate defects made it inert:
+  the condition was inverted (`contains` instead of `!contains`); `Authority` overrode no
+  `equals`/`hashCode`, so `contains` compared object identity and never matched anything; and
+  the tenant was read from `TenantContext`, which a servlet filter at `@Order(1)` fills — while
+  the Spring Security chain runs at order −100, i.e. before it. Thirty days of production logs
+  contain the corresponding message exactly zero times.
+  The filter now reads the `Tenant` header itself and checks it against the token's tenant
+  list, which removes the ordering dependency entirely. `Authority` compares its tenant
+  case-insensitively, as everywhere else in the suite.
+  What remained in effect until now was `TenantContext.validateTenant()`, and that compares the
+  tenant from the path against the one from the header — both supplied by the caller. It is
+  only a boundary in combination with the filter check. A request without a tenant header no
+  longer raises a `NullPointerException` (and with it a 500) but is rejected.
+
 - The runtime image now starts from `eclipse-temurin:21-jre-jammy` instead of the full JDK
   image, and runs as a non-root user (UID/GID 1001). The builder stage still carries the JDK
   for `mvn package`, so the build is unchanged — the shipped image simply no longer contains a
