@@ -1,0 +1,38 @@
+# Tests and coverage gate. Runs on every pull request and is called by rolling-release.yml, so a red
+# run blocks the image and the deploy jobs (known-errors.md #6). GitHub-hosted ubuntu-latest has
+# Docker, which Testcontainers needs for PostgreSQL. Actions pinned by commit SHA (AGENTS.md 12.1).
+
+name: Tests
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # clean: stale classes and reports of another run must not count (test-coverage-concept T12)
+      - name: Build, test and check coverage
+        run: ./mvnw -B clean verify
+
+      - name: Upload JaCoCo report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jacoco-report
+          path: target/site/jacoco
+          if-no-files-found: warn

@@ -22,7 +22,7 @@ document numbers, SEPA/XLSX exports and the invoice mail. It is called by the cu
 - Authentication: bearer JWT from Keycloak, verified against a static certificate (`JWT_PUBLICKEYFILE`), stateless. The community is the `Tenant` request header (section 6).
 - Reports: JasperReports (`BillingDocumentDefaultTemplate.jrxml`), mail body FreeMarker (`BillingEmailDefaultTemplate.ftl`), Apache POI for XLSX.
 - API base path: `/api` (springdoc on `/api/**`).
-- Deployment: one Docker image (`Dockerfile`, multi-stage Maven → Temurin JRE, non-root UID 1001); CI `rolling-release.yml` builds and pushes it, it does not run the tests (`known-errors.md` #6).
+- Deployment: one Docker image (`Dockerfile`, multi-stage Maven → Temurin JRE, non-root UID 1001); CI `rolling-release.yml` builds and pushes it after the reusable `test.yml` (`./mvnw -B clean verify`, JaCoCo gate) is green (`known-errors.md` #6).
 - Licence: AGPL-3.0 (`LICENSE`).
 
 ## 3. Project Layout
