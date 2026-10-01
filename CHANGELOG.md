@@ -18,6 +18,13 @@ this changelog highlights the changes relevant for overview and operations.
   profile. (#34)
 
 ### Added
+- Tests run in CI: new reusable workflow `.github/workflows/test.yml` (`./mvnw -B clean verify`) on every
+  pull request and as job `test` in `rolling-release.yml`; **a red test now blocks the image and every
+  deploy job** (relevant for operation). JaCoCo reports coverage (artifact `jacoco-report`) and
+  `verify` fails if a package falls below its floor. `./mvnw test` stays without the gate.
+- `lombok.config` (`lombok.addLombokGeneratedAnnotation = true`) so coverage ignores generated code.
+- Test builders under `src/test/.../support` (`PostgresContainerHolder`, `BillingMasterdataBuilder`,
+  `AllocationBuilder`, `BillingRunFixture`); no production code changed.
 - Working agreement for developers and AI agents: `AGENTS.md` (tenant isolation, tests, migration
   concepts, logging, external sources, pinned versions, size limits), `CLAUDE.md`, the tracking
   files `AGENT_LOG.md`, `known-errors.md`, `open-points.md`, `EXTERNAL_SOURCES.md`,
