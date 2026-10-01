@@ -10,9 +10,9 @@ optional**. M0 also provides the shared `PostgresContainerHolder` that M3 and M5
 |---|---|---|---|---|
 | [M0](m00-foundation.md) | Foundation: CI, JaCoCo, builders | `pom.xml`, CI, `lombok.config` only | B-2, B-11, B-17, B-19 (all decided) | open |
 | [M1](m01-unit-tests.md) | Cheap unit tests | no | M0 | open |
-| [M2](m02-web-layer.md) | Web layer and tenant matrix (31 endpoints) | no | M0, B-14; builds on `master` without the `fix-tenant-claim` merge (B-15 decided: no) | open |
+| [M2](m02-web-layer.md) | Web layer and tenant matrix (31 endpoints) | no | M0; B-14 decided (403); builds on `master` without the `fix-tenant-claim` merge (B-15 decided: no) | open |
 | [M3](m03-billing-scenarios.md) | Billing scenarios S1 – S12 | no | M0, PDFBox (approved); S11 waits for B-13; optional v3 snapshot/oracle (B-16 decided) | open |
-| [M4](m04-testability-refactoring.md) | Refactoring for testability | yes | M3 complete, B-21 (decided: not now), B-13, B-20 | **blocked, optional** |
+| [M4](m04-testability-refactoring.md) | Refactoring for testability | yes | M3 complete, B-21 (decided: not now), B-13 (rounding only) | **blocked, optional** |
 | [M5](m05-concurrency-and-mail.md) | Concurrency and mail | no | M0, M1, M3 (base class), GreenMail (approved) | open |
 | [M6](m06-contracts.md) | Contracts with the neighbours | no | M0, v3 SQL copy (B-16 decided: v3, AGPL), read access to v3 and web | open |
 
@@ -23,7 +23,7 @@ optional**. M0 also provides the shared `PostgresContainerHolder` that M3 and M5
 | F1 (#12), F2 (#13), F5 (#16), F6 (#17), F11 (#22), F12 (#23), F15 (#26) | M3 | scenarios S4/S9, S8, S5, S7, S12, S11, extra test; fixes in M4d or separate changes |
 | F3 (#14), F4 (#15), F7 (#18) | M1 (unit) and M5 (integration) | disabled until fixed; F3 fix in M4b |
 | F8 (#19), F9 (#20), F10 (#21), F16 (#27) | M2 | |
-| F13 (#24) | M1 (invariant test from the B-20 proposal) | disabled only if the invariant fails; fix in its own small change |
+| F13 (#24) | not tested; accepted, known-errors #24 | B-20 decided: no change in billing |
 | F14 (#25) | M4a (needs a `Clock`) | no test before M4 |
 | F17 (#28), F18 (#29) | recorded only | F18 removed in M4b |
 | S1 – S12 | M3 | |
@@ -37,14 +37,15 @@ All are in `open-points.md`. Status as of 2026-10-01 after the maintainer's answ
 
 | Id | Question | Needed before | Status | Answer / recommended default |
 |---|---|---|---|---|
-| B-13 | Rounding: kWh before pricing, VAT per line or per rate (F12) | S11 in M3, M4 | **open** | S11 waits; no test pins today's rounding |
-| B-14 | No token: keep 403 or add an entry point for 401 (contract change) | M2 | **open** | keep 403, matrix pins it |
+| B-13 | Rounding: kWh before pricing, VAT per line or per rate (F12) | S11 in M3, M4 | **open, unanswered** | S11 has no test until answered; today's rounding is in known-errors #23 as "open, business question" |
+| B-14 | No token: keep 403 or add an entry point for 401 | M2 | **decided: as it is (2026-10-01)** | billing keeps 403; the matrix pins it as a normal test |
 | B-15 | Merge `fix-tenant-claim` (89725e8) before M2? | M2 | **decided: no** | M2 builds on `master`; rows failing on #1/#19 are `@Disabled` defect tests, enabled by the later merge |
 | B-16 | Source of view SQL and test data | M3 (optional), M6 | **decided: use v3 generator/data, AGPL** | SQL copied from `eegfaktura-v3/docker/legacy-base/` with commit id; M3 optional snapshot and `BillingRules.kt` oracle |
 | B-17 | CI runner and trigger | M0 | **decided: yes** | hosted `ubuntu-latest`, reusable `test.yml` on `pull_request` + `workflow_call` |
 | B-18 | Defect tests as plain `@Disabled("known-errors #NN")` (exception to AGENTS.md §15) | M1 | **decided: yes** | grep check below |
 | B-19 | `lombok.config` (`addLombokGeneratedAnnotation = true`) | M0 baseline | **decided: yes** | added in M0 before the baseline; baseline measured with and without, thresholds from the new one, targets re-confirmed |
-| B-20 | Producer sign in `ParticipantAmountService` (F13) | its test in M1 | **open (proposal written)** | recommended: keep the API shape, make the invariant "participant amount = Σ meter-point amounts + fees" hold, one sign convention (the code shows producer items positive, meter-point amounts negated, `amount` not: see `open-points.md`); decide the convention |
+| B-20 | Producer sign in `ParticipantAmountService` (F13) | – | **decided: no change in billing (2026-10-01)** | recorded in known-errors #24 and v3 #74; not fixed, not tested; consumers must cope |
+| B-22 | Does the web total include meter-point fees (`meteringPointFeeSum`)? (unverified) | – | **open** | no billing change, no test; check with a member with a meter-point fee; a fix is in eegfaktura-web |
 | B-21 | Go for M4 | M4 | **decided: not now** | M4 stays blocked and optional |
 
 ## Rules that apply to every milestone
@@ -108,5 +109,12 @@ Decisions applied: 2026-10-01
 - B-16: M6 rewritten (view built from the copied v3 `docker/legacy-base/01..08` SQL, byte-identical, with commit id; optional second check on `billing_masterdata_v3`); M3 got the optional v3 snapshot idea (generator never run in billing's build) and the optional `BillingRules.kt` oracle; the "backend has no LICENSE" blocker is removed everywhere.
 - B-17, B-18 yes: recorded as decided, no change to M0/M1 content. B-21 not now: M4 marked.
 - B-19 yes: `lombok.config` in M0 before the baseline; baseline measured twice (concept §2.2 figures are without the file), thresholds from the new one, §8 targets to be re-confirmed after it; effort of M0 +0.25 day.
-- B-20: open; proposal (invariant test, keep API shape, negate in neither or both, decide after the investigation) in `open-points.md` and here; M1 gets the invariant test.
-- Not resolved: B-13, B-14, B-20 (convention choice); whether the 64-column claim for `billing_masterdata_v3` holds (counted in M6's first task); the conversion step from the v3 world to `billing_masterdata` rows does not exist yet.
+- B-20: superseded, see "Decisions applied (B-13/B-14/B-20), 2026-10-01" below.
+- Not resolved: B-13; whether the 64-column claim for `billing_masterdata_v3` holds (counted in M6's first task); the conversion step from the v3 world to `billing_masterdata` rows does not exist yet.
+
+
+Decisions applied (B-13/B-14/B-20), 2026-10-01
+- B-13 stays open and unanswered: S11 has no test until answered; today's rounding is documented in known-errors #23 as "open, business question".
+- B-14 decided "as it is": billing keeps 403 for a missing token; M2 and the concept state 403 as the accepted contract; B-14 moved to Decided.
+- B-20 decided: no change in billing; not fixed, not tested as a defect; recorded in known-errors #24 and v3 known-errors #74. F13 invariant test removed from M1; B-20 dependency removed from M1, M4, table and mapping; M4 depends on B-13 only.
+- New open point B-22 (unverified): the web total may omit `meteringPointFeeSum`; no test, no billing change.

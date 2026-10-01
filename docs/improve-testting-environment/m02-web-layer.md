@@ -1,7 +1,7 @@
 # M2 — Web layer and tenant matrix
 
 **Concept:** phase 2 · **Status:** open · **Production code:** none
-**Depends on:** M0; B-14 (401 vs 403, default: pin 403). **B-15 is decided: `fix-tenant-claim` is NOT
+**Depends on:** M0; B-14 decided: 403 stays. **B-15 is decided: `fix-tenant-claim` is NOT
 merged first** — M2 is written against `master` as it is and does not assume the branch's code or its
 three test classes. **Effort:** 3 – 4 days (unchanged: simpler tokens, but the #1/#19 rows are disabled tests to be run once against `master` and recorded).
 
@@ -54,7 +54,7 @@ method, path, kind, sample body):
 
 | Case | Applies to | Expectation |
 |---|---|---|
-| no token | all 31 | **403 today** (`JwtSecurityConfig` has no authentication entry point; confirm with the first test; 401 is `open-points.md` B-14) |
+| no token | all 31 | **403** (accepted contract, `open-points.md` B-14 decided 2026-10-01: no authentication entry point; a normal test, not a defect) |
 | token without role `EEG_ADMIN` | all 31 | 403 |
 | own tenant | all 31 | the status the code returns (200 / 204; `POST /api/billing` returns 200 although annotated 201) |
 | foreign tenant (header, path, body or stored record) | all 31 | 403 — today 500 (F9). The part that today **passes through the filter unchecked** (token's `tenant` claim does not contain the header; #1) is a separate row set: disabled `known-errors #1` |
