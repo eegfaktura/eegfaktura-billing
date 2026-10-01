@@ -73,6 +73,10 @@ this changelog highlights the changes relevant for overview and operations.
   called as a plain GET; both image downloads now answer 404 instead of 500 when no image is set.
 
 ### Added
+- Working agreement for developers and AI agents: `AGENTS.md` (tenant isolation, tests, migration
+  concepts, logging, external sources, pinned versions, size limits), `CLAUDE.md`, the tracking
+  files `AGENT_LOG.md`, `known-errors.md`, `open-points.md`, `EXTERNAL_SOURCES.md`,
+  `docs/migrations/` and `scripts/dev/loc-check.sh`.
 - OCI image labels (title, description, vendor, licenses) for registry and SBOM consumers. (#34)
 - CI builds `env/**` branches and deploys the resulting image into the matching feature
   environment (ADR-0008): a push to `env/billing` pins `eegfaktura-billing` in namespace
@@ -80,6 +84,12 @@ this changelog highlights the changes relevant for overview and operations.
   `preview/**` produced an image at all, so a feature branch had to be built and rolled out
   by hand — that is how the ZVT end-to-end test ran in July. The environment itself is still
   provisioned manually; this only deploys into an existing one.
+
+### Fixed
+- The integration tests run on Docker 29: `src/test/resources/docker-java.properties` sets the
+  Docker API version Testcontainers asks for (it asked for 1.32, Docker 29 refuses below 1.40).
+- The integration tests no longer write to a fixed developer path (`/home/hla/temp`); set
+  `TEST_STORE_DOCUMENTS_PATH` to keep the generated PDFs and XLSX.
 
 ## [1.0.3] – 2026-09-07
 
