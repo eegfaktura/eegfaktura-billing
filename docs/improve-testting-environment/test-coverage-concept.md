@@ -133,7 +133,7 @@ defect first (section 6).
 | Static state (`TenantContext`, `BillingPdfService.defaultReport`, `BillingConfigService.DEFAULT`) | | set in the test, clear in `@AfterEach` | Tenant as request attribute; report as a bean |
 | Lock in the controller instead of the service, concrete class instead of interface | `BillingResource` | WebMvc test or unit test of the lock alone | Move the lock into the service, inject `LockRepository` |
 | Jasper compiles the template on first use (slow) | `BillingPdfService` | once per test context (Spring context cache) | precompiled `.jasper` |
-| Master data from a view of another service | `base.billing_masterdata` | the SQL fixture creates it | Contract test against the backend migration (phase 6) |
+| Master data from a view of another service | `base.billing_masterdata` | the SQL fixture (`billing_master_data.sql`, loaded per test with `@Sql`) creates a plain **table** of that name, not the view | Contract test against the backend migration (phase 6) |
 
 ## 6. Measures in phases
 
@@ -144,7 +144,7 @@ code, only new tests.
 
 | Measure | Kind | Decision |
 |---|---|---|
-| Tests in CI before the image build, with Docker for Testcontainers | CI | `open-points.md` B-2 |
+| Tests in CI before the image build and on pull requests (`rolling-release.yml` triggers only on push today), with Docker for Testcontainers | CI | `open-points.md` B-2, B-17 |
 | **JaCoCo** plugin in the `pom.xml`, report as CI artefact | build, new source | **approved** (B-11) |
 | Minimum coverage as a threshold that may only rise (start: today's value per package) | build | B-11 |
 | Test-data builders (`BillingMasterdataBuilder`, `AllocationBuilder`) instead of one big SQL fixture per variant | test code | – |
@@ -167,15 +167,19 @@ code, only new tests.
 
 ### Phase 2 — Web layer (`@WebMvcTest` with the real security configuration)
 
-One test class per resource. Mandatory matrix for **every** endpoint:
+One test class per resource, with `JwtSecurityConfig`, `JwtRequestFilter` and `TenantFilter` (the
+`dev` profile and `DevSecurityConfig` are never used). Mandatory matrix for **every** endpoint (31
+mapped handlers under `/api/**`, counted 2026-10-01; `GET /` of `HomeController` is public and
+excluded). A case applies only where it makes sense: "unknown id" for the 25 endpoints that look up
+a record, "invalid body" for the 3 with a validated body:
 
 | Case | Expectation |
 |---|---|
-| no token | 401 |
+| no token | 403 today (`JwtSecurityConfig` sets no authentication entry point; to be confirmed by the first test; 401 would be a contract change, `open-points.md` B-14) |
 | token without role `EEG_ADMIN` | 403 |
 | own tenant | 200 / 201 / 204 |
 | foreign tenant in header or record | 403 (today 500, F9) |
-| missing `Tenant` header | 403 |
+| missing `Tenant` header | 403 (today 500, F9) |
 | unknown id | 404 |
 | invalid body | 400 with `fieldErrors` |
 
@@ -276,7 +280,7 @@ Everything in phases 0 – 3, 5 and 6 works without the extraction. Limited or o
 | Deterministic year-change tests (F14, T7) | no injectable clock; only relative dates, or a fragile `mockStatic(LocalDate.class)` | the year-change behaviour stays unproven; F14 remains a suspicion |
 | Coverage targets of the "after phase 4" column (≥ 85 % lines, ≥ 80 % branches) | not reachable; realistic ceiling is the phase-3 column (≥ 75 % / ≥ 70 %) | targets are capped at phase 3 |
 | Size limit of `BillingService` (B-6, 622 lines) | stays red | accepted until phase 4 |
-| Tests for F3 (lock) | the class `InMemoryLockRepository` is testable alone (phase 1); the lock in the controller only via WebMvc | fixing F3 is possible without extraction, but the lock stays in the controller |
+| Tests for F3 (lock) | the class `InMemoryLockRepository` is testable alone (phase 1); the lock in the controller only by calling the resource bean (M5) or via WebMvc | fixing F3 is possible without extraction, but the lock stays in the controller |
 | Static state (`TenantContext`, `DEFAULT`, `defaultReport`) | set and cleared in the test | works, but tests must not run in parallel |
 
 Not affected: all tenant/endpoint tests, the document-number tests, the PDF/XLSX checks, mail with
@@ -297,8 +301,11 @@ layout of the fix needs phase 4.
 | Tests in CI | no | yes | yes | yes |
 | Mutation score of the calculator (PIT) | – | – | – | measured, then a threshold |
 
-The percentages are guide values, not goals in themselves: a test without a functional assertion
-does not count (T1, T2).
+The percentages are estimates, not derived from the code: **targets to be confirmed by measurement**
+at the end of each milestone (the milestone report states the measured value; a target is lowered
+with a reason, never met by excluding code). They are guide values, not goals in themselves: a test
+without a functional assertion does not count (T1, T2). Defect tests are `@Disabled("known-errors
+#NN")` until the fix (one convention, `open-points.md` B-18).
 
 ### Mutation tests (PIT) — approved
 
