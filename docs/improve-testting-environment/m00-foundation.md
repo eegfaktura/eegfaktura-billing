@@ -1,6 +1,6 @@
 # M0 — Foundation: CI, JaCoCo, builders
 
-**Concept:** phase 0 · **Status:** open · **Production code:** none (`pom.xml`, CI, `lombok.config`, test code)
+**Concept:** phase 0 · **Status:** done (CI run not verified) · **Production code:** none (`pom.xml`, CI, `lombok.config`, test code)
 **Depends on:** `open-points.md` B-2 (tests in CI), B-11 (JaCoCo), B-17 (hosted `ubuntu-latest`, reusable
 `test.yml`) and B-19 (`lombok.config` first, then the baseline) — all decided 2026-10-01.
 **Effort:** 1.25 – 1.75 days (CI plumbing; the second baseline run with and without `lombok.config` adds
@@ -65,14 +65,14 @@ T10 (M3); pinning the existing floating tags (B-3).
 
 ## Tasks
 
-- [ ] Baseline run 1 without `lombok.config` (JaCoCo via command line, `mvn clean`), CSV saved; then add `lombok.config` (B-19) and baseline run 2; both figures into `AGENT_LOG.md` and concept §2.2; confirm the §8 targets
-- [ ] `pom.xml`: JaCoCo plugin with exact version, report + check, `@{argLine}`
-- [ ] Thresholds from the baseline (rounded down) as `check` rules
-- [ ] CI: `test` job, `needs: test` on the image job, report upload, pinned new actions
-- [ ] `base_masterdata_ddl.sql`, `BillingMasterdataBuilder`, `AllocationBuilder`, `BillingRunFixture`
-- [ ] One test using the builders that reproduces the fixture's result (cross-check)
-- [ ] `show-sql` off; docs, `EXTERNAL_SOURCES.md`, `CHANGELOG.md`, `open-points.md`, `AGENT_LOG.md`
-- [ ] Size check: `bash scripts/dev/loc-check.sh` shows no new yellow/red file
+- [x] Baseline run 1 without `lombok.config` (JaCoCo via command line, `mvn clean`), CSV saved; then add `lombok.config` (B-19) and baseline run 2; both figures into `AGENT_LOG.md` and concept §2.2; confirm the §8 targets
+- [x] `pom.xml`: JaCoCo plugin with exact version, report + check, `@{argLine}`
+- [x] Thresholds from the baseline (rounded down) as `check` rules
+- [x] CI: `test` job, `needs: test` on the image job, report upload, pinned new actions
+- [x] `base_masterdata_ddl.sql`, `BillingMasterdataBuilder`, `AllocationBuilder`, `BillingRunFixture`
+- [x] One test using the builders that reproduces the fixture's result (cross-check)
+- [x] `show-sql` off; docs, `EXTERNAL_SOURCES.md`, `CHANGELOG.md`, `open-points.md`, `AGENT_LOG.md`
+- [x] Size check: `bash scripts/dev/loc-check.sh` shows no new yellow/red file
 
 ## Acceptance criteria
 
@@ -90,3 +90,11 @@ T10 (M3); pinning the existing floating tags (B-3).
 - Threshold too tight → flaky red builds; rounded-down values, measured on a clean run.
 - The builders' DDL copy drifts from the fixture's `create table` → both are replaced by the contract test in M6.
 - `check` in `verify` is not part of `./mvnw test` (AGENTS.md §10.3 gate): a coverage drop is only seen in CI; accepted.
+
+## Result (2026-10-01)
+
+- Baseline (23 tests, `mvn clean`): without and with `lombok.config` identical, 1026 / 1845 lines (55.61 %), 192 / 342 branches (56.14 %); Lombok 1.18.38 already marks generated code, so the file changes nothing today.
+- Thresholds (floors, `pom.xml`, `check` in `verify`): BUNDLE lines 55 % / branches 56 %; service 62/54, util 88/84, domain 88/75, repos 40/50 (lines/branches); model 61, config 21, security 19, rest 17, controller 50, root package 33 (lines only). `security` has 18 branches, none covered: no branch rule.
+- Full run `clean verify`: 24 tests (23 + `BuilderCrossCheckTests`), 0 failed, all coverage checks met; the builders reproduce the fixture (5 documents, gross 35.88 / 762.55 / 125.21 / 10.00 / 431.68). Negative check: raising `rest` to 0.18 fails `jacoco:check`.
+- Not verified: the GitHub run of `test.yml` and the two throw-away-branch checks (YAML syntax only checked locally, no actionlint); the jar class-list diff before/after (no production code or dependency changed; 103 classes in the jar). Command for local runs: `HOWTO-run-tests.md`.
+- JaCoCo 0.8.13 kept although 0.8.14/0.8.15 exist: `open-points.md` B-23.
