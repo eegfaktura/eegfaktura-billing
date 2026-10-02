@@ -49,7 +49,7 @@ mvn clean package
 Always measure with `mvn clean`: `target/` keeps classes and reports of another branch otherwise.
 `./mvnw clean verify` runs the tests and the coverage gate (JaCoCo, report in `target/site/jacoco`);
 `./mvnw test` runs the tests without the gate. Needs JDK 21 and Docker; without a local JDK 21 see
-`docs/improve-testting-environment/HOWTO-run-tests.md`.
+`docs/improve-testing-environment/HOWTO-run-tests.md`.
 
 Please note, that the current state of tests is not yet fine and is to be extended, cleaned-up a lot still.
 The current tests ensure, that the most important billing use cases do work. It is definitely a good idea
