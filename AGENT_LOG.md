@@ -2,6 +2,77 @@
 
 One entry per AI session, newest first. Format: date, task, changes, decisions, verification, open.
 
+## 2026-10-02 — M2: web-layer slice tests and tenant matrix for the 31 endpoints
+
+**Task.** Implement milestone M2 of `docs/improve-testting-environment/` on `master` as it is (B-15: no
+`fix-tenant-claim` merge; B-14: no token stays 403) without touching `src/main`.
+
+**Changes.** New in `src/test/java/.../rest/`: `WebSliceTest` (annotations only: `@Import` of `JwtSecurityConfig`,
+`JwtTokenService`, `InMemoryLockRepository`, `@EnableConfigurationProperties(AppProperties)`, the certificate via
+`@TestPropertySource`), `TestTokens` (java-jwt, claims `tenant`, `access_groups`, `preferred_username` only),
+`Endpoint` + `EndpointTable` (31 rows: method, Spring pattern, tenant kind, own status, body, multipart, invalid
+body), the abstract matrix `EndpointMatrix`, one `@WebMvcTest` per resource (`BillingRunWebTests`,
+`BillingConfigCrudWebTests` + `BillingConfigImageWebTests` over the shared `BillingConfigWebSlice`,
+`BillingDocumentWebTests`, `BillingDocumentFileWebTests`, `BillingDocumentItemWebTests`,
+`BillingDocumentNumberWebTests`, `BillingWebTests`, `FileDataWebTests`), `EndpointMappingGuardTests`,
+`RestExceptionHandlerWebTests`, `BillingConfigImageStoreWebTests`; `security/JwtRequestFilterWebTests`. Test-only
+key pair and certificate in `src/test/resources/jwt/` (README with the `openssl` command, CN "test-only - NOT A
+SECRET"). `pom.xml`: JaCoCo floors raised (bundle 0.78/0.75, service 0.73/0.69, util 0.96, model 0.92, config 0.90,
+security 0.88 + new branch rule 0.83, rest 1.00, controller 1.00). `known-errors.md` #31, #32 (new); m02 and README
+status done.
+
+**Decisions.** Matrix cases per row as the spec's table; besides each disabled 403 row (foreign tenant, missing
+header) an enabled row asserts what holds today: refused (non-2xx) and no service call except the lookup `get` —
+this protects the per-record comparison without blessing the 500. No token and no `EEG_ADMIN` assert 403 and no
+service call. `GET …/footerImage` gets a multipart part in the matrix (#21 has its own disabled plain-GET test).
+`POST /api/billing` has no invalid-body row (no constraints on `DoBillingParams`); its 400 cases are disabled
+under the new #31, together with unreadable JSON and a malformed UUID (catch-all handler → 500). F16 is tested
+through the real `BillingConfigService` with mocked repositories, the rest of the config slice mocks the service.
+The error-format probe controller is nested in its test class (excluded from other slices by
+`TestTypeExcludeFilter`) and mapped outside `/api`. `@ParameterizedTest(allowZeroInvocations = true)` for the
+id/invalid-body rows (not every resource has them). No new dependency.
+
+**Disabled defect tests** (all run once enabled with `-Djunit.jupiter.conditions.deactivate=org.junit.*DisabledCondition`
+on 2026-10-02: 101 executions, all red):
+- `EndpointMatrix.foreignTenantIsForbidden` — `@Disabled("known-errors #20")`, inherited by the 9 resource
+  classes, 31 rows: expected 403, was 500.
+- `EndpointMatrix.missingTenantHeaderIsForbidden` — `@Disabled("known-errors #20")`, 31 rows: expected 403, was 500.
+- `EndpointMatrix.headerTenantNotInTokenClaimIsForbidden` — `@Disabled("known-errors #1")`, 31 rows: expected 403,
+  was 200/201/204 (the filter's check never matches); enabled by the merge of `fix-tenant-claim`.
+- `BillingConfigCrudWebTests.updateOfAForeignStoredConfigIsForbidden` — `@Disabled("known-errors #19")` (F8):
+  expected 403, was 200; enabled by the merge of `fix-tenant-claim`.
+- `BillingConfigImageWebTests.footerDownloadWorksWithoutAnUpload` — `@Disabled("known-errors #21")` (F10):
+  expected 200, was 500.
+- `BillingConfigImageWebTests.logoDownloadWithoutALogoIsNotFound` — `@Disabled("known-errors #21")` (F10):
+  expected 404, was 500.
+- `BillingConfigImageStoreWebTests.oldLogoSurvivesAFailedUpdate` — `@Disabled("known-errors #27")` (F16):
+  `deleteById(old logo)` was invoked before the failing update.
+- `BillingConfigImageStoreWebTests.wrongFileTypeIsAClientError` — `@Disabled("known-errors #27")` (F16):
+  expected 4xx, was 500.
+- `BillingWebTests.bodyWithoutTenantIsBadRequestWithFieldErrors`, `BillingWebTests.unreadableJsonIsBadRequest`,
+  `RestExceptionHandlerWebTests.malformedIdIsBadRequest` — `@Disabled("known-errors #31")`: expected 400, was 500.
+
+**Verification.** Each new class alone (`-Dtest=<Name>`, container without the Docker socket — the M2 classes need
+no Docker), then one `mvn -B clean verify` in `maven:3-eclipse-temurin-21` with the socket: 342 tests, 0 failures,
+0 errors, 38 skipped (M2: 258 executions in 13 classes, 35 skipped; about 6 s together in surefire, context start included), all coverage
+checks met; the raised floors checked with `jacoco:check@check` against the same run's data. JaCoCo CSV of the
+clean run: bundle lines 78.48 % (1448/1845), branches 75.44 % (258/342); `rest` 100 % lines (184/184; no
+branches); `security` 88.12 % lines (89/101), 83.33 % branches (15/18); `config` 90.48 %; `controller` 100 %;
+`service` 73.36 % / 69.96 %; `util` 96.15 % / 94.34 %; `model` 92.31 %. Targets of the spec: `rest` ≥ 85 % met,
+total lines ≥ 65 % and branches ≥ 60 % met; `security` 100 % branches not reachable on `master` (spec). Unreached
+`security` branches: `JwtRequestFilter` tenant check true-branch (dead, #1; lines 47-48 with it),
+`TenantContext.validateTenant` "no tenant set" (unreachable, `TenantFilter` always sets an `Authority`) and
+`tenant == null` (reachable only with a stored record without tenant, e.g. images, #32; not tested). Missed lines
+besides: `DevSecurityConfig` (profile `dev`, never activated), `JwtAuthentication.getCredentials/getDetails/
+setAuthenticated`, implicit constructors. Guard: 31 of 31 `/api/**` handlers, a removed row is reported
+(`aMissingRowIsReported`). `grep -rn '@Disabled' src/test | grep -v 'known-errors #[0-9]'` prints nothing;
+`git diff --stat src/main` empty; `loc-check.sh`: all new files green (largest 178 lines).
+
+**Open.** Enable the #1/#19 rows (and give `TestTokens` `iss`/`azp`) with the merge of `fix-tenant-claim`; #20,
+#21, #27, #31, #32 need production fixes; the `rest` and `controller` floors are 1.00, so any new uncovered
+resource line fails the gate (intended: the guard demands a row anyway). The criterion "`git diff --stat src/main
+pom.xml` is empty" again holds for `src/main` only (floors raised as instructed).
+
 ## 2026-10-02 — M1: cheap unit tests, F3/F4/F7 as disabled defect tests
 
 **Task.** Implement milestone M1 of `docs/improve-testting-environment/` (unit tests without Spring or Docker)

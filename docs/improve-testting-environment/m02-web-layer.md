@@ -1,6 +1,6 @@
 # M2 — Web layer and tenant matrix
 
-**Concept:** phase 2 · **Status:** open · **Production code:** none
+**Concept:** phase 2 · **Status:** done (2026-10-02) · **Production code:** none
 **Depends on:** M0; B-14 decided: 403 stays. **B-15 is decided: `fix-tenant-claim` is NOT
 merged first** — M2 is written against `master` as it is and does not assume the branch's code or its
 three test classes. **Effort:** 3 – 4 days (unchanged: simpler tokens, but the #1/#19 rows are disabled tests to be run once against `master` and recorded).
@@ -82,12 +82,37 @@ enabled locally against `master` and the red result recorded before it is commit
 
 ## Tasks
 
-- [ ] B-15 is decided (no merge first): tokens with the three claims only; rows for #1/#19 as disabled defect tests with the number in the reason (listed in `AGENT_LOG.md`, to be enabled by the merge of `fix-tenant-claim`)
-- [ ] Test key pair, certificate, `TestTokens`, `@WebMvcTest` base class (annotations only, no logic)
-- [ ] Endpoint table, guard test (live mappings vs. table)
-- [ ] One test class per resource (split `BillingConfigResource` into CRUD and images); error-format tests
-- [ ] Disabled defect tests with numbers; list them in `AGENT_LOG.md`
-- [ ] Full suite once; raise thresholds; `AGENT_LOG.md`
+- [x] B-15 is decided (no merge first): tokens with the three claims only; rows for #1/#19 as disabled defect tests with the number in the reason (listed in `AGENT_LOG.md`, to be enabled by the merge of `fix-tenant-claim`)
+- [x] Test key pair, certificate, `TestTokens`, `@WebMvcTest` base class (annotations only, no logic)
+- [x] Endpoint table, guard test (live mappings vs. table)
+- [x] One test class per resource (split `BillingConfigResource` into CRUD and images); error-format tests
+- [x] Disabled defect tests with numbers; list them in `AGENT_LOG.md`
+- [x] Full suite once; raise thresholds; `AGENT_LOG.md`
+
+## Result (2026-10-02)
+
+342 tests in the clean full run, 0 failed, 38 skipped; M2 adds 258 test executions in 13 classes (35 skipped).
+Set-up as specified: `WebSliceTest` (annotations only), `TestTokens` with the test-only key pair in
+`src/test/resources/jwt/` (three claims), `Endpoint`/`EndpointTable` (31 rows), the matrix in the abstract
+`EndpointMatrix` (one `@WebMvcTest` subclass per resource; `BillingConfigResource` split into
+`BillingConfigCrudWebTests` and `BillingConfigImageWebTests`), `EndpointMappingGuardTests` (31 of 31, and a
+removed row is reported), `RestExceptionHandlerWebTests` (probe controller nested in the test),
+`BillingConfigImageStoreWebTests` (F16 through the real `BillingConfigService`, repositories mocked),
+`security.JwtRequestFilterWebTests` (no/other-scheme/garbage/foreign-key/expired/tenant-less token).
+The M2 classes ran alone without a Docker socket.
+
+Coverage (JaCoCo CSV of the clean run): `rest` lines 100 % (184/184; target 85 %), total lines 78.48 %
+(target 65 %), branches 75.44 % (target 60 %), `security` lines 88.12 %, branches 83.33 % (15/18; the three
+misses are the dead tenant branch of `JwtRequestFilter` (#1), `TenantContext`'s "no tenant set" (unreachable,
+`TenantFilter` always sets one) and its `tenant == null` (reachable only with a record without tenant)).
+Floors in `pom.xml` raised to these figures, rounded down.
+
+Deviations: the matrix row "foreign tenant" and "missing header" exist twice — an enabled row that asserts what
+holds today (refused before any action: non-2xx, no service call except `get`) and the disabled row asserting
+403 (#20). `GET …/footerImage` is called with a multipart part in the matrix (#21 has its own disabled test
+for the plain GET). `POST /api/billing` has no invalid-body row: `DoBillingParams` validates nothing; its 400
+cases are disabled tests under the new #31. New known errors: #31, #32. Details and the list of disabled
+tests in `AGENT_LOG.md`.
 
 ## Acceptance criteria
 
