@@ -1,6 +1,6 @@
 # M1 — Cheap unit tests
 
-**Concept:** phase 1 · **Status:** open · **Production code:** none
+**Concept:** phase 1 · **Status:** done (2026-10-02) · **Production code:** none
 **Depends on:** M0 (builders, JaCoCo, CI); B-18 (decided: plain `@Disabled`). **Effort:** about 2 days.
 
 ## Goal
@@ -42,11 +42,23 @@ Everything else is expected green.
 
 ## Tasks
 
-- [ ] Write the classes above (builders from M0 where useful)
-- [ ] Disabled-with-reason tests for F3, F4, F7; list them in `AGENT_LOG.md`
-- [ ] Run each class alone (`./mvnw test -Dtest='<Name>Tests'`), then the full suite once
-- [ ] Raise the JaCoCo thresholds to the new floor (rounded down)
-- [ ] `AGENT_LOG.md`; `known-errors.md` if a new defect appears
+- [x] Write the classes above (builders from M0 where useful)
+- [x] Disabled-with-reason tests for F3, F4, F7; list them in `AGENT_LOG.md`
+- [x] Run each class alone (`./mvnw test -Dtest='<Name>Tests'`), then the full suite once
+- [x] Raise the JaCoCo thresholds to the new floor (rounded down)
+- [x] `AGENT_LOG.md`; `known-errors.md` if a new defect appears
+
+## Result (2026-10-02)
+
+84 tests in the clean full run, 0 failed, 3 skipped (the F3/F4/F7 defect tests, each red when enabled).
+Line coverage of the targets: `StringTools` 100 %, `EmailService` 100 %, `BillingDocumentNumberGeneratorImpl`
+100 %, `ParticipantAmountService` 100 %, `BillingDocumentMailService` 95.8 %; below target with reason:
+`BigDecimalTools` 87.5 % (7/8; the one missed line is the implicit public constructor, excluding it needs a
+private constructor = production code) and `InMemoryLockRepository` 44 % (11/25; every reachable line is
+covered, the 14 missed are the private, never called `startCleanupTask`/`cleanupExpiredLocks`, F18 — M4b).
+The `pom.xml` change (raised JaCoCo floors) is the one intended by the task list; the criterion
+"`git diff --stat src/main pom.xml` is empty" holds for `src/main` only. New: known-errors #30. Details in
+`AGENT_LOG.md`.
 
 ## Acceptance criteria
 
