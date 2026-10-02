@@ -2,6 +2,52 @@
 
 One entry per AI session, newest first. Format: date, task, changes, decisions, verification, open.
 
+## 2026-10-02 — M1: cheap unit tests, F3/F4/F7 as disabled defect tests
+
+**Task.** Implement milestone M1 of `docs/improve-testting-environment/` (unit tests without Spring or Docker)
+without touching `src/main`.
+
+**Changes.** New test classes `util.BigDecimalToolsTests`, `util.StringToolsTests`,
+`repos.BillingDocumentNumberGeneratorTests`, `repos.InMemoryLockRepositoryTests`, `service.EmailServiceTests`,
+`service.BillingDocumentMailServiceTests`, `service.ParticipantAmountServiceTests`, `domain.BillingDocumentTests`;
+`ClearingPeriodIdentifierToolTests` extended by the production form `Abr_YQ-2023-3`. `pom.xml`: JaCoCo floors
+raised to the new figures, rounded down (bundle 0.63/0.69, service 0.71/0.67, util 0.93/0.94, repos 0.70/0.92
+line/branch; the others unchanged). `known-errors.md` #30 (new), `open-points.md` B-13 (note on printed rounding),
+m01 and README status done.
+
+**Decisions.** The M0 builders insert database rows and are not used by unit tests; entities are built with their
+Lombok builders. One disabled test per defect, as the spec counts exactly three; F7's second aspect (status stuck
+in "IN PROGRESS" after an exception outside the per-document loop) is left to M5's SMTP-failure test, the unit
+test covers "SENT although every mail failed". The F4 test asserts behaviour, not implementation: " R" must
+continue the sequence of "R". The F3 test is deterministic with latches; B waits for C inside its section with a
+bounded 1 s latch wait (no sleep), which is only spent once the lock is fixed. `BigDecimalToolsTests` records
+today's printed rounding (`HALF_EVEN`, no thousands separator) and points to B-13 instead of calling it a defect.
+Disabled tests run enabled once with `-Djunit.jupiter.conditions.deactivate=org.junit.*DisabledCondition`.
+
+**Disabled defect tests** (each red when enabled, 2026-10-02):
+- `InMemoryLockRepositoryTests.threeThreadsOfOneTenantNeverOverlap` — `@Disabled("known-errors #14")` (F3):
+  expected 1 thread inside, was 2.
+- `BillingDocumentNumberGeneratorTests.prefixWithBlankContinuesTheSequenceOfTheTrimmedPrefix` —
+  `@Disabled("known-errors #15")` (F4): expected "R202400042", was "R202400000".
+- `BillingDocumentMailServiceTests.runWhereEveryMailFailedIsNotMarkedSent` — `@Disabled("known-errors #18")`
+  (F7): expected not "SENT", was "SENT".
+
+**Verification.** Each class alone (`-Dtest=<Name>`), then one `mvn -B clean verify` in
+`maven:3-eclipse-temurin-21` with the Docker socket: 84 tests, 0 failures, 0 errors, 3 skipped, all coverage
+checks met; the raised floors checked with `jacoco:check` against the same run's data. The new unit classes take
+about 2.4 s together (surefire). JaCoCo CSV of the clean run: bundle lines 63.25 % (1167/1845), branches 69.59 %
+(238/342); service 71.80 % / 67.98 %, util 93.59 % / 94.34 %, repos 70.21 % / 92.86 %. Line coverage per target:
+`StringTools` 100 % (3/3), `EmailService` 100 % (27/27), `BillingDocumentNumberGeneratorImpl` 100 % (16/16),
+`ParticipantAmountService` 100 % (44/44), `BillingDocumentMailService` 95.8 % (92/96), `BigDecimalTools` 87.5 %
+(7/8, target 95 %: the missed line is the implicit public constructor, excluding it needs production code),
+`InMemoryLockRepository` 44 % (11/25, target 80 %: all reachable lines covered, the 14 missed are the private,
+never called cleanup task, F18). `grep -rn '@Disabled' src/test | grep -v 'known-errors #[0-9]'` prints nothing;
+`git diff --stat src/main` empty; `loc-check.sh`: all new files green (largest 238 lines).
+
+**Open.** Lock expiry and cleanup task wait for M4 (4a/4b); #30 (shared `DecimalFormat`) needs a production
+fix; the m01 criterion "`git diff --stat src/main pom.xml` is empty" contradicts the task to raise the floors in
+`pom.xml` — read as `src/main` only.
+
 ## 2026-10-01 — M0: CI test job, JaCoCo with thresholds, lombok.config, test builders
 
 **Task.** Implement milestone M0 of `docs/improve-testting-environment/` without touching `src/main`.
