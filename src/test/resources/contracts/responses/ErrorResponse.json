@@ -1,0 +1,28 @@
+{
+  "dto": "org.vfeeg.eegfaktura.billing.model.ErrorResponse",
+  "endpoints": [
+    "every error answer (RestExceptionHandler)"
+  ],
+  "note": "fields = every JSON field billing writes (a change needs a conscious update of this file and a CHANGELOG entry, AGENTS.md section 7); readBy = what each caller reads, must stay a subset",
+  "refresh": "src/test/resources/contracts/README.md",
+  "fields": [
+    "exception",
+    "fieldErrors[].errorCode",
+    "fieldErrors[].field",
+    "httpStatus",
+    "message"
+  ],
+  "readBy": {
+    "eegfaktura-v3": {
+      "repository": "eegfaktura-v3",
+      "commit": "0b785d2aaefafb4d34a91a7111fa249119b47af9",
+      "date": "2026-10-01",
+      "file": "backend/src/main/kotlin/at/eegfaktura/integration/billing/LegacyBillingDtos.kt:141-142 (LegacyErrorResponse), BillingErrors.kt:24-29 (status 500 with exception AccessDeniedException = not found, known-errors #20)",
+      "fields": [
+        "httpStatus",
+        "exception",
+        "message"
+      ]
+    }
+  }
+}

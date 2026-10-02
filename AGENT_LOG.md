@@ -2,6 +2,87 @@
 
 One entry per AI session, newest first. Format: date, task, changes, decisions, verification, open.
 
+## 2026-10-02 — M6: contract tests with v3 view SQL, web and backend; plan complete except M4
+
+**Task.** Implement milestone M6 of `docs/improve-testting-environment/` (the last one) without touching
+`src/main`: the real `base.billing_masterdata` view from the v3-hosted backend SQL in an own database, the
+caller DTO contract of eegfaktura-web and eegfaktura-v3, response snapshots if time permits.
+
+**Inventory.**
+- Minimal ordered subset of v3 `docker/legacy-base/01..08` (v3 commit `ad120d1`): `01` (base tables), `02`
+  (`activeMeteringPartition`, `activeTariff`, first view), `04` (bank/mandate columns, `creditor_id`), `05`
+  (the view as of 2025-06-05, 64 columns). `03` only inserts grid operators, `06`–`08` only add table
+  columns the view does not select. The four copies equal `eegfaktura-backend/migrations` at its HEAD
+  `f4974b2` after v3's two-line header (checked); no newer backend migration on its main line; branch
+  `feat/zvt-time-tariff` (`81ab6f8`) recreates the view.
+- Columns: `BillingMasterdata` maps 62 columns (63 fields minus the generated `id`), all in the legacy view
+  (64; unmapped: `eec_website`, `tariff_participant_version`); `billing_masterdata_v3` (V190, counted from the
+  file) has 65 = the 64 legacy names + `eeg_id`.
+- Callers (grep of `BILLING_API_SERVER` in web `src/service/eeg.service.ts` at `c37a0b7`, `uri(` in v3
+  `BillingClient.kt` at `0b785d2`): web 18 calls on 18 endpoints, v3 20 calls on 20 endpoints, 21 of 31
+  endpoints used. Fixtures per endpoint (web/v3): `POST /api/billing` 1/1 (+ body), `POST /api/billingConfigs`
+  1/1 (+ body), `PUT /api/billingConfigs/{id}` 1/1 (+ body), `POST …/logoImage` and `…/footerImage` 1/1
+  (multipart), `DELETE` both images 1/1, `GET …/logoImage` 1/1, `GET /api/billingConfigs/tenant/{tenantId}`
+  and `/{id}` 1/1, `GET /api/billingRuns/{tenantId}/{type}/{identifier}`, `/{id}`, `/participantAmounts`,
+  `/billingDocuments/xlsx`, `/archive`, `/sendmail` 1/1, `GET /api/fileData/{id}` 1/1,
+  `GET /api/billingDocumentFiles/tenant/{id}` 1/0, `GET /api/billingRuns/{id}/billingDocuments`,
+  `GET /api/billingDocuments/tenant/{id}/{year}`, `GET /api/billingDocuments/{id}` 0/1
+  (`grep -c '"method"'`: web 18, v3 20). DTOs: `DoBillingParams`/`Allocation`, `BillingConfigDTO`; read:
+  `DoBillingResults`, `BillingRunDTO`, `ParticipantAmount`, `BillingDocumentDTO`, `BillingDocumentFileDTO`,
+  `BillingConfigDTO`, `ErrorResponse`.
+
+**Changes.** New `support/LegacyBaseDatabase` (own `postgres:15-alpine`, applies the four scripts once per
+JVM), `contract/MasterdataColumns` (entity columns through Hibernate's `CamelCaseToUnderscoresNamingStrategy`,
+view columns from `information_schema`, Java type → readable `data_type`, V190 alias parser),
+`contract/LegacyMasterdataViewContractTests` (7), `contract/LegacyMasterdataEntityReadTests` (6,
+`@DataJpaTest` on the own container, rows in `contracts/legacy-masterdata-rows.sql`),
+`contract/ContractFixtures`, `contract/CallerEndpointContractTests` (78 executions),
+`contract/CallerRequestContractTests` (12, `@WebMvcTest` with `@Import(JacksonConfig)`),
+`contract/CallerResponseContractTests` (9, `@JsonTest` with `JacksonConfig`). Resources:
+`legacy-base/` (4 copied files + README), `contracts/` (README, two endpoint inventories, six body
+fixtures, seven response snapshots, `v3view/V190__billing_masterdata_v3.sql`). `pom.xml`: domain line floor
+0.88 → 0.94. Docs: `known-errors.md` #10 mitigated, #20 note, #34 new; `open-points.md` B-25 new;
+`EXTERNAL_SOURCES.md` three rows and the PostgreSQL row; m06 (ticks, result); README (status, "Plan status").
+
+**Decisions.** Copied files byte-identical from v3 (B-16): `cmp` against v3 at copy time, sha256 pinned in
+the test so a local edit fails; the v3 working tree was clean at `0b785d2`. Plain JDBC for the column check
+(fast, message names the column) plus a Hibernate read through the real view (the true contract: ordinal
+enum, `uuid` → `String`, `real`/`double precision`/`integer` → `BigDecimal`, `date` → `LocalDate`). The
+request tests import `JacksonConfig`, which a `@WebMvcTest` slice does not pick up (the M2 slices run with
+Boot's defaults; they differ only in `ACCEPT_FLOAT_AS_INT`, noted, not changed). Unknown fields: tolerated
+because `JacksonConfig` disables `FAIL_ON_UNKNOWN_PROPERTIES`; the `isPreview` trap is pinned as today's
+behaviour and recorded as #34/B-25, not as a defect test (a safer default is a contract decision). Endpoint
+routing is checked against the M2 `EndpointTable` with Spring's `PathPatternParser` (most specific match),
+which the M2 guard ties to the live mappings. v3 view by name only (its schema needs V1..V190). Response
+snapshots done (optional item). No new dependency, no `CHANGELOG.md` entry (test-only, as M5).
+
+**Acceptance.** Throw-away change of the copied `05_…` (`eec_city` → `eec_town`, `participant_sepa_direct_debit`
+dropped), run once: `everyEntityColumnExistsInTheViewWithAReadableType` failed with "missing column eec_city
+(String field of BillingMasterdata), missing column participant_sepa_direct_debit (String field of
+BillingMasterdata)", also red: the 64-column count (63), the sha256, the v3 name check (`eec_town`), the
+type and rename tests; restored with `cp` from v3 + `cmp`. Same for the caller side once: a misspelt web
+path (`/api/billingRun/…`) failed with "no billing endpoint for eegfaktura-web GET /api/billingRun/RC100001/YM/
+Abr_YM-2024-6 (eeg.service.ts:152 fetchBillingRun)", a renamed snapshot field failed the `BillingRunDTO`
+snapshot; both restored.
+
+**Disabled tests.** None new (no M6 test needed one); `grep -rn '@Disabled' src/test | grep -v 'known-errors
+#[0-9]'` prints nothing.
+
+**Verification.** Each class alone in `maven:3-eclipse-temurin-21` (view classes 7 + 6, caller classes
+78 + 12 + 9, all green on the first run); `target/` removed with the alpine command; then one `mvn -B clean
+verify`: **490 tests, 0 failures, 0 errors, 47 skipped** (M6: 112 executions in 5 classes, 0 skipped), all
+coverage checks met, 36 s wall clock (M6 classes about 1.8 s in surefire plus one JPA and two slice context
+starts). JaCoCo CSV of the clean run: bundle lines **81.41 %** (1502/1845), branches **83.33 %** (285/342);
+`domain` 94.44 % (17/18) / 75 %, the others unchanged from M5 (`service` 77.31 % / 80.63 %, `rest` 100 %,
+`controller` 100 %, `security` 88.12 % / 83.33 %, `util` 96.15 % / 94.34 %, `config` 90.48 %, `repos`
+70.21 % / 92.86 %, `model` 92.31 %). Raised floor checked with `jacoco:check@check` against the same run's
+data. `git diff --stat src/main` empty; `loc-check.sh`: all new files green (largest
+`CallerRequestContractTests` 227 lines; copied SQL max 219).
+
+**Open.** Copies are refreshed by hand (README steps; no CI diff job); the backend's `feat/zvt-time-tariff`
+view change; #34/B-25; fixing #20 is a contract change for v3. Plan: M0–M3, M5, M6 done, M4 on the zvt
+branch; the remaining open items are listed in the README's "Plan status".
+
 ## 2026-10-02 — M5: concurrency and mail tests (GreenMail); F3/F4/F7 integration defect tests
 
 **Task.** Implement milestone M5 of `docs/improve-testting-environment/` without touching `src/main`: parallel runs
