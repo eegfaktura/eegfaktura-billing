@@ -39,7 +39,7 @@ public class BillingDocumentService {
     }
 
     public List<BillingDocumentDTO> findByTenantIdAndYear(String tenantId, Integer year) {
-        LocalDate instance = LocalDate.now().withYear(year);
+        LocalDate instance = LocalDate.now(BillingService.BILLING_ZONE).withYear(year);
         LocalDate dateStart = instance.with(firstDayOfYear());
         LocalDate dateEnd = instance.with(lastDayOfYear());
 
