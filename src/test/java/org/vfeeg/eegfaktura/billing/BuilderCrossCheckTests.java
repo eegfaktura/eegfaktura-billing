@@ -57,6 +57,7 @@ class BuilderCrossCheckTests {
         fixture.createConfig(billingConfigService, fileDataRepository, false);
 
         DoBillingResults results = billingService.doBilling(fixture.params("QUARTERLY", "Abr_YQ-2023-3", true));
+        assertThat(results.getAbstractText(), is("Abrechnung (Vorschau): erfolgreich abgeschlossen."));
         assertThat(results.getBillingRunId(), notNullValue());
         assertThat(results.getParticipantAmounts().size(), is(3));
 

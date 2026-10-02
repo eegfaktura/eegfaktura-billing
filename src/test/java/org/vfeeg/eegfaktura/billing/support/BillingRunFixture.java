@@ -40,7 +40,7 @@ public final class BillingRunFixture {
      */
     public static BillingRunFixture legacyWorld() {
         String glueck = "8126ab63-3f5d-42a4-b6f5-8df17aa68158";
-        String froehlich = "039e8d60-b6ba-459c-b5a1-0c31aa53a49";
+        String froehlich = "039e8d60-b6ba-459c-b5a1-0c31aa53a490";
         String sonne = "bf6c5e6c-a7f2-4499-b2bb-02bb6587b951";
         return forTenant(BillingMasterdataBuilder.DEFAULT_TENANT)
                 .master(BillingMasterdataBuilder.consumer(glueck, "C0000000000000000000001234")

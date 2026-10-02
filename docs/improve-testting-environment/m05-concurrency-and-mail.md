@@ -1,7 +1,7 @@
 # M5 — Concurrency and mail
 
 **Concept:** phase 5 · **Status:** open · **Production code:** none
-**Depends on:** M0, M1 (lock and mail unit tests), M3 (scenario base class and builders for run
+**Depends on:** M0, M1 (lock and mail unit tests), M3 (scenario base class `support/BillingScenarioBase` and builders for run
 data); GreenMail approved (`open-points.md` B-12). Independent of M2. **Effort:** 2 – 3 days.
 
 ## Goal
