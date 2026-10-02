@@ -4,7 +4,7 @@ One entry per AI session, newest first. Format: date, task, changes, decisions, 
 
 ## 2026-10-02 — M6: contract tests with v3 view SQL, web and backend; plan complete except M4
 
-**Task.** Implement milestone M6 of `docs/improve-testting-environment/` (the last one) without touching
+**Task.** Implement milestone M6 of `docs/improve-testing-environment/` (the last one) without touching
 `src/main`: the real `base.billing_masterdata` view from the v3-hosted backend SQL in an own database, the
 caller DTO contract of eegfaktura-web and eegfaktura-v3, response snapshots if time permits.
 
@@ -85,7 +85,7 @@ branch; the remaining open items are listed in the README's "Plan status".
 
 ## 2026-10-02 — M5: concurrency and mail tests (GreenMail); F3/F4/F7 integration defect tests
 
-**Task.** Implement milestone M5 of `docs/improve-testting-environment/` without touching `src/main`: parallel runs
+**Task.** Implement milestone M5 of `docs/improve-testing-environment/` without touching `src/main`: parallel runs
 through the resource bean with deterministic latches, mail against a real SMTP server, F3/F4/F7 as integration defect
 tests.
 
@@ -146,7 +146,7 @@ green (largest `ConcurrentBillingRunTests` 215 lines).
 
 ## 2026-10-02 — M3: billing scenarios S1 – S12 (S11 waits for B-13)
 
-**Task.** Implement milestone M3 of `docs/improve-testting-environment/` without touching `src/main`: the scenario
+**Task.** Implement milestone M3 of `docs/improve-testing-environment/` without touching `src/main`: the scenario
 matrix S1 – S12 on Testcontainers PostgreSQL, PDF/XLSX checks, the clean-up T1/T2/T3/T4/T7/T8/T10 of the old
 classes, the optional v3 items only if cheap.
 
@@ -221,7 +221,7 @@ holds with the instructed floor changes in the same file.
 
 ## 2026-10-02 — M2: web-layer slice tests and tenant matrix for the 31 endpoints
 
-**Task.** Implement milestone M2 of `docs/improve-testting-environment/` on `master` as it is (B-15: no
+**Task.** Implement milestone M2 of `docs/improve-testing-environment/` on `master` as it is (B-15: no
 `fix-tenant-claim` merge; B-14: no token stays 403) without touching `src/main`.
 
 **Changes.** New in `src/test/java/.../rest/`: `WebSliceTest` (annotations only: `@Import` of `JwtSecurityConfig`,
@@ -292,7 +292,7 @@ pom.xml` is empty" again holds for `src/main` only (floors raised as instructed)
 
 ## 2026-10-02 — M1: cheap unit tests, F3/F4/F7 as disabled defect tests
 
-**Task.** Implement milestone M1 of `docs/improve-testting-environment/` (unit tests without Spring or Docker)
+**Task.** Implement milestone M1 of `docs/improve-testing-environment/` (unit tests without Spring or Docker)
 without touching `src/main`.
 
 **Changes.** New test classes `util.BigDecimalToolsTests`, `util.StringToolsTests`,
@@ -338,7 +338,7 @@ fix; the m01 criterion "`git diff --stat src/main pom.xml` is empty" contradicts
 
 ## 2026-10-01 — M0: CI test job, JaCoCo with thresholds, lombok.config, test builders
 
-**Task.** Implement milestone M0 of `docs/improve-testting-environment/` without touching `src/main`.
+**Task.** Implement milestone M0 of `docs/improve-testing-environment/` without touching `src/main`.
 
 **Changes.** `pom.xml` (JaCoCo 0.8.13: prepare-agent, report in `test`, check in `verify`, per-package floors;
 surefire `argLine=@{argLine}`), `lombok.config`, `.github/workflows/test.yml` (new, reusable, on `pull_request`
@@ -365,9 +365,9 @@ verified**, neither are the throw-away-branch checks nor the jar class-list diff
 ## 2026-10-01 — Concept: improve the test coverage (no code change)
 
 **Task.** The user: a concept how to improve test coverage **without changing any code**; errors
-found are noted, not fixed; as a Markdown file in `docs/improve-testting-environment/`.
+found are noted, not fixed; as a Markdown file in `docs/improve-testing-environment/`.
 
-**Changes.** `docs/improve-testting-environment/test-coverage-concept.md` (English since the review; was `konzept-testabdeckung.md`): measured
+**Changes.** `docs/improve-testing-environment/test-coverage-concept.md` (English since the review; was `konzept-testabdeckung.md`): measured
 baseline, weaknesses of the existing tests (T1–T12), 18 defects (F1–F18), test obstacles, six
 phases, target figures. `known-errors.md` #12–#29 (= F1–F18), `open-points.md` B-11–B-13. No file
 under `src/` or `pom.xml` changed.
