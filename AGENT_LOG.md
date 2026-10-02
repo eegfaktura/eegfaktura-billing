@@ -2,6 +2,67 @@
 
 One entry per AI session, newest first. Format: date, task, changes, decisions, verification, open.
 
+## 2026-10-02 — M5: concurrency and mail tests (GreenMail); F3/F4/F7 integration defect tests
+
+**Task.** Implement milestone M5 of `docs/improve-testting-environment/` without touching `src/main`: parallel runs
+through the resource bean with deterministic latches, mail against a real SMTP server, F3/F4/F7 as integration defect
+tests.
+
+**Changes.** New `support/GreenMailHolder` (one GreenMail per JVM on a dynamic port, SMTP user and test-only login
+because the test properties demand `mail.smtp.auth`), `support/Gate` (latches and a bounded barrier; every wait has a
+timeout and a failure message), `support/ConcurrencyAndMailBase` (extends M3's `BillingScenarioBase`; `@MockitoSpyBean`
+on `BillingService`, `InMemoryLockRepository`, `EmailService`, `BillingRunRepository`, `BillingDocumentNumberRepository`
+declared once so the M5 classes share one context; worker pool with `TenantContext` per thread; GreenMail purge and
+mail-sender port reset per test). New `concurrency/ConcurrentBillingRunTests` (4), `concurrency/MailSendRaceTests` (1),
+`mail/BillingMailDeliveryTests` (4). `pom.xml`: `com.icegreen:greenmail` 2.1.14 (test, `junit:junit` excluded).
+`known-errors.md` #14, #15, #18 (reproduction notes), `open-points.md` B-12 (GreenMail added), `EXTERNAL_SOURCES.md`
+(GreenMail row), m05 (ticks, result), README status.
+
+**Decisions.** GreenMail 2.1.14: Maven Central `last-modified` 2026-09-19 (13 days, latest release), Apache-2.0 from
+the `<licenses>` of `com.icegreen:greenmail-parent:2.1.14`. Jakarta Mail check: GreenMail declares `jakarta.mail-api`
+2.1.5 / Angus `jakarta.mail` 2.0.5 / `jakarta.activation-api` 2.1.4; Spring Boot 3.5.3 manages them to 2.1.3 / 2.0.3 /
+2.1.3 — same Jakarta Mail 2.1 line, the mail tests are green with it. **Core artifact instead of `greenmail-junit5`**
+(spec deviation): the extension restarts the server with a new port per class while the cached context keeps the old
+one; the holder pattern of `PostgresContainerHolder` avoids that, so the JUnit 5 wrapper would be unused. The lock test
+calls `BillingResource.getAllInvoices` with a stubbed `doBilling` (A held, B has fetched A's lock object — hooked in the
+`getLock` spy —, A leaves, B inside, D enters with a new object); D's entry is awaited with the bounded 1 s
+`Gate.NOT_EXPECTED`, spent only once the lock is fixed. The F4 test runs at the **service** level (the generator itself
+has no lock; a second instance would race the same way): a barrier after `getMaxSequenceNumber` lets both runs read the
+maximum before either saves. Part two of the spec (two real runs back to back) goes through the resource and is green:
+with two runs the old monitor still serialises them. Mail race on the service with a barrier in `saveAndFlush("IN
+PROGRESS")`. SMTP failure = the real `JavaMailSenderImpl` pointed at a closed local port (connection refused), after the
+first mail for "mid-batch" (hook in the `EmailService` spy), restored after each test. Spring Data spies cannot
+`callRealMethod()` ("abstract real method"); `proceed(spy, invocation)` uses the spy's delegating default answer. The
+"stuck in IN PROGRESS" aspect of #18 is not tested (needs an exception outside the per-document loop, i.e. a failing
+repository); mid-batch failure leaves "SENT" (green). Floors not raised: the clean run gives exactly M3's figures.
+No `CHANGELOG.md` entry (test-only, the spec asks for none).
+
+**Disabled defect tests** (each run once enabled with `-Djunit.jupiter.conditions.deactivate=org.junit.*DisabledCondition`
+on 2026-10-02, all red):
+- `ConcurrentBillingRunTests.runsOfOneCommunityNeverOverlap` — `@Disabled("known-errors #14")` (F3): "run D entered
+  doBilling while run B was inside", expected false, was true.
+- `ConcurrentBillingRunTests.numbersOfParallelRunsInTheServiceAreDistinct` — `@Disabled("known-errors #15")` (F4): second
+  run failed with `UnexpectedRollbackException` (log: duplicate key `ukhbmeftd1x7fdlqtqqg2v20aev`, `TRECH202400042`
+  twice). (A first enabled attempt failed on the spy's `callRealMethod` instead; fixed with `proceed`, then red for the
+  right reason.)
+- `BillingMailDeliveryTests.runWhereEverySmtpDeliveryFailedIsNotMarkedSent` — `@Disabled("known-errors #18")` (F7):
+  expected not "SENT"/"IN PROGRESS", was "SENT".
+- `MailSendRaceTests.onlyOneOfTwoSimultaneousSendsSends` — `@Disabled("known-errors #18")` (F7): calls that sent expected
+  1, was 2.
+
+**Verification.** The three classes alone, then enabled once (above); then **20 consecutive runs** of the three classes
+in one `maven:3-eclipse-temurin-21` container (`mvn -o -q test -Dtest=…`): 20 × exit 0, every run 9 tests, 0 failures,
+4 skipped. Then one `mvn -B clean verify`: **378 tests, 0 failures, 0 errors, 47 skipped** (M5: 9 in 3 classes, 4
+skipped), all coverage checks met, 34 s wall clock (M5 classes about 11 s in surefire, mostly the extra context start).
+JaCoCo CSV of the clean run: bundle lines 81.36 % (1501/1845), branches 83.33 % (285/342); `service` 77.31 % / 80.63 %;
+`EmailService` 100 % (27/27), `BillingDocumentMailService` 95.83 % (92/96) — targets ≥ 85 % met (already by M1);
+`rest` and `controller` 100 %; all other packages as in M3. `grep -rn '@Disabled' src/test | grep -v 'known-errors
+#[0-9]'` prints nothing; no `Thread.sleep` in the new files; `git diff --stat src/main` empty; `loc-check.sh`: new files
+green (largest `ConcurrentBillingRunTests` 215 lines).
+
+**Open.** Enable the four tests with the fixes of #14 (M4b), #15, #18. If M4b moves the lock into the service, rewire
+`runsOfOneCommunityNeverOverlap` to the service entry point. "Stuck in IN PROGRESS" (#18) has no test.
+
 ## 2026-10-02 — M3: billing scenarios S1 – S12 (S11 waits for B-13)
 
 **Task.** Implement milestone M3 of `docs/improve-testting-environment/` without touching `src/main`: the scenario
