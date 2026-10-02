@@ -2,6 +2,9 @@
 
 **Concept:** phase 4 · **Status:** **blocked and optional** — postponed on 2026-10-01
 **Production code:** **yes** — the only milestone that changes production code.
+**Branch:** M4 will be done on the zvt branch (`feat/zvt-time-tariff`), not on
+`improve-testing-environment` (user, 2026-10-02). The zvt branch reworks `BillingService` and the PDF
+output; refactoring it here would collide with that work.
 **Depends on:** M3 complete (the scenarios are the safety net); M5 recommended before 4b (the
 concurrency tests prove the lock fix); B-21 (decided 2026-10-01: **not now**, M4 stays blocked); the maintainer's explicit go. Nothing else in the plan depends
 on this milestone. **Effort:** 5 – 6.5 working days (AI-assisted work; maintainer review extra,
