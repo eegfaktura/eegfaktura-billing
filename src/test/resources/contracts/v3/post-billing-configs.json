@@ -1,0 +1,35 @@
+{
+  "source": {
+    "repository": "eegfaktura-v3",
+    "file": "backend/src/main/kotlin/at/eegfaktura/billing/config/BillingConfigService.kt:86-89 (configId: the defaults), backend/src/main/kotlin/at/eegfaktura/integration/billing/LegacyBillingDtos.kt:117-139 (LegacyBillingConfig, @JsonInclude ALWAYS: every key, nulls included)",
+    "commit": "0b785d2aaefafb4d34a91a7111fa249119b47af9",
+    "date": "2026-10-01"
+  },
+  "refresh": "src/test/resources/contracts/README.md",
+  "method": "POST",
+  "path": "/api/billingConfigs",
+  "headers": {"Tenant": "RC100001", "Accept": "application/json"},
+  "body": {
+    "id": null,
+    "tenantId": "RC100001",
+    "headerImageFileDataId": null,
+    "footerImageFileDataId": null,
+    "createCreditNotesForAllProducers": true,
+    "beforeItemsTextInvoice": null,
+    "beforeItemsTextCreditNote": null,
+    "beforeItemsTextInfo": null,
+    "afterItemsTextInvoice": null,
+    "afterItemsTextCreditNote": null,
+    "afterItemsTextInfo": null,
+    "termsTextInvoice": null,
+    "termsTextCreditNote": null,
+    "termsTextInfo": null,
+    "footerText": null,
+    "documentNumberSequenceLength": 5,
+    "customTemplateFileDataId": null,
+    "invoiceNumberPrefix": null,
+    "invoiceNumberStart": null,
+    "creditNoteNumberPrefix": null,
+    "creditNoteNumberStart": null
+  }
+}

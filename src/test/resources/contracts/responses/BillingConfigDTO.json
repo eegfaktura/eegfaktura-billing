@@ -1,0 +1,92 @@
+{
+  "dto": "org.vfeeg.eegfaktura.billing.model.BillingConfigDTO",
+  "endpoints": [
+    "GET /api/billingConfigs/tenant/{tenantId}",
+    "GET /api/billingConfigs/{id}"
+  ],
+  "note": "fields = every JSON field billing writes (a change needs a conscious update of this file and a CHANGELOG entry, AGENTS.md section 7); readBy = what each caller reads, must stay a subset",
+  "refresh": "src/test/resources/contracts/README.md",
+  "fields": [
+    "afterItemsTextCreditNote",
+    "afterItemsTextInfo",
+    "afterItemsTextInvoice",
+    "beforeItemsTextCreditNote",
+    "beforeItemsTextInfo",
+    "beforeItemsTextInvoice",
+    "createCreditNotesForAllProducers",
+    "creditNoteNumberPrefix",
+    "creditNoteNumberStart",
+    "customTemplateFileDataId",
+    "documentNumberSequenceLength",
+    "footerImageFileDataId",
+    "footerText",
+    "headerImageFileDataId",
+    "id",
+    "invoiceNumberPrefix",
+    "invoiceNumberStart",
+    "tenantId",
+    "termsTextCreditNote",
+    "termsTextInfo",
+    "termsTextInvoice"
+  ],
+  "readBy": {
+    "eegfaktura-web": {
+      "repository": "eegfaktura-web",
+      "commit": "c37a0b7f9197dd31a16b3ab5294d2d13ff551883",
+      "date": "2026-09-27",
+      "file": "src/models/eeg.model.ts:75-97 (BillingConfig)",
+      "fields": [
+        "afterItemsTextCreditNote",
+        "afterItemsTextInfo",
+        "afterItemsTextInvoice",
+        "beforeItemsTextCreditNote",
+        "beforeItemsTextInfo",
+        "beforeItemsTextInvoice",
+        "createCreditNotesForAllProducers",
+        "creditNoteNumberPrefix",
+        "creditNoteNumberStart",
+        "customTemplateFileDataId",
+        "documentNumberSequenceLength",
+        "footerImageFileDataId",
+        "footerText",
+        "headerImageFileDataId",
+        "id",
+        "invoiceNumberPrefix",
+        "invoiceNumberStart",
+        "tenantId",
+        "termsTextCreditNote",
+        "termsTextInfo",
+        "termsTextInvoice"
+      ]
+    },
+    "eegfaktura-v3": {
+      "repository": "eegfaktura-v3",
+      "commit": "0b785d2aaefafb4d34a91a7111fa249119b47af9",
+      "date": "2026-10-01",
+      "file": "backend/src/main/kotlin/at/eegfaktura/integration/billing/LegacyBillingDtos.kt:117-139 (LegacyBillingConfig)",
+      "fields": [
+        "afterItemsTextCreditNote",
+        "afterItemsTextInfo",
+        "afterItemsTextInvoice",
+        "beforeItemsTextCreditNote",
+        "beforeItemsTextInfo",
+        "beforeItemsTextInvoice",
+        "createCreditNotesForAllProducers",
+        "creditNoteNumberPrefix",
+        "creditNoteNumberStart",
+        "customTemplateFileDataId",
+        "documentNumberSequenceLength",
+        "footerImageFileDataId",
+        "footerText",
+        "headerImageFileDataId",
+        "id",
+        "invoiceNumberPrefix",
+        "invoiceNumberStart",
+        "tenantId",
+        "termsTextCreditNote",
+        "termsTextInfo",
+        "termsTextInvoice"
+      ]
+    }
+  }
+}

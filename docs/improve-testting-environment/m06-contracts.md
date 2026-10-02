@@ -1,6 +1,6 @@
 # M6 — Contracts with the neighbours
 
-**Concept:** phase 6 · **Status:** open · **Production code:** none
+**Concept:** phase 6 · **Status:** done (2026-10-02) · **Production code:** none
 **Depends on:** M0 (CI, thresholds); read access to the sibling repository `eegfaktura-v3`
 (B-16 decided: SQL and data come from v3, AGPL-3.0, same organisation). Independent of M3: the contract tests start their **own** PostgreSQL
 container (a second holder class modelled on M0's `PostgresContainerHolder`).
@@ -48,12 +48,12 @@ Changes in a neighbour that would break billing are caught by a test in billing,
 
 ## Tasks
 
-- [ ] Inventory (list in `AGENT_LOG.md`): the minimal ordered subset of `legacy-base/01..08` that builds the view; the column list of `BillingMasterdata` vs. the view (and the 64 columns of `billing_masterdata_v3`); endpoints and DTOs the web app and v3 use (grep both repos)
-- [ ] Copy the SQL files byte-identical from v3 (B-16, AGPL-3.0) with commit id, README and `EXTERNAL_SOURCES.md` row; never read by sibling path in CI (no network, no sibling checkout in the build)
-- [ ] View contract test (Testcontainers, own database): entity columns ⊆ view columns, type check for numbers/dates; optional second check against `billing_masterdata_v3`
-- [ ] DTO fixtures + one test per used endpoint; response snapshots if time permits
-- [ ] README next to the fixtures: how to refresh when a neighbour changes
-- [ ] Full suite once; thresholds; `AGENT_LOG.md`; `known-errors.md` #10 status
+- [x] Inventory (list in `AGENT_LOG.md`): the minimal ordered subset of `legacy-base/01..08` that builds the view; the column list of `BillingMasterdata` vs. the view (and the 64 columns of `billing_masterdata_v3`); endpoints and DTOs the web app and v3 use (grep both repos)
+- [x] Copy the SQL files byte-identical from v3 (B-16, AGPL-3.0) with commit id, README and `EXTERNAL_SOURCES.md` row; never read by sibling path in CI (no network, no sibling checkout in the build)
+- [x] View contract test (Testcontainers, own database): entity columns ⊆ view columns, type check for numbers/dates; optional second check against `billing_masterdata_v3`
+- [x] DTO fixtures + one test per used endpoint; response snapshots if time permits
+- [x] README next to the fixtures: how to refresh when a neighbour changes
+- [x] Full suite once; thresholds; `AGENT_LOG.md`; `known-errors.md` #10 status
 
 ## Acceptance criteria
 
@@ -68,3 +68,40 @@ Changes in a neighbour that would break billing are caught by a test in billing,
 - Copied fixtures go stale silently; the commit id makes the age visible; a CI job that diffs them against the neighbour is future work.
 - v3's copies lag the Go backend (pinned at `da3d505`, a newer backend migration would not show up); the README states how to compare against `eegfaktura-backend/migrations` when a column changes.
 - After a community's cutover billing reads `billing_masterdata_v3`; a contract written only against the legacy view misses that (hence the optional second check).
+
+## Result (2026-10-02)
+
+- **View contract:** the minimal subset is `01, 02, 04, 05` of v3's `docker/legacy-base/` (03 only inserts
+  grid operators, 06–08 only add table columns the view does not select); copied byte-identical from v3
+  commit `ad120d1` (`cmp`, sha256 pinned in the test) into `src/test/resources/legacy-base/` with a README.
+  `support/LegacyBaseDatabase` (own `postgres:15-alpine`, never the M3 database) applies them; no role or
+  extension beyond `uuid-ossp` was needed. `LegacyMasterdataViewContractTests` (7): the view has 64
+  columns, all 62 columns of `BillingMasterdata` exist with a readable type (map Java type → PostgreSQL
+  `data_type`, enum by ordinal), a renamed column and a wrong type are reported by name, sha256 of the
+  copies, v3's `billing_masterdata_v3` by name. `LegacyMasterdataEntityReadTests` (6, `@DataJpaTest`) reads
+  the entity through the real view: ordinal meter type, newest tariff version, billing address, SEPA
+  mandate from the bank account, member fee from the EEG tariff.
+- **Throw-away check (acceptance 1):** `eec_city` renamed to `eec_town` and `participant_sepa_direct_debit`
+  dropped in the copied `05_…` — the run failed with "missing column eec_city (String field of
+  BillingMasterdata), missing column participant_sepa_direct_debit (…)" (plus the sha256, size and v3
+  checks); file restored with `cp` from v3 and `cmp`.
+- **v3 view (optional):** counted from the file: 65 columns = the 64 legacy names + `eeg_id` (the
+  maintainer's "64 with the same names" holds for the legacy part). v3's schema (V1..V190) is not applied;
+  names only, as the spec allows. Copied byte-identical to `contracts/v3view/`.
+- **Caller DTO contract:** inventories `contracts/web/endpoints.json` (18 calls) and
+  `contracts/v3/endpoints.json` (20 calls) — 21 of the 31 endpoints are used; every call routes to an
+  endpoint of the M2 table (`CallerEndpointContractTests`). Six body fixtures (run, create config, update
+  config for each caller) and the image uploads (part `file`) pass the real web layer with
+  `JacksonConfig` (`CallerRequestContractTests`, 12). Unknown fields are **tolerated** (`JacksonConfig`
+  disables `FAIL_ON_UNKNOWN_PROPERTIES`); consequence pinned: `isPreview` instead of `preview` gives a
+  final run (`known-errors.md` #34, `open-points.md` B-25).
+- **Response contract (optional, done):** seven snapshots in `contracts/responses/` with `fields` (exact)
+  and `readBy` per caller (subset) (`CallerResponseContractTests`, 9).
+- 112 test executions in 5 classes, all green; full clean run 490 tests, 0 failures, 47 skipped (no new
+  disabled test). Domain line floor 0.88 → 0.94 (BillingMasterdata now read). The criterion "`git diff
+  --stat src/main pom.xml` is empty" holds for `src/main`; `pom.xml` only carries the raised floor.
+- Found: v3 maps billing's 500 + `AccessDeniedException` to "not found" — fixing #20 is a contract change
+  for v3 (noted in #20). The backend's `feat/zvt-time-tariff` recreates the view (`81ab6f8`), not in v3's
+  copies; refresh when it lands.
+- Open: refresh by hand only (no CI diff job); the `X-Client`/`tenant` headers of the web branch
+  `add-XClient-Header` are in the fixtures, `master` of the web sends no `X-Client`.

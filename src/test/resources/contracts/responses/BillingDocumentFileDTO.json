@@ -1,0 +1,33 @@
+{
+  "dto": "org.vfeeg.eegfaktura.billing.model.BillingDocumentFileDTO",
+  "endpoints": [
+    "GET /api/billingDocumentFiles/tenant/{id} (list)"
+  ],
+  "note": "fields = every JSON field billing writes (a change needs a conscious update of this file and a CHANGELOG entry, AGENTS.md section 7); readBy = what each caller reads, must stay a subset",
+  "refresh": "src/test/resources/contracts/README.md",
+  "fields": [
+    "billingDocumentId",
+    "fileDataId",
+    "id",
+    "mimeType",
+    "name",
+    "participantId",
+    "tenantId"
+  ],
+  "readBy": {
+    "eegfaktura-web": {
+      "repository": "eegfaktura-web",
+      "commit": "c37a0b7f9197dd31a16b3ab5294d2d13ff551883",
+      "date": "2026-09-27",
+      "file": "src/models/meteringpoint.model.ts:90-98 (InvoiceDocumentResponse)",
+      "fields": [
+        "name",
+        "mimeType",
+        "tenantId",
+        "fileDataId",
+        "billingDocumentId",
+        "participantId"
+      ]
+    }
+  }
+}
