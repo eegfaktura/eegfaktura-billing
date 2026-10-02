@@ -3,7 +3,7 @@
 Milestones of [test-coverage-concept.md](test-coverage-concept.md), one file each. The numbers
 equal the phases of the concept. Order: M0 → M1 → M2 → M3 → M5 → M6 (M2, M3 and M6 only need M0 and
 may run in parallel; M5 needs M1 and M3's base class; M6 is independent of M3); M4 is **blocked and
-optional**. M0 also provides the shared `PostgresContainerHolder` that M3 and M5 use. Effort in total
+optional** and will be done on the zvt branch `feat/zvt-time-tariff`, not here (2026-10-02). M0 also provides the shared `PostgresContainerHolder` that M3 and M5 use. Effort in total
 (M0 – M3, M5, M6): about 14 – 17.5 working days AI-assisted, maintainer review extra (M0 +0.25 for the second baseline run, M6 research shorter because v3 hosts the SQL: net unchanged); M4 adds 5 – 6.5; the optional v3 items in M3 add 1 – 1.5.
 
 | Milestone | Title | Production code changed? | Needs | Status |
@@ -12,7 +12,7 @@ optional**. M0 also provides the shared `PostgresContainerHolder` that M3 and M5
 | [M1](m01-unit-tests.md) | Cheap unit tests | no | M0 | open |
 | [M2](m02-web-layer.md) | Web layer and tenant matrix (31 endpoints) | no | M0; B-14 decided (403); builds on `master` without the `fix-tenant-claim` merge (B-15 decided: no) | open |
 | [M3](m03-billing-scenarios.md) | Billing scenarios S1 – S12 | no | M0, PDFBox (approved); S11 waits for B-13; optional v3 snapshot/oracle (B-16 decided) | open |
-| [M4](m04-testability-refactoring.md) | Refactoring for testability | yes | M3 complete, B-21 (decided: not now), B-13 (rounding only) | **blocked, optional** |
+| [M4](m04-testability-refactoring.md) | Refactoring for testability | yes | M3 complete, B-21 (decided: not now), B-13 (rounding only) | **blocked, optional**; done on the zvt branch `feat/zvt-time-tariff` (2026-10-02) |
 | [M5](m05-concurrency-and-mail.md) | Concurrency and mail | no | M0, M1, M3 (base class), GreenMail (approved) | open |
 | [M6](m06-contracts.md) | Contracts with the neighbours | no | M0, v3 SQL copy (B-16 decided: v3, AGPL), read access to v3 and web | open |
 
