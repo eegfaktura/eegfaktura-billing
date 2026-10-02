@@ -17,6 +17,7 @@ import org.vfeeg.eegfaktura.billing.model.FileDataDTO;
 import org.vfeeg.eegfaktura.billing.security.TenantContext;
 import org.vfeeg.eegfaktura.billing.service.BillingConfigService;
 import org.vfeeg.eegfaktura.billing.service.FileDataService;
+import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
 
 @RestController
@@ -91,6 +92,9 @@ public class BillingConfigResource {
             @PathVariable(name = "id") final UUID id) {
         BillingConfigDTO billingConfigDTO = billingConfigService.get(id);
         TenantContext.validateTenant(billingConfigDTO.getTenantId());
+        if (billingConfigDTO.getHeaderImageFileDataId() == null) {
+            throw new NotFoundException();
+        }
         FileDataDTO fileDataDTO = fileDataService.get(billingConfigDTO.getHeaderImageFileDataId());
 
         return ResponseEntity
@@ -102,10 +106,12 @@ public class BillingConfigResource {
 
     @GetMapping("/{id}/footerImage")
     public ResponseEntity<byte[]> getFooterImage(
-            @PathVariable(name = "id") final UUID id,
-            @RequestParam("file") MultipartFile multiPartFile) {
+            @PathVariable(name = "id") final UUID id) {
         BillingConfigDTO billingConfigDTO = billingConfigService.get(id);
         TenantContext.validateTenant(billingConfigDTO.getTenantId());
+        if (billingConfigDTO.getFooterImageFileDataId() == null) {
+            throw new NotFoundException();
+        }
         FileDataDTO fileDataDTO = fileDataService.get(billingConfigDTO.getFooterImageFileDataId());
 
         return ResponseEntity
@@ -126,6 +132,10 @@ public class BillingConfigResource {
     @PutMapping("/{id}")
     public ResponseEntity<Void> updateBillingConfig(@PathVariable(name = "id") final UUID id,
                                                     @RequestBody @Valid final BillingConfigDTO billingConfigDTO) {
+        // Der gespeicherte Datensatz muss dem Aufrufer gehoeren, nicht nur der Body.
+        // Frueher wurde nur der Mandant im Body geprueft - wer die ID einer fremden
+        // Konfiguration kannte, konnte sie damit auf den eigenen Mandanten umhaengen.
+        TenantContext.validateTenant(billingConfigService.get(id).getTenantId());
         TenantContext.validateTenant(billingConfigDTO.getTenantId());
         billingConfigService.update(id, billingConfigDTO);
         return ResponseEntity.ok().build();

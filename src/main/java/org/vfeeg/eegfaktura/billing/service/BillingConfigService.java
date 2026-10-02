@@ -74,14 +74,12 @@ public class BillingConfigService {
                 if (billingConfigDTO.getHeaderImageFileDataId()!=null) {
                     fileDataRepository.deleteById(billingConfigDTO.getHeaderImageFileDataId());
                 }
-                billingConfigDTO.setHeaderImageFileDataId(fileData.getId());
             } else { //FOOTER_IMAGE
                 if (billingConfigDTO.getFooterImageFileDataId()!=null) {
                     fileDataRepository.deleteById(billingConfigDTO.getFooterImageFileDataId());
                 }
-                billingConfigDTO.setFooterImageFileDataId(fileData.getId());
             }
-            update(billingConfigDTO.getId(), billingConfigDTO);
+            setImageFileDataId(billingConfigDTO.getId(), billingConfigImageType, fileData.getId());
         } catch (Exception e) {
             log.error("Unable to store uploaded file due to: {}", e.getMessage(), e);
             throw new RuntimeException("Unable to store uploaded file due to: "+e, e);
@@ -96,13 +94,23 @@ public class BillingConfigService {
 
         if (imageFileDataId!=null) {
             fileDataRepository.deleteById(imageFileDataId);
-            if (billingConfigImageType == BillingConfigImageType.LOGO_IMAGE) {
-                billingConfigDTO.setHeaderImageFileDataId(null);
-            } else {
-                billingConfigDTO.setFooterImageFileDataId(null);
-            }
-            update(billingConfigDTO.getId(), billingConfigDTO);
+            setImageFileDataId(billingConfigDTO.getId(), billingConfigImageType, null);
         }
+    }
+
+    // Die Bild-IDs setzen ausschliesslich Upload und Loeschen, nie der Request-Body: eine
+    // frei waehlbare FileData-ID liesse sich sonst ueber GET .../logoImage als fremde Datei
+    // (z. B. das Rechnungs-PDF einer anderen Gemeinschaft) herunterladen.
+    private void setImageFileDataId(final UUID configId, final BillingConfigImageType billingConfigImageType,
+                                    final UUID fileDataId) {
+        final BillingConfig billingConfig = billingConfigRepository.findById(configId)
+                .orElseThrow(NotFoundException::new);
+        if (billingConfigImageType == BillingConfigImageType.LOGO_IMAGE) {
+            billingConfig.setHeaderImageFileDataId(fileDataId);
+        } else {
+            billingConfig.setFooterImageFileDataId(fileDataId);
+        }
+        billingConfigRepository.save(billingConfig);
     }
 
     public List<BillingConfigDTO> findAll() {
@@ -126,6 +134,7 @@ public class BillingConfigService {
 
     public UUID create(final BillingConfigDTO billingConfigDTO) {
         final BillingConfig billingConfig = new BillingConfig();
+        billingConfig.setTenantId(billingConfigDTO.getTenantId());
         mapToEntity(billingConfigDTO, billingConfig);
         return billingConfigRepository.save(billingConfig).getId();
     }
@@ -133,6 +142,7 @@ public class BillingConfigService {
     public void update(final UUID id, final BillingConfigDTO billingConfigDTO) {
         final BillingConfig billingConfig = billingConfigRepository.findById(id)
                 .orElseThrow(NotFoundException::new);
+        // Mandant und Datei-IDs bleiben, wie sie gespeichert sind (siehe mapToEntity).
         mapToEntity(billingConfigDTO, billingConfig);
         billingConfigRepository.save(billingConfig);
     }
@@ -169,9 +179,9 @@ public class BillingConfigService {
 
     private BillingConfig mapToEntity(final BillingConfigDTO billingConfigDTO,
                                       final BillingConfig billingConfig) {
-        billingConfig.setTenantId(billingConfigDTO.getTenantId());
-        billingConfig.setHeaderImageFileDataId(billingConfigDTO.getHeaderImageFileDataId());
-        billingConfig.setFooterImageFileDataId(billingConfigDTO.getFooterImageFileDataId());
+        // Bewusst NICHT aus dem Body uebernommen: tenantId (sonst liesse sich eine fremde
+        // Konfiguration per PUT auf den eigenen Mandanten umhaengen) sowie die FileData-IDs
+        // fuer Logo, Fusszeile und Vorlage (sonst waere jede bekannte Datei-ID lesbar).
         billingConfig.setCreateCreditNotesForAllProducers(billingConfigDTO.isCreateCreditNotesForAllProducers());
 
         billingConfig.setBeforeItemsTextInvoice(billingConfigDTO.getBeforeItemsTextInvoice());
@@ -188,7 +198,6 @@ public class BillingConfigService {
 
         billingConfig.setFooterText(billingConfigDTO.getFooterText());
         billingConfig.setDocumentNumberSequenceLength(billingConfigDTO.getDocumentNumberSequenceLength());
-        billingConfig.setCustomTemplateFileDataId(billingConfigDTO.getCustomTemplateFileDataId());
 
         billingConfig.setInvoiceNumberPrefix(billingConfigDTO.getInvoiceNumberPrefix());
         billingConfig.setCreditNoteNumberPrefix(billingConfigDTO.getCreditNoteNumberPrefix());

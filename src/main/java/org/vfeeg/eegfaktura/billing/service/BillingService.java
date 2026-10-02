@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -21,6 +22,13 @@ import java.util.stream.Collectors;
 @Transactional
 @Slf4j
 public class BillingService {
+
+    // Kalendertag der Gemeinschaften. Der Container laeuft ohne TZ, also in UTC: mit
+    // LocalDate.now() galt ein Belegdatum "heute" zwischen 0 und 1 Uhr (Sommer: 2 Uhr)
+    // Wiener Zeit als vordatiert, und zum Jahreswechsel landete ein Beleg im falschen Jahr
+    // und damit im falschen Nummernkreis.
+    public static final ZoneId BILLING_ZONE = ZoneId.of("Europe/Vienna");
+
 
     public static final String ZAEHLPUNKTGEBUEHR_TEXT = "Zählpunktgebühr";
     private final BillingMasterdataRepository billingMasterdataRepository;
@@ -67,7 +75,7 @@ public class BillingService {
             // Pruefe das gewuenschte Belegdatum. Dieses darf nicht in die Zukunft
             // datiert werden => Fehler
             if (doBillingParams.getClearingDocumentDate()!=null
-                    && doBillingParams.getClearingDocumentDate().isAfter(LocalDate.now())) {
+                    && doBillingParams.getClearingDocumentDate().isAfter(LocalDate.now(BILLING_ZONE))) {
                 throw new RuntimeException(String.format("Ungültiges Belegdatum (%s): Rechnung darf nicht vordatiert werden.",
                         doBillingParams.getClearingDocumentDate()
                 ));
@@ -271,7 +279,7 @@ public class BillingService {
                                                   DoBillingParams doBillingParams) {
 
         LocalDate documentDate = doBillingParams.getClearingDocumentDate();
-        documentDate = documentDate == null ? LocalDate.now() : documentDate;
+        documentDate = documentDate == null ? LocalDate.now(BILLING_ZONE) : documentDate;
 
         BillingDocument billingDocument = new BillingDocument();
         billingDocument.setTenantId(billingMasterdata.getTenantId());
@@ -507,7 +515,7 @@ public class BillingService {
         newBillingDocumentItem.setPpuUnit("€");
         newBillingDocumentItem.setDiscountPercent(discountPercentSafe);
         newBillingDocumentItem.setNetValue(netValue);
-        newBillingDocumentItem.setVatPercent(vatPercent);
+        newBillingDocumentItem.setVatPercent(vatPercentSafe);
         newBillingDocumentItem.setVatValueInEuro(vatEuro);
         newBillingDocumentItem.setGrossValue(grossValue);
         newBillingDocumentItem.setBillingDocument(billingDocument);
@@ -563,7 +571,7 @@ public class BillingService {
         newBillingDocumentItem.setDiscountPercent(BigDecimal.ZERO);
         newBillingDocumentItem.setPpuUnit("€");
         newBillingDocumentItem.setNetValue(pricePerMeter);
-        newBillingDocumentItem.setVatPercent(vatPercent);
+        newBillingDocumentItem.setVatPercent(vatPercentSafe);
         newBillingDocumentItem.setVatValueInEuro(vatEuro);
         newBillingDocumentItem.setGrossValue(grossValue);
         newBillingDocumentItem.setBillingDocument(billingDocument);
