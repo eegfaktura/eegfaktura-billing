@@ -1,0 +1,22 @@
+{
+  "source": {
+    "repository": "eegfaktura-v3",
+    "file": "backend/src/main/kotlin/at/eegfaktura/integration/billing/LegacyBillingDtos.kt:14-30 (LegacyDoBillingParams, LegacyAllocation, @JsonInclude NON_NULL), backend/src/main/kotlin/at/eegfaktura/billing/run/BillingRunService.kt:64-71 (preview = final != true), BillingIdentifiers.kt (Abr_<type>-<year>-<segment>)",
+    "commit": "0b785d2aaefafb4d34a91a7111fa249119b47af9",
+    "date": "2026-10-01"
+  },
+  "refresh": "src/test/resources/contracts/README.md",
+  "method": "POST",
+  "path": "/api/billing",
+  "headers": {"Tenant": "RC100001", "Accept": "application/json"},
+  "body": {
+    "clearingPeriodType": "YQ",
+    "clearingPeriodIdentifier": "Abr_YQ-2024-2",
+    "tenantId": "RC100001",
+    "clearingDocumentDate": "2024-06-28",
+    "allocations": [
+      {"participantId": "00000000-0000-0000-0000-000000000101", "meteringPoint": "AT0099990000000000000000000000001", "allocationKWh": 351.120}
+    ],
+    "preview": false
+  }
+}

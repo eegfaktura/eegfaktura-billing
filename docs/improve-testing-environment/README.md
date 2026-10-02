@@ -14,7 +14,29 @@ optional** and will be done on the zvt branch `feat/zvt-time-tariff`, not here (
 | [M3](m03-billing-scenarios.md) | Billing scenarios S1 – S12 | no | M0, PDFBox (approved); S11 waits for B-13; optional v3 snapshot/oracle (B-16 decided) | done (2026-10-02; S11 waits for B-13; oracle done, snapshot not) |
 | [M4](m04-testability-refactoring.md) | Refactoring for testability | yes | M3 complete, B-21 (decided: not now), B-13 (rounding only) | **blocked, optional**; done on the zvt branch `feat/zvt-time-tariff` (2026-10-02) |
 | [M5](m05-concurrency-and-mail.md) | Concurrency and mail | no | M0, M1, M3 (base class), GreenMail (approved) | done (2026-10-02) |
-| [M6](m06-contracts.md) | Contracts with the neighbours | no | M0, v3 SQL copy (B-16 decided: v3, AGPL), read access to v3 and web | open |
+| [M6](m06-contracts.md) | Contracts with the neighbours | no | M0, v3 SQL copy (B-16 decided: v3, AGPL), read access to v3 and web | done (2026-10-02; view contract, caller requests, response snapshots) |
+
+## Plan status (2026-10-02)
+
+M0, M1, M2, M3, M5 and M6 are done on branch `improve-testing-environment` (last full clean run: 490 tests,
+0 failures, 47 skipped — all skipped are `@Disabled("known-errors #NN")` defect tests; bundle lines 81.41 %,
+branches 83.33 %). M4 (refactoring for testability, production code) is not done here: it moves to the zvt
+branch `feat/zvt-time-tariff`. What stays open:
+
+- **B-13** (rounding) and with it **S11**, which has no test until the business answer.
+- **The real CI run** of `test.yml` on GitHub (and M0's throw-away-branch checks and the jar class-list
+  diff) is not verified; only the YAML syntax was checked locally.
+- **The optional v3 world snapshot** of M3 (needs a conversion step from the v3 manifest to
+  `billing_masterdata` rows, about a day).
+- The **disabled defect tests** (47 skipped executions), each enabled by its fix: #1/#19 by the merge of `fix-tenant-claim`
+  (then give `TestTokens` `iss`/`azp`), #12–#18, #20–#22, #27, #31 by production changes (M4 or own
+  changes); rewire M2/M5 if M4b moves the lock into the service.
+- Decisions: B-22 (web total), B-24 (base fee), B-25 (run without `preview` is final, `known-errors.md`
+  #34), B-23 (JaCoCo bump); known errors without a test: #18 "stuck in IN PROGRESS", #25, #30, #32, #33.
+- M6 copies (legacy view SQL, v3 view, caller fixtures) are refreshed by hand; no CI job diffs them
+  against the neighbours. The backend's `feat/zvt-time-tariff` recreates `base.billing_masterdata`
+  (`81ab6f8`): refresh `legacy-base/` when it lands. Fixing #20 (403 instead of 500) is a contract change
+  for v3 (`BillingErrors.kt` maps the 500 to "not found").
 
 ## Where each measure of the concept lives
 

@@ -1,0 +1,19 @@
+{
+  "source": {
+    "repository": "eegfaktura-web",
+    "file": "src/service/eeg.service.ts:298-319 (createBillingConfig)",
+    "commit": "c37a0b7f9197dd31a16b3ab5294d2d13ff551883",
+    "date": "2026-09-27"
+  },
+  "refresh": "src/test/resources/contracts/README.md",
+  "method": "POST",
+  "path": "/api/billingConfigs",
+  "headers": {"tenant": "RC100001", "X-Client": "vfeeg-app/0.0.0", "Accept": "application/json"},
+  "body": {
+    "tenantId": "RC100001",
+    "invoiceNumberStart": 0,
+    "creditNoteNumberStart": 0,
+    "documentNumberSequenceLength": 5,
+    "createCreditNotesForAllProducers": true
+  }
+}

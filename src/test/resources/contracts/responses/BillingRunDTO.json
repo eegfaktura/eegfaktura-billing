@@ -1,0 +1,65 @@
+{
+  "dto": "org.vfeeg.eegfaktura.billing.model.BillingRunDTO",
+  "endpoints": [
+    "GET /api/billingRuns/{tenantId}/{clearingPeriodType}/{clearingPeriodIdentifier} (list)",
+    "GET /api/billingRuns/{id}"
+  ],
+  "note": "fields = every JSON field billing writes (a change needs a conscious update of this file and a CHANGELOG entry, AGENTS.md section 7); readBy = what each caller reads, must stay a subset",
+  "refresh": "src/test/resources/contracts/README.md",
+  "fields": [
+    "clearingPeriodIdentifier",
+    "clearingPeriodType",
+    "id",
+    "mailStatus",
+    "mailStatusDateTime",
+    "numberOfCreditNotes",
+    "numberOfInvoices",
+    "runStatus",
+    "runStatusDateTime",
+    "sendMailProtocol",
+    "sepaStatus",
+    "sepaStatusDateTime",
+    "tenantId"
+  ],
+  "readBy": {
+    "eegfaktura-web": {
+      "repository": "eegfaktura-web",
+      "commit": "c37a0b7f9197dd31a16b3ab5294d2d13ff551883",
+      "date": "2026-09-27",
+      "file": "src/models/meteringpoint.model.ts:75-88 (BillingRun)",
+      "fields": [
+        "id",
+        "clearingPeriodType",
+        "clearingPeriodIdentifier",
+        "tenantId",
+        "runStatus",
+        "runStatusDateTime",
+        "mailStatus",
+        "mailStatusDateTime",
+        "sepaStatus",
+        "sepaStatusDateTime",
+        "numberOfInvoices",
+        "numberOfCreditNotes"
+      ]
+    },
+    "eegfaktura-v3": {
+      "repository": "eegfaktura-v3",
+      "commit": "0b785d2aaefafb4d34a91a7111fa249119b47af9",
+      "date": "2026-10-01",
+      "file": "backend/src/main/kotlin/at/eegfaktura/integration/billing/LegacyBillingDtos.kt:62-76 (LegacyBillingRun)",
+      "fields": [
+        "id",
+        "clearingPeriodType",
+        "clearingPeriodIdentifier",
+        "tenantId",
+        "runStatus",
+        "runStatusDateTime",
+        "mailStatus",
+        "sendMailProtocol",
+        "mailStatusDateTime",
+        "sepaStatus",
+        "sepaStatusDateTime"
+      ]
+    }
+  }
+}
