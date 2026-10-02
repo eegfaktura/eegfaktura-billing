@@ -222,21 +222,21 @@
                         <configuration>
                             <rules>
                                 <!-- Floors from the clean baseline of 2026-10-01 (23 tests), rounded down; raised after M1
-                                     (2026-10-02, 84 tests: bundle, service, util, repos).
-                                     They may only rise; raise them at the end of every milestone.
-                                     security has branches but covers none yet: no branch rule. -->
+                                     (2026-10-02, 84 tests: bundle, service, util, repos) and after M2 (2026-10-02, 342 tests: bundle,
+                                     service, util, model, config, security incl. a branch rule, rest, controller).
+                                     They may only rise; raise them at the end of every milestone. -->
                                 <rule>
                                     <element>BUNDLE</element>
                                     <limits>
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.63</minimum>
+                                            <minimum>0.78</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.69</minimum>
+                                            <minimum>0.75</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -249,12 +249,12 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.71</minimum>
+                                            <minimum>0.73</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.67</minimum>
+                                            <minimum>0.69</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -267,7 +267,7 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.93</minimum>
+                                            <minimum>0.96</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
@@ -303,7 +303,7 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.61</minimum>
+                                            <minimum>0.92</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -334,7 +334,7 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.21</minimum>
+                                            <minimum>0.90</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -347,7 +347,12 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.19</minimum>
+                                            <minimum>0.88</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.83</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -360,7 +365,7 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.17</minimum>
+                                            <minimum>1.00</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -373,7 +378,7 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.50</minimum>
+                                            <minimum>1.00</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
