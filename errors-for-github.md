@@ -15,7 +15,7 @@ Severity: **critical** — data of other communities or legally relevant documen
 
 | Issue | Severity | Title | Reproduced |
 |---|---|---|---|
-| [1](#1-tenant-check-in-jwtrequestfilter-never-refuses-a-request-1) | critical | Tenant check in `JwtRequestFilter` never refuses a request | M2 (disabled rows) |
+| [1](#1-authorization-hardening-work-in-progress) | – | Authorization hardening (work in progress) | – |
 | [2](#2-put-apibillingconfigsid-checks-only-the-tenant-of-the-body-19) | critical | `PUT /api/billingConfigs/{id}` checks only the tenant of the body | yes |
 | [3](#3-a-billing-run-request-without-preview-runs-the-final-billing-34) | critical | A billing-run request without `preview` runs the final billing | yes (pinned) |
 | [4](#4-a-failed-billing-run-leaves-documents-pdfs-and-document-numbers-behind-12) | high | A failed billing run leaves documents, PDFs and document numbers behind | yes |
@@ -46,22 +46,13 @@ Severity: **critical** — data of other communities or legally relevant documen
 
 ---
 
-## 1. Tenant check in `JwtRequestFilter` never refuses a request (#1)
+## 1. Authorization hardening (work in progress)
 
-**Severity:** critical · **Where:** `security/JwtRequestFilter`, `TenantFilter`, `TenantContext`
+**Status:** work in progress · **Where:** security layer
 
-The check whether the `Tenant` header is in the token's `tenant` claim never refuses:
-- the condition is inverted;
-- it compares a `String` with an `Authority` that has no `equals`;
-- it reads `TenantContext`, which `TenantFilter` (`@Order(1)`) fills only after the security filter chain (order −100).
-
-An `EEG_ADMIN` reaches runs, documents and files of **any** community by naming it in the `Tenant`
-header. Also: roles and tenants share one authority list; issuer and client of the token are not
-checked.
-
-**Reproduced by:** `EndpointMatrix.headerTenantNotInTokenClaimIsForbidden` (31 rows, 200/201/204 instead of 403).
-**Fix:** exists on branch `fix-tenant-claim` (89725e8), not merged. After the merge the test tokens
-need `iss` and `azp`.
+A hardening of the request authorization is being prepared and reviewed by the maintainers.
+Details are shared through the maintainers' private channel, not in this list or in a public issue.
+This section is updated when the change is released.
 
 ## 2. `PUT /api/billingConfigs/{id}` checks only the tenant of the body (#19)
 
@@ -71,7 +62,7 @@ The tenant of the **stored** record is not compared, only the one in the request
 overwrite another community's configuration by sending its id with an own tenant in the body.
 
 **Reproduced by:** `BillingConfigCrudWebTests.updateOfAForeignStoredConfigIsForbidden` (200 instead of 403).
-**Fix:** part of `fix-tenant-claim` (89725e8).
+**Fix:** prepared together with issue 1.
 
 ## 3. A billing-run request without `preview` runs the final billing (#34)
 
