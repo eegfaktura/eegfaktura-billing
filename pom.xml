@@ -221,7 +221,8 @@
                         </goals>
                         <configuration>
                             <rules>
-                                <!-- Floors from the clean baseline of 2026-10-01 (23 tests), rounded down.
+                                <!-- Floors from the clean baseline of 2026-10-01 (23 tests), rounded down; raised after M1
+                                     (2026-10-02, 84 tests: bundle, service, util, repos).
                                      They may only rise; raise them at the end of every milestone.
                                      security has branches but covers none yet: no branch rule. -->
                                 <rule>
@@ -230,12 +231,12 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.55</minimum>
+                                            <minimum>0.63</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.56</minimum>
+                                            <minimum>0.69</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -248,12 +249,12 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.62</minimum>
+                                            <minimum>0.71</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.54</minimum>
+                                            <minimum>0.67</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -266,12 +267,12 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.88</minimum>
+                                            <minimum>0.93</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.84</minimum>
+                                            <minimum>0.94</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -315,12 +316,12 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.40</minimum>
+                                            <minimum>0.70</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.50</minimum>
+                                            <minimum>0.92</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
