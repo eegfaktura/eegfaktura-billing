@@ -9,7 +9,7 @@ optional** and will be done on the zvt branch `feat/zvt-time-tariff`, not here (
 | Milestone | Title | Production code changed? | Needs | Status |
 |---|---|---|---|---|
 | [M0](m00-foundation.md) | Foundation: CI, JaCoCo, builders | `pom.xml`, CI, `lombok.config` only | B-2, B-11, B-17, B-19 (all decided) | done (CI run not verified) |
-| [M1](m01-unit-tests.md) | Cheap unit tests | no | M0 | open |
+| [M1](m01-unit-tests.md) | Cheap unit tests | no | M0 | done (2026-10-02) |
 | [M2](m02-web-layer.md) | Web layer and tenant matrix (31 endpoints) | no | M0; B-14 decided (403); builds on `master` without the `fix-tenant-claim` merge (B-15 decided: no) | open |
 | [M3](m03-billing-scenarios.md) | Billing scenarios S1 – S12 | no | M0, PDFBox (approved); S11 waits for B-13; optional v3 snapshot/oracle (B-16 decided) | open |
 | [M4](m04-testability-refactoring.md) | Refactoring for testability | yes | M3 complete, B-21 (decided: not now), B-13 (rounding only) | **blocked, optional**; done on the zvt branch `feat/zvt-time-tariff` (2026-10-02) |
