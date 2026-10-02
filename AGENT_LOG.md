@@ -2,6 +2,81 @@
 
 One entry per AI session, newest first. Format: date, task, changes, decisions, verification, open.
 
+## 2026-10-02 — M3: billing scenarios S1 – S12 (S11 waits for B-13)
+
+**Task.** Implement milestone M3 of `docs/improve-testting-environment/` without touching `src/main`: the scenario
+matrix S1 – S12 on Testcontainers PostgreSQL, PDF/XLSX checks, the clean-up T1/T2/T3/T4/T7/T8/T10 of the old
+classes, the optional v3 items only if cheap.
+
+**Changes.** New `support/BillingScenarioBase` (abstract `@SpringBootTest` on `PostgresContainerHolder`, not
+transactional, one community id per test, `@AfterEach` delete of all its rows incl. `base.billing_masterdata`,
+fixed `REFERENCE_DATE` 2024-06-28, run/read/assert helpers; meant for M5 as well) and `support/DocumentReaders`
+(PDFBox text, POI rows and column sums, ZIP entries). New `scenario/BillingScenarioVatTests` (S1, S3, S4, S5),
+`BillingScenarioFeeTests` (S6, S7, `f15_…`), `BillingScenarioErrorPathTests` (S8, S9, S10, S12),
+`BillingScenarioOutputTests` (S2, PDF text and XLSX sums of S1/S2, archive), `BillingArithmeticOracleTests`
+(optional item 2) with `src/test/resources/v3oracle/billing-arithmetic-cases.json`. Old classes:
+`BillingIntegrationTests` (739 → 658 lines: placeholders removed, one `params(...)` helper instead of four copies
+of the allocation loop, result text and run asserted in `assertRun`, XLSX test asserts 5/9 rows and the gross
+sum 1365.32, items sorted, document date between run day and today, Sonne invoice VAT 20 % / 5.98 restored,
+Sonne participant amount matched on either meter point, more master-data properties instead of the `@TODO`),
+`DocumentNumbersTests` (placeholders removed), `BuilderCrossCheckTests` (result text). Participant id
+`039e8d60-…-0c31aa53a49` fixed to `…-0c31aa53a490` in `TEST_ALLOCATIONS`, `billing_master_data.sql` and
+`BillingRunFixture` (T10). `pom.xml`: PDFBox 3.0.8 (test) and the floors bundle 0.81/0.83, `service` 0.77/0.80.
+`known-errors.md` #33 (new) and reproduction notes on #12, #13, #16, #17, #22, #26; `open-points.md` B-24 (new),
+B-6 updated; `EXTERNAL_SOURCES.md` (PDFBox, v3 golden file); `CHANGELOG.md`; m03 (ticks, result), m05 (base class
+name), README status.
+
+**Decisions.** All scenarios non-transactional with per-tenant cleanup (one rule instead of a mix; the spec allows
+the rest to stay transactional). Numbers are asserted exactly (`TRECH202400042`, `TGUT202400073`), participant
+order is never assumed (sets or lookup by participant). S4 and S8 each have an enabled sibling that pins what holds
+today (failure text; zero participant has no document in the run). **S9 is green and stays enabled**: both
+refusals are thrown before the first save, so F1 cannot leave data there — a deviation from the spec's table, which
+lists S9 under F1. F15 is green (the run path leaves `DEFAULT` untouched). PDFBox 3.0.8: Maven Central
+`last-modified` 2026-07-08 (> 7 days), latest release, Apache-2.0 from the POM header and the `org.apache:apache:39`
+parent; `pdfbox-io`/`fontbox` 3.0.8 come along, Bouncy Castle is optional and not pulled, `commons-logging` stays at
+1.3.5 (JasperReports). Optional item 2 (oracle) done: rows 1–4 of v3's golden file (v3 commit `0b785d2`, file from
+`f6540a0`, byte-identical, sha256 `830d846c…`), 10 cases, all agree with billing; the item VAT rate is not compared
+(billing stores the tariff rate even with VAT off, v3 0); row 5 left out because billing never bills
+`tariff_basic_fee` (B-24), row 14 is no billing concept. **Optional item 1 (v3 world snapshot) not done**: the
+conversion step from the v3 manifest to `billing_masterdata` rows does not exist (about a day).
+`numberOfInvoices`/`numberOfCreditNotes` are never set (#33): the commented assertions are replaced by a pointer,
+no test (what counts as a credit note is a decision).
+
+**Disabled defect tests** (each run once enabled with `-Djunit.jupiter.conditions.deactivate=org.junit.*DisabledCondition`
+on 2026-10-02, all red):
+- `BillingScenarioVatTests.s04_threeVatRatesFailAndLeaveNothingBehind` — `@Disabled("known-errors #12")` (F1):
+  expected 0 documents of the tenant, was 3.
+- `BillingScenarioVatTests.s05_sameRateWithOtherScaleIsOneVatSum` — `@Disabled("known-errors #16")` (F5): VAT sum 1
+  expected 4.00, was 2.00.
+- `BillingScenarioFeeTests.s07_participantFeeWithoutVatRateIsBilledWithZeroVat` — `@Disabled("known-errors #17")`
+  (F6): expected the preview success text, was "Abrechnung fehlgeschlagen: Cannot invoke
+  `java.math.BigDecimal.compareTo(java.math.BigDecimal)` because `vatPercent` is null".
+- `BillingScenarioErrorPathTests.s08_participantWithAmountZeroLeavesNoDocumentWithoutRun` —
+  `@Disabled("known-errors #13")` (F2): expected 0 documents without run, was 3.
+- `BillingScenarioErrorPathTests.s12_deletingACompletedRunRemovesItWithItsDocuments` — `@Disabled("known-errors #22")`
+  (F11): `DataIntegrityViolationException` (FK `fk6gouorockuin30j66lev4xmky`).
+
+**Verification.** Each new or changed class alone (`-Dtest=<Name>`, container with the Docker socket), the five
+disabled ones also enabled; then one `mvn -B clean verify` in `maven:3-eclipse-temurin-21`: **369 tests, 0 failures,
+0 errors, 43 skipped** (M3: 31 test executions in 5 new classes, 5 skipped; old classes 7 + 5 + 1), all coverage checks
+met; the raised floors checked with `jacoco:check@check` against the same run's data. JaCoCo CSV of the clean run:
+bundle lines **81.36 %** (1501/1845), branches **83.33 %** (285/342); `service` 77.31 % / 80.63 %; `BillingService`
+lines 98.05 % (352/359), branches **88.70 %** (102/115); `BillingPdfService` 94.78 % / 92.31 %,
+`BillingDocumentXlsxService` 99.01 % / 84.38 %, `BillingDocumentArchiveService` 100 % / 75 %; the other packages
+unchanged from M2 (`rest` 100 %, `controller` 100 %, `security` 88.12 % / 83.33 %, `util` 96.15 % / 94.34 %, `config`
+90.48 %, `repos` 70.21 % / 92.86 %, `domain` 88.89 % / 75 %, `model` 92.31 %). Targets of the spec (total lines ≥ 75 %,
+branches ≥ 70 %, `BillingService` branches ≥ 75 %) met. Suite time (surefire sum): after 24.3 s, of which the
+pre-existing classes 12.2 s (before-figure taken from the same run; M2 recorded no total), M3 classes 12.1 s
+(9.8 s of it the first class with the Spring context start and Jasper compile); whole `clean verify` 34 s wall
+clock. `grep -rhoE 'void s(0[1-9]|1[0-2])_' src/test | sort -u | wc -l` = 11 (S11 waits for B-13, no placeholder);
+`f15_…` exists; `grep -rn '@Disabled' src/test | grep -v 'known-errors #[0-9]'` prints nothing; no `Thread.sleep`;
+`git diff --stat src/main` empty; `loc-check.sh`: all new files green (largest `BillingScenarioBase` 240 lines);
+`BillingIntegrationTests` still blocked at 658 (B-6).
+
+**Open.** S11 waits for B-13; B-24 (base fee); #33; optional v3 snapshot not done; the five disabled scenarios are
+enabled with the fixes of #12, #13, #16, #17, #22 (M4d or own changes). The criterion "only `pom.xml` gains PDFBox"
+holds with the instructed floor changes in the same file.
+
 ## 2026-10-02 — M2: web-layer slice tests and tenant matrix for the 31 endpoints
 
 **Task.** Implement milestone M2 of `docs/improve-testting-environment/` on `master` as it is (B-15: no

@@ -80,6 +80,10 @@ this changelog highlights the changes relevant for overview and operations.
 - `lombok.config` (`lombok.addLombokGeneratedAnnotation = true`) so coverage ignores generated code.
 - Test builders under `src/test/.../support` (`PostgresContainerHolder`, `BillingMasterdataBuilder`,
   `AllocationBuilder`, `BillingRunFixture`); no production code changed.
+- Billing scenario tests S1 – S12 (`src/test/.../scenario`, S11 waits for the rounding decision B-13): amounts,
+  VAT sums, document types and numbers, run status, result text, PDF text and XLSX sums; new test-only
+  dependency PDFBox 3.0.8. Five scenarios that expose known defects (#12, #13, #16, #17, #22) are
+  committed disabled. No production code changed.
 - Working agreement for developers and AI agents: `AGENTS.md` (tenant isolation, tests, migration
   concepts, logging, external sources, pinned versions, size limits), `CLAUDE.md`, the tracking
   files `AGENT_LOG.md`, `known-errors.md`, `open-points.md`, `EXTERNAL_SOURCES.md`,

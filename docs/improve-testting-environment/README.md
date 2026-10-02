@@ -11,7 +11,7 @@ optional** and will be done on the zvt branch `feat/zvt-time-tariff`, not here (
 | [M0](m00-foundation.md) | Foundation: CI, JaCoCo, builders | `pom.xml`, CI, `lombok.config` only | B-2, B-11, B-17, B-19 (all decided) | done (CI run not verified) |
 | [M1](m01-unit-tests.md) | Cheap unit tests | no | M0 | done (2026-10-02) |
 | [M2](m02-web-layer.md) | Web layer and tenant matrix (31 endpoints) | no | M0; B-14 decided (403); builds on `master` without the `fix-tenant-claim` merge (B-15 decided: no) | done (2026-10-02) |
-| [M3](m03-billing-scenarios.md) | Billing scenarios S1 – S12 | no | M0, PDFBox (approved); S11 waits for B-13; optional v3 snapshot/oracle (B-16 decided) | open |
+| [M3](m03-billing-scenarios.md) | Billing scenarios S1 – S12 | no | M0, PDFBox (approved); S11 waits for B-13; optional v3 snapshot/oracle (B-16 decided) | done (2026-10-02; S11 waits for B-13; oracle done, snapshot not) |
 | [M4](m04-testability-refactoring.md) | Refactoring for testability | yes | M3 complete, B-21 (decided: not now), B-13 (rounding only) | **blocked, optional**; done on the zvt branch `feat/zvt-time-tariff` (2026-10-02) |
 | [M5](m05-concurrency-and-mail.md) | Concurrency and mail | no | M0, M1, M3 (base class), GreenMail (approved) | open |
 | [M6](m06-contracts.md) | Contracts with the neighbours | no | M0, v3 SQL copy (B-16 decided: v3, AGPL), read access to v3 and web | open |
