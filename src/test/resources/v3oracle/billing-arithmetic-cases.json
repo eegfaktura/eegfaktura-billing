@@ -1,0 +1,30 @@
+{
+  "comment": "The arithmetic table of 03-billing/02, one case per row, hand-computed with BigDecimal HALF_UP at the legacy's points. Checked into backend/ and energy-mock/ byte for byte.",
+  "cases": [
+    { "name": "row1 consumer plain", "row": 1, "kwh": "123.456789", "centPerKwh": "18.5000", "freeKwh": 0, "discount": 0, "useVat": true, "vat": "20.00",
+      "amount": "123.46", "net": "22.84", "vatValue": "4.57", "gross": "27.41" },
+    { "name": "row1 consumer free kwh", "row": 1, "kwh": "150.00", "centPerKwh": "12.5000", "freeKwh": 50, "discount": 0, "useVat": true, "vat": "20.00",
+      "amount": "100.00", "net": "12.50", "vatValue": "2.50", "gross": "15.00" },
+    { "name": "row1 free kwh above consumption", "row": 1, "kwh": "30.00", "centPerKwh": "12.5000", "freeKwh": 50, "discount": 0, "useVat": true, "vat": "20.00",
+      "amount": "0.00", "net": "0.00", "vatValue": "0.00", "gross": "0.00", "line": false },
+    { "name": "row1 discount before vat", "row": 1, "kwh": "1000.00", "centPerKwh": "10.0000", "freeKwh": 0, "discount": 10, "useVat": true, "vat": "20.00",
+      "amount": "1000.00", "net": "90.00", "vatValue": "18.00", "gross": "108.00" },
+    { "name": "row1 no vat", "row": 1, "kwh": "77.777777", "centPerKwh": "9.9999", "freeKwh": 0, "discount": 0, "useVat": false, "vat": "20.00",
+      "amount": "77.78", "net": "7.78", "vatValue": "0.00", "gross": "7.78" },
+    { "name": "row2 producer", "row": 2, "kwh": "812.345678", "centPerKwh": "9.2000", "freeKwh": 50, "discount": 0, "useVat": true, "vat": "20.00",
+      "amount": "812.35", "net": "74.74", "vatValue": "14.95", "gross": "89.69" },
+    { "name": "row3 participant fee", "row": 3, "price": "2.50", "discount": 0, "useVat": true, "vat": "20.00",
+      "net": "2.50", "vatValue": "0.50", "gross": "3.00" },
+    { "name": "row3 participant fee discounted no vat", "row": 3, "price": "12.50", "discount": 20, "useVat": false, "vat": "20.00",
+      "net": "10.00", "vatValue": "0.00", "gross": "10.00" },
+    { "name": "row4 consumer metering point fee", "row": 4, "producer": false, "price": "1.50", "useVat": true, "vat": "20.00", "meteringPointVat": 0,
+      "net": "1.50", "vatValue": "0.30", "gross": "1.80" },
+    { "name": "row4 producer metering point fee", "row": 4, "producer": true, "price": "1.50", "useVat": true, "vat": "20.00", "meteringPointVat": 10,
+      "net": "1.50", "vatValue": "0.15", "gross": "1.65" },
+    { "name": "row5 base fee", "row": 5, "price": "1.00", "useVat": true, "vat": "20.00",
+      "net": "1.00", "vatValue": "0.20", "gross": "1.20" },
+    { "name": "row5 zero base fee", "row": 5, "price": "0.00", "useVat": true, "vat": "20.00", "line": false },
+    { "name": "row14 instalment", "row": 14, "accountNet": "30.00", "accountGross": "36.00",
+      "net": "30.00", "vatPercent": "20.00", "vatValue": "6.00", "gross": "36.00" }
+  ]
+}

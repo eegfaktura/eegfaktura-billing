@@ -359,7 +359,7 @@ insert into base.billing_masterdata (
     tariff_metering_point_vat,
     tariff_freekwh
 ) values (
-             '039e8d60-b6ba-459c-b5a1-0c31aa53a49', --participant_id
+             '039e8d60-b6ba-459c-b5a1-0c31aa53a490', --participant_id
              null, -- participant_title_before
              'Fridolin', --participant_firstname
              'Fröhlich', --participant_lastname

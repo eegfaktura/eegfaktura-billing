@@ -1,6 +1,6 @@
 # M3 — Billing scenarios S1 – S12
 
-**Concept:** phase 3 · **Status:** open · **Production code:** none
+**Concept:** phase 3 · **Status:** done (2026-10-02; S11 waits for B-13) · **Production code:** none
 **Depends on:** M0 (builders, `PostgresContainerHolder`); PDFBox approved (`open-points.md` B-12); business answer B-13 for S11
 (S11 waits, it does not block the milestone); B-16 (v3 data, decided) only for the two optional items below.
 **Effort:** 4 – 5 days (scenarios 3, helpers and cleanup 1 – 2); the optional items add 1 – 1.5 days if taken.
@@ -86,13 +86,13 @@ classes (T1), assert the XLSX test (T2), restore or delete commented-out asserti
 
 ## Tasks
 
-- [ ] PDFBox `org.apache.pdfbox:pdfbox` 3.0.8 (test scope, exact version, ≥ 7 days old, Apache-2.0), `EXTERNAL_SOURCES.md` row
-- [ ] Scenario base class (shared container, cleanup helper, fixed reference date)
-- [ ] S1 – S3, S6, S10 (green) first, then S2, then the defect scenarios as disabled tests
-- [ ] PDF text helper and XLSX reader helper
-- [ ] Split by area: `BillingScenarioVatTests`, `BillingScenarioFeeTests`, `BillingScenarioErrorPathTests`, `BillingScenarioOutputTests` (each < 300 lines)
-- [ ] Clean up T1, T2, T3, T4, T7, T8, T10 in the old classes
-- [ ] Full suite once; raise thresholds; `AGENT_LOG.md`
+- [x] PDFBox `org.apache.pdfbox:pdfbox` 3.0.8 (test scope, exact version, ≥ 7 days old, Apache-2.0), `EXTERNAL_SOURCES.md` row
+- [x] Scenario base class (shared container, cleanup helper, fixed reference date)
+- [x] S1 – S3, S6, S10 (green) first, then S2, then the defect scenarios as disabled tests
+- [x] PDF text helper and XLSX reader helper
+- [x] Split by area: `BillingScenarioVatTests`, `BillingScenarioFeeTests`, `BillingScenarioErrorPathTests`, `BillingScenarioOutputTests` (each < 300 lines)
+- [x] Clean up T1, T2, T3, T4, T7, T8, T10 in the old classes
+- [x] Full suite once; raise thresholds; `AGENT_LOG.md`
 
 ## Acceptance criteria
 
@@ -109,3 +109,31 @@ classes (T1), assert the XLSX test (T2), restore or delete commented-out asserti
 - Jasper compiles the template on the first PDF run (slow); the shared context keeps it to once.
 - Non-transactional scenarios leave data behind if cleanup fails; use a distinct tenant id per scenario.
 - Disabled F1 scenarios are only meaningful if they would have failed: verify each once against the current code by enabling it locally (record the red result).
+
+## Result (2026-10-02)
+
+- Base class `support/BillingScenarioBase` (for M5 too): `@SpringBootTest` on `PostgresContainerHolder`, not
+  `@Transactional`, one community id per test (`SC000001` …), `@AfterEach` deletes every row of it incl.
+  `base.billing_masterdata`, `REFERENCE_DATE` 2024-06-28, helpers for runs, sorted documents/items, counts,
+  consumed numbers, the stored PDF (inside a transaction) and amount assertions. `support/DocumentReaders`:
+  PDF text (PDFBox), XLSX rows/column sums (POI), ZIP entries.
+- Classes in `scenario/`: `BillingScenarioVatTests` (S1, S3, S4, S5), `BillingScenarioFeeTests` (S6, S7, F15),
+  `BillingScenarioErrorPathTests` (S8, S9, S10, S12), `BillingScenarioOutputTests` (S2, PDF/XLSX of S1 and
+  S2, archive). All scenarios are non-transactional (simpler than mixing; the transactional ones would
+  gain nothing). 11 scenario prefixes (S11 waits for B-13, no placeholder); every `doBilling` call asserts the
+  result text.
+- Disabled defect tests, each red when enabled: S4 (#12), S5 (#16), S7 fee without VAT rate (#17), S8 (#13),
+  S12 (#22). For S4 and S8 an enabled sibling test pins what holds today.
+- Deviation: **S9 is green, not a defect test.** Both refusals (future date, completed run) are thrown before
+  the first save, so F1 cannot leave anything behind there; the tests assert the database state and stay
+  enabled. F15 is green too (the run path does not mutate the default).
+- Optional item 2 done: `BillingArithmeticOracleTests` compares item amount/net/VAT/gross of 10 cases (rows 1–4)
+  with v3's golden `billing-arithmetic-cases.json` (copied, commit `0b785d2`): all agree. Row 5 (base fee) has no
+  billing line (`open-points.md` B-24), row 14 is not a billing concept. **Optional item 1 (v3 world snapshot) not
+  done**: the conversion step does not exist and costs about a day; the builders stay the data source.
+- Old classes: placeholders removed (T1), XLSX test asserts rows and sums (T2), result text asserted (T3), items
+  sorted (T4), date asserted against the run day instead of `LocalDate.now()` (T7), the commented VAT assertions
+  restored with the right values, the `numberOf*` comments replaced by known-errors #33, the `@TODO`s resolved
+  (T8), participant id fixed in the test, the SQL fixture and `BillingRunFixture` (T10).
+- Clean full run: 369 tests, 0 failures, 43 skipped; lines 81.36 %, branches 83.33 %, `BillingService` branches
+  88.70 % (targets 75 / 70 / 75 met). Details in `AGENT_LOG.md`.

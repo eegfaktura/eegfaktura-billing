@@ -7,7 +7,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -23,6 +22,7 @@ import org.vfeeg.eegfaktura.billing.repos.BillingDocumentNumberGenerator;
 import org.vfeeg.eegfaktura.billing.repos.BillingMasterdataRepository;
 import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
 import org.vfeeg.eegfaktura.billing.service.*;
+import org.vfeeg.eegfaktura.billing.support.DocumentReaders;
 import org.vfeeg.eegfaktura.billing.util.BigDecimalTools;
 
 import java.io.IOException;
@@ -43,7 +43,7 @@ class BillingIntegrationTests {
     public final static String[][] TEST_ALLOCATIONS = new String[][] {
         {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000001234", "120.3489"},
         {"8126ab63-3f5d-42a4-b6f5-8df17aa68158", "C0000000000000000000002234", "777.5976"},
-        {"039e8d60-b6ba-459c-b5a1-0c31aa53a49", "P0000000000000000000002222", "2233.2209"},
+        {"039e8d60-b6ba-459c-b5a1-0c31aa53a490", "P0000000000000000000002222", "2233.2209"},
         {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000003333", "3355.3323"},
         {"bf6c5e6c-a7f2-4499-b2bb-02bb6587b951", "P0000000000000000000004444", "4477.4499"}
     };
@@ -83,15 +83,6 @@ class BillingIntegrationTests {
             .withUsername("sa")
             .withPassword("sa")
             .withReuse(true);
-
-    @Test
-    void contextLoads() {
-    }
-
-    @Test
-    void testContainer() {
-       assertThat(postgreSQLContainer.isRunning(), is(true));
-    }
 
     UUID createBillingConfig(boolean createCreditNotesForAllProducers) {
 
@@ -179,7 +170,13 @@ class BillingIntegrationTests {
                 hasProperty("participantVatId", is("UST12345")),
                 hasProperty("participantTaxId", is("STR12345")),
                 hasProperty("participantCompanyRegisterNumber", is("FN12312A")),
-                //@TODO: Die weiteren Properties prüfen
+                hasProperty("participantEmail", is("harald.lacherstorfer@gmail.com")),
+                hasProperty("participantStreet", is("Glücksweg 13")),
+                hasProperty("equipmentNumber", is("Anlagenr 1234")),
+                hasProperty("meteringEquipmentName", is("Anlage Foo-Bar")),
+                hasProperty("meteringPointType", is(MeteringPointType.CONSUMER)),
+                hasProperty("tariffWorkingFeePerConsumedkwh", comparesEqualTo(new BigDecimal("12.83"))),
+                hasProperty("tariffParticipantFee", comparesEqualTo(BigDecimal.TEN)),
                 hasProperty("eecName", is("Energiegemeinschaft Holy Grail")),
                 hasProperty("eecId", is("TE100100")),
                 hasProperty("tariffCreditAmountPerProducedkwh", is(BigDecimal.valueOf(19))),
@@ -189,7 +186,8 @@ class BillingIntegrationTests {
 
     }
 
-    void assertBillingRunValid(UUID billingRunId, boolean isPreview, LocalDate fixedDate,
+    /** {@code fixedDate} null: the run's own date, which lies between {@code runDay} and today (T7). */
+    void assertBillingRunValid(UUID billingRunId, boolean isPreview, LocalDate fixedDate, LocalDate runDay,
                                boolean createCreditNotesForAllProducers) {
 
         List<BillingDocumentDTO> billingDocumentDTOList = billingDocumentService.findByBillingRunId(
@@ -198,11 +196,17 @@ class BillingIntegrationTests {
 
         for (BillingDocumentDTO billingDocumentDTO : billingDocumentDTOList) {
 
-            assertThat(billingDocumentDTO.getDocumentDate(),
-                    is(Objects.requireNonNullElseGet(fixedDate, LocalDate::now)));
+            if (fixedDate != null) {
+                assertThat(billingDocumentDTO.getDocumentDate(), is(fixedDate));
+            } else {
+                assertThat(billingDocumentDTO.getDocumentDate(), allOf(greaterThanOrEqualTo(runDay),
+                        lessThanOrEqualTo(LocalDate.now())));
+            }
 
+            // sorted by text: no reliance on the database order (T4)
             List<BillingDocumentItem> billingDocumentItemList = billingDocumentItemRepository
-                    .findByBillingDocument_Id(billingDocumentDTO.getId());
+                    .findByBillingDocument_Id(billingDocumentDTO.getId()).stream()
+                    .sorted(Comparator.comparing(BillingDocumentItem::getText)).toList();
 
             if (billingDocumentDTO.getRecipientName().equals("Sonne GmbH")
                     && billingDocumentDTO.getBillingDocumentType()==BillingDocumentType.INVOICE) {
@@ -318,8 +322,9 @@ class BillingIntegrationTests {
         assertThat(billingDocumentDTO.getClearingPeriodIdentifier(), is("Abr_YQ-2023-3"));
         assertThat(billingDocumentDTO.getGrossAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(35.88)));
         assertThat(billingDocumentDTO.getNetAmountInEuro(), comparesEqualTo(BigDecimal.valueOf(29.90)));
-        //assertThat(billingDocumentDTO.getVat1Percent(), is(BigDecimal.ZERO));
-        //assertThat(billingDocumentDTO.getVat1SumInEuro(), is(BigDecima.ZERO));
+        // participant fee 10.00 at 20 % (2.00) + meter-point fee 19.90 at 20 % (3.98)
+        assertThat(billingDocumentDTO.getVat1Percent(), comparesEqualTo(new BigDecimal("20")));
+        assertThat(billingDocumentDTO.getVat1SumInEuro(), comparesEqualTo(new BigDecimal("5.98")));
         assertThat(billingDocumentDTO.getVat2Percent(), nullValue());
         assertThat(billingDocumentDTO.getVat2SumInEuro(), nullValue());
         assertThat(billingDocumentItemList, hasSize(2));
@@ -511,7 +516,7 @@ class BillingIntegrationTests {
                     assertThat(participantAmount.getParticipantFee(), comparesEqualTo((BigDecimal.valueOf(10))));
                     assertThat(participantAmount.getAmount(), comparesEqualTo(BigDecimal.valueOf(431.68)));
                 }
-                case "P0000000000000000000003333" -> /* Sonne */ {
+                case "P0000000000000000000003333", "P0000000000000000000004444" -> /* Sonne */ {
                     assertThat(participantAmount.getParticipantFee(), comparesEqualTo(BigDecimal.valueOf(12)));
                     assertThat(participantAmount.getMeteringPointFeeSum(), comparesEqualTo(BigDecimal.valueOf(23.88)));
                 }
@@ -520,41 +525,50 @@ class BillingIntegrationTests {
         }
     }
 
-    @Test
-    @Sql("/billing_master_data.sql")
-    void testBillingServicePreview() {
-        createBillingConfig(false);
+    static final String RESULT_FINAL_OK = "Abrechnung : erfolgreich abgeschlossen.";
+    static final String RESULT_PREVIEW_OK = "Abrechnung (Vorschau): erfolgreich abgeschlossen.";
+
+    DoBillingParams params(boolean preview, LocalDate documentDate) {
         DoBillingParams doBillingParams = new DoBillingParams();
         doBillingParams.setTenantId("TE100100");
         doBillingParams.setClearingPeriodType("QUARTERLY");
         doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
-        doBillingParams.setPreview(true);
+        doBillingParams.setPreview(preview);
+        doBillingParams.setClearingDocumentDate(documentDate);
         ArrayList<Allocation> allocations = new ArrayList<>();
         for (String[] meteringPointData : TEST_ALLOCATIONS) {
             Allocation allocation = new Allocation();
             allocation.setParticipantId(meteringPointData[0]);
             allocation.setMeteringPoint(meteringPointData[1]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[2])));
+            allocation.setAllocationKWh(new BigDecimal(meteringPointData[2]));
             allocations.add(allocation);
         }
         doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
-        DoBillingResults doBillingResults = billingService.doBilling(doBillingParams);
-        assertThat(doBillingResults.getBillingRunId(), notNullValue());
-        assertThat(doBillingResults.getParticipantAmounts().size(),
-                is(3));
-        assertDoBillingResults(doBillingResults);
+        return doBillingParams;
+    }
 
+    void assertRun(DoBillingResults doBillingResults, BillingRunStatus status) {
+        assertThat(doBillingResults.getAbstractText(),
+                is(status == BillingRunStatus.NEW ? RESULT_PREVIEW_OK : RESULT_FINAL_OK));
+        assertThat(doBillingResults.getBillingRunId(), notNullValue());
+        assertThat(doBillingResults.getParticipantAmounts().size(), is(3));
+        assertDoBillingResults(doBillingResults);
         BillingRunDTO billingRunDTO = billingRunService.get(doBillingResults.getBillingRunId());
+        // numberOfInvoices/numberOfCreditNotes are never set by the service: known-errors #33
         assertThat(billingRunDTO, allOf(
                 hasProperty("tenantId", is("TE100100")),
-                hasProperty("runStatus", is(BillingRunStatus.NEW))
-//@TODO: numberOfxxx not set at the moment include again when done
-//                hasProperty("numberOfInvoices", is(3)),
-//                hasProperty("numberOfCreditNotes", is(2))
+                hasProperty("runStatus", is(status))
         ));
+    }
 
-        assertBillingRunValid(doBillingResults.getBillingRunId(), true, null, false);
-
+    @Test
+    @Sql("/billing_master_data.sql")
+    void testBillingServicePreview() {
+        createBillingConfig(false);
+        LocalDate runDay = LocalDate.now();
+        DoBillingResults doBillingResults = billingService.doBilling(params(true, null));
+        assertRun(doBillingResults, BillingRunStatus.NEW);
+        assertBillingRunValid(doBillingResults.getBillingRunId(), true, null, runDay, false);
         storeDocuments("testBillingServicePreview");
     }
 
@@ -562,37 +576,10 @@ class BillingIntegrationTests {
     @Sql("/billing_master_data.sql")
     void testBillingServiceFinal() {
         createBillingConfig(false);
-        DoBillingParams doBillingParams = new DoBillingParams();
-        doBillingParams.setTenantId("TE100100");
-        doBillingParams.setClearingPeriodType("QUARTERLY");
-        doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
-        doBillingParams.setPreview(false);
-        ArrayList<Allocation> allocations = new ArrayList<>();
-
-        for (String[] meteringPointData : TEST_ALLOCATIONS) {
-            Allocation allocation = new Allocation();
-            allocation.setParticipantId(meteringPointData[0]);
-            allocation.setMeteringPoint(meteringPointData[1]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[2])));
-            allocations.add(allocation);
-        }
-
-        doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
-        DoBillingResults doBillingResults = billingService.doBilling(doBillingParams);
-        assertThat(doBillingResults.getBillingRunId(), notNullValue());
-        assertThat(doBillingResults.getParticipantAmounts(), not(empty()));
-
-        BillingRunDTO billingRunDTO = billingRunService.get(doBillingResults.getBillingRunId());
-        assertThat(billingRunDTO, allOf(
-                hasProperty("tenantId", is("TE100100")),
-                hasProperty("runStatus", is(BillingRunStatus.DONE))
-//@TODO: numberOfxxx not set at the moment include again when done
-//                hasProperty("numberOfInvoices", is(3)),
-//                hasProperty("numberOfCreditNotes", is(2))
-        ));
-
-        assertBillingRunValid(doBillingResults.getBillingRunId(), false, null, false);
-
+        LocalDate runDay = LocalDate.now();
+        DoBillingResults doBillingResults = billingService.doBilling(params(false, null));
+        assertRun(doBillingResults, BillingRunStatus.DONE);
+        assertBillingRunValid(doBillingResults.getBillingRunId(), false, null, runDay, false);
         storeDocuments("testBillingServiceFinal");
     }
 
@@ -601,36 +588,9 @@ class BillingIntegrationTests {
     void testBillingServiceFinalWithDocumentDate()  {
         createBillingConfig(false);
         LocalDate documentDate = LocalDate.parse("2022-12-31");
-        DoBillingParams doBillingParams = new DoBillingParams();
-        doBillingParams.setTenantId("TE100100");
-        doBillingParams.setClearingPeriodType("QUARTERLY");
-        doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
-        doBillingParams.setPreview(false);
-        doBillingParams.setClearingDocumentDate(documentDate);
-        ArrayList<Allocation> allocations = new ArrayList<>();
-        for (String[] meteringPointId : TEST_ALLOCATIONS) {
-            Allocation allocation = new Allocation();
-            allocation.setParticipantId(meteringPointId[0]);
-            allocation.setMeteringPoint(meteringPointId[1]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointId[2])));
-            allocations.add(allocation);
-        }
-        doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
-        DoBillingResults doBillingResults = billingService.doBilling(doBillingParams);
-        assertThat(doBillingResults.getBillingRunId(), notNullValue());
-        assertThat(doBillingResults.getParticipantAmounts(), not(empty()));
-
-        BillingRunDTO billingRunDTO = billingRunService.get(doBillingResults.getBillingRunId());
-        assertThat(billingRunDTO, allOf(
-                hasProperty("tenantId", is("TE100100")),
-                hasProperty("runStatus", is(BillingRunStatus.DONE))
-//@TODO: numberOfxxx not set at the moment include again when done
-//                hasProperty("numberOfInvoices", is(3)),
-//                hasProperty("numberOfCreditNotes", is(2))
-        ));
-
-        assertBillingRunValid(doBillingResults.getBillingRunId(), false, documentDate,
-                false);
+        DoBillingResults doBillingResults = billingService.doBilling(params(false, documentDate));
+        assertRun(doBillingResults, BillingRunStatus.DONE);
+        assertBillingRunValid(doBillingResults.getBillingRunId(), false, documentDate, null, false);
         storeDocuments("testBillingServiceFinalWithDocumentDate");
     }
 
@@ -639,79 +599,38 @@ class BillingIntegrationTests {
     void testBillingServiceFinalWithDocumentDate_reverseChargeCreditNotes()  {
         createBillingConfig(true);
         LocalDate documentDate = LocalDate.parse("2022-12-31");
-        DoBillingParams doBillingParams = new DoBillingParams();
-        doBillingParams.setTenantId("TE100100");
-        doBillingParams.setClearingPeriodType("QUARTERLY");
-        doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
-        doBillingParams.setPreview(false);
-        doBillingParams.setClearingDocumentDate(documentDate);
-        ArrayList<Allocation> allocations = new ArrayList<>();
-        for (String[] meteringPointId : TEST_ALLOCATIONS) {
-            Allocation allocation = new Allocation();
-            allocation.setParticipantId(meteringPointId[0]);
-            allocation.setMeteringPoint(meteringPointId[1]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointId[2])));
-            allocations.add(allocation);
-        }
-        doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
-        DoBillingResults doBillingResults = billingService.doBilling(doBillingParams);
-        assertThat(doBillingResults.getBillingRunId(), notNullValue());
-        assertThat(doBillingResults.getParticipantAmounts(), not(empty()));
-
-        BillingRunDTO billingRunDTO = billingRunService.get(doBillingResults.getBillingRunId());
-        assertThat(billingRunDTO, allOf(
-                hasProperty("tenantId", is("TE100100")),
-                hasProperty("runStatus", is(BillingRunStatus.DONE))
-//@TODO: numberOfxxx not set at the moment include again when done
-//                hasProperty("numberOfInvoices", is(3)),
-//                hasProperty("numberOfCreditNotes", is(2))
-        ));
-
-        assertBillingRunValid(doBillingResults.getBillingRunId(), false, documentDate,
-                true);
+        DoBillingResults doBillingResults = billingService.doBilling(params(false, documentDate));
+        assertRun(doBillingResults, BillingRunStatus.DONE);
+        assertBillingRunValid(doBillingResults.getBillingRunId(), false, documentDate, null, true);
         storeDocuments("testBillingServiceFinalWithDocumentDate_reverseChargeCreditNotes");
     }
 
-
+    /** T2: the export lists the five documents and nine items with the gross sum of the run (1365.32). */
     @Test
     @Sql("/billing_master_data.sql")
     void testBillingXlsxService() throws IOException {
         createBillingConfig(false);
-        DoBillingParams doBillingParams = new DoBillingParams();
-        doBillingParams.setTenantId("TE100100");
-        doBillingParams.setClearingPeriodType("QUARTERLY");
-        doBillingParams.setClearingPeriodIdentifier("Abr_YQ-2023-3");
-        doBillingParams.setPreview(false);
-        ArrayList<Allocation> allocations = new ArrayList<>();
+        DoBillingResults doBillingResults = billingService.doBilling(params(false, LocalDate.parse("2023-12-31")));
+        assertRun(doBillingResults, BillingRunStatus.DONE);
 
-        for (String[] meteringPointData : TEST_ALLOCATIONS) {
-            Allocation allocation = new Allocation();
-            allocation.setParticipantId(meteringPointData[0]);
-            allocation.setMeteringPoint(meteringPointData[1]);
-            allocation.setAllocationKWh(BigDecimal.valueOf(Double.parseDouble(meteringPointData[2])));
-            allocations.add(allocation);
-        }
+        byte[] xlsx = billingDocumentXlsxService.createXlsx(doBillingResults.getBillingRunId());
 
-        doBillingParams.setAllocations(allocations.toArray(new Allocation[0]));
-        DoBillingResults doBillingResults = billingService.doBilling(doBillingParams);
-        assertThat(doBillingResults.getBillingRunId(), notNullValue());
-        assertThat(doBillingResults.getParticipantAmounts(), not(empty()));
-
-        ByteArrayResource resource = new ByteArrayResource(
-                billingDocumentXlsxService.createXlsx(doBillingResults.getBillingRunId()));
+        assertThat(DocumentReaders.header(xlsx, "Liste", 23), is("Rechnungsbetrag Brutto"));
+        assertThat(DocumentReaders.dataRows(xlsx, "Liste"), is(5));
+        assertThat(DocumentReaders.columnSum(xlsx, "Liste", 23), comparesEqualTo(new BigDecimal("1365.32")));
+        assertThat(DocumentReaders.header(xlsx, "Details", 28), is("Pos. Bruttobetrag"));
+        assertThat(DocumentReaders.dataRows(xlsx, "Details"), is(9));
+        assertThat(DocumentReaders.columnSum(xlsx, "Details", 28), comparesEqualTo(new BigDecimal("1365.32")));
 
         if (!StringUtils.isEmpty(testAppProperties.getStoreDocumentsPath())) {
             String path = testAppProperties.getStoreDocumentsPath();
             path = (path.endsWith("/") ? path : path+"/") + "testBillingXlsxService_" +
                     new java.util.Date().getTime()+ ".xlsx";
-            Files.write(Paths.get(path), resource.getContentAsByteArray());
+            Files.write(Paths.get(path), xlsx);
         }
-
     }
 
-
-    // @TODO testBillingXlsxService
-    // @TODO testBillingDocumentArchiveService
+    // The archive is tested in scenario.BillingScenarioOutputTests.archiveHoldsOnePdfPerDocumentOfTheRun.
 
     @DynamicPropertySource
     static void postgresqlProperties(DynamicPropertyRegistry registry) {

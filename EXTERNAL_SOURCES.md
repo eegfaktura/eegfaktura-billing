@@ -44,6 +44,8 @@ artifact's own POM in the local Maven repository on 2026-10-01.
 | `org.hamcrest:hamcrest-all` | assertions | 1.3 | BSD |
 | `org.jacoco:jacoco-maven-plugin` | coverage (build time, agent in the test JVM) | 0.8.13 | EPL-2.0 |
 | `net.datafaker:datafaker` | generated test data | 2.2.2 | Apache-2.0 |
+| `org.apache.pdfbox:pdfbox` (with `pdfbox-io`, `fontbox`, same version) | reading the text of the generated PDFs in the billing scenarios (M3) | 3.0.8 (Maven Central 2026-07-08, latest release; approved in `open-points.md` B-12) | Apache-2.0 (licence header of the POM; `<licenses>` inherited from `org.apache:apache:39`); its optional Bouncy Castle dependencies are not pulled; `commons-logging` stays at 1.3.5 from JasperReports |
+| eegfaktura-v3 `billing-arithmetic-cases.json` (copied file, `src/test/resources/v3oracle/`) | expected item amounts for `BillingArithmeticOracleTests` (M3 optional item, B-16) | v3 commit `0b785d2`, file from `f6540a0`, sha256 `830d846c…` | AGPL-3.0 (same organisation); never fetched by the build, refreshed by hand |
 
 ## Runtime services
 
