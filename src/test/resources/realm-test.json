@@ -1,0 +1,35 @@
+{
+  "realm": "eegfaktura",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "EEG_ADMIN"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "billing-app",
+      "enabled": true,
+      "directAccessGrantsEnabled": true,
+      "publicClient": true
+    }
+  ],
+  "users": [
+    {
+      "username": "admin-user",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123"
+        }
+      ],
+      "attributes": {
+        "tenant": ["TE100100"],
+        "access_groups": ["EEG_ADMIN"]
+      }
+    }
+  ]
+}
