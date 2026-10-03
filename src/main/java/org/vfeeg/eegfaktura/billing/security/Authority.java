@@ -12,6 +12,7 @@ public class Authority implements GrantedAuthority {
     public Authority(@NotNull String tenant) {
         this.tenant = tenant;
     }
+
     @Override
     public String getAuthority() {
         return tenant;

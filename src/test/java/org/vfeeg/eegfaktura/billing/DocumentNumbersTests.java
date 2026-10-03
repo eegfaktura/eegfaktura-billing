@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing;
 
+import dasniko.testcontainers.keycloak.KeycloakContainer;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,6 +59,11 @@ class DocumentNumbersTests {
     public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
             .withUsername("sa")
             .withPassword("sa")
+            .withReuse(true);
+
+    @Container
+    public static KeycloakContainer keycloak = new KeycloakContainer()
+            .withRealmImportFile("realm-test.json")
             .withReuse(true);
 
     @Test
@@ -125,10 +131,12 @@ class DocumentNumbersTests {
     }
 
     @DynamicPropertySource
-    static void postgresqlProperties(DynamicPropertyRegistry registry) {
+    static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
         registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
         registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
+        registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri",
+                () -> keycloak.getAuthServerUrl() + "/realms/eegfaktura");
     }
 
 }

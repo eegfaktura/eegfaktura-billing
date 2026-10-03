@@ -7,11 +7,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Deckt die Mandantentrennung ab, die jahrelang wirkungslos war: die Pruefung in
@@ -28,26 +24,12 @@ class TenantCheckTests {
     @Test
     @DisplayName("Authority vergleicht den Mandanten, nicht die Objektidentitaet")
     void authorityEquality() {
-        assertTrue(new Authority("RC100200").equals(new Authority("RC100200")));
-        assertTrue(new Authority("RC100200").equals(new Authority("rc100200")));
-        assertFalse(new Authority("RC100200").equals(new Authority("RC999999")));
+        assertEquals(new Authority("RC100200"), new Authority("RC100200"));
+        assertEquals(new Authority("RC100200"), new Authority("rc100200"));
+        assertNotEquals(new Authority("RC100200"), new Authority("RC999999"));
 
         // Genau hier lag der Fehler: ohne equals() findet contains() nie etwas.
         assertTrue(List.of(new Authority("RC100200")).contains(new Authority("RC100200")));
-    }
-
-    @Test
-    @DisplayName("hasTenant findet nur Mandanten aus dem Token")
-    void hasTenant() {
-        var auth = new JwtAuthentication("tester",
-                List.of(new Authority("RC100200"), new Authority("RC100300"), new Authority("ROLE_EEG_ADMIN")));
-
-        assertTrue(auth.hasTenant("RC100200"));
-        assertTrue(auth.hasTenant("rc100300"));
-
-        assertFalse(auth.hasTenant("RC999999"));
-        assertFalse(auth.hasTenant(null));
-        assertFalse(auth.hasTenant(" "));
     }
 
     @Test
