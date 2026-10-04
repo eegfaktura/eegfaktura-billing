@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.0.4] – 2026-10-04
+
 ### Security
 - **A billing configuration could be taken over by another community.**
   `PUT /api/billingConfigs/{id}` only checked the tenant in the request body, never the tenant
