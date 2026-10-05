@@ -11,12 +11,29 @@ public class JwtAuthentication implements Authentication {
     private boolean isAuthenticated;
     private final String username;
     private final Collection<Authority> authorities = new ArrayList<>();
+    private final boolean superuser;
 
     public JwtAuthentication(final String username,
                              final Collection<Authority> authorities) {
+        this(username, authorities, false);
+    }
+
+    public JwtAuthentication(final String username,
+                             final Collection<Authority> authorities,
+                             final boolean superuser) {
         this.username = username;
         this.authorities.addAll(authorities);
+        this.superuser = superuser;
         isAuthenticated = true;
+    }
+
+    /**
+     * Realm-Rolle "superuser" (Betreiber/Support): darf jeden Mandanten anfragen, wie in
+     * backend und energystore. Die Rolle EEG_ADMIN und die Pruefungen je Datensatz gelten
+     * trotzdem.
+     */
+    public boolean isSuperuser() {
+        return superuser;
     }
 
     @Override
