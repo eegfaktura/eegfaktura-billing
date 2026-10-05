@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.vfeeg.eegfaktura.billing.rest.Endpoint.ID;
@@ -96,5 +97,14 @@ class BillingConfigImageStoreWebTests extends WebSliceTest {
         int status = mvc.perform(upload("text/plain")).andReturn().getResponse().getStatus();
         assertThat(status, allOf(greaterThanOrEqualTo(400), lessThan(500)));
         verify(fileDataRepository, never()).save(any());
+    }
+
+    /** A config without a footer image answers 404, not 500 (upstream #51). */
+    @Test
+    void footerImageOfAConfigWithoutOneIsNotFound() throws Exception {
+        storedConfigWithLogo();
+        mvc.perform(get("/api/billingConfigs/" + ID + "/footerImage")
+                        .header("Tenant", OWN).header(HttpHeaders.AUTHORIZATION, TestTokens.admin()))
+                .andExpect(status().isNotFound());
     }
 }
