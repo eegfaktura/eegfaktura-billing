@@ -165,7 +165,16 @@ class CallerRequestContractTests extends WebSliceTest {
         assertThat(dto.getHeaderImageFileDataId(), nullValue());
     }
 
+    /**
+     * The resource checks the tenant of the STORED config before the update (upstream #51), so the
+     * stored record is stubbed. The captured DTO is what the callers send; since #51 the service
+     * ignores its image ids (only upload and delete set them), the wire contract is unchanged.
+     */
     private BillingConfigDTO updateConfig(String file) throws Exception {
+        BillingConfigDTO stored = new BillingConfigDTO();
+        stored.setId(CONFIG_ID);
+        stored.setTenantId("RC100001");
+        when(billingConfigService.get(CONFIG_ID)).thenReturn(stored);
         mvc.perform(ContractFixtures.request(ContractFixtures.read(file))).andExpect(status().isOk());
         ArgumentCaptor<BillingConfigDTO> dto = ArgumentCaptor.forClass(BillingConfigDTO.class);
         verify(billingConfigService).update(eq(CONFIG_ID), dto.capture());

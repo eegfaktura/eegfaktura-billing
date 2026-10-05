@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -18,11 +19,17 @@ import org.vfeeg.eegfaktura.billing.service.FileDataService;
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.vfeeg.eegfaktura.billing.rest.TestTokens.FOREIGN;
 import static org.vfeeg.eegfaktura.billing.rest.TestTokens.OWN;
 
 /**
@@ -87,6 +94,40 @@ class JwtRequestFilterWebTests extends WebSliceTest {
     void tenantContextIsClearedAfterTheRequest() throws Exception {
         getFile(TestTokens.admin()).andExpect(status().isOk());
         assertThat(TenantContext.getCurrentTenant(), nullValue());
+    }
+
+    /**
+     * The filter refuses a Tenant header that is not in the token before any resource runs (upstream
+     * #50). It does so by throwing out of the filter, which MockMvc surfaces as the exception; Tomcat
+     * answers 403 through its error path but logs an ERROR stack trace per refusal
+     * (private known-errors.md #35, a clean 403 from the filter would be the better contract).
+     */
+    @Test
+    void foreignTenantHeaderIsRefusedByTheFilter() {
+        AccessDeniedException refused = assertThrows(AccessDeniedException.class, () ->
+                mvc.perform(get("/api/fileData/" + Endpoint.ID)
+                        .header("Tenant", FOREIGN).header(HttpHeaders.AUTHORIZATION, TestTokens.admin())));
+        assertThat(refused.getMessage(), containsString(FOREIGN));
+        verify(fileDataService, never()).get(any());
+    }
+
+    @Test
+    void ownTenantHeaderIsComparedCaseInsensitively() throws Exception {
+        FileDataDTO file = new FileDataDTO();
+        file.setTenantId(OWN);
+        file.setName("a.pdf");
+        file.setMimeType("application/pdf");
+        file.setData(new byte[]{1});
+        when(fileDataService.get(Endpoint.ID)).thenReturn(file);
+        mvc.perform(get("/api/fileData/" + Endpoint.ID)
+                        .header("Tenant", OWN.toLowerCase()).header(HttpHeaders.AUTHORIZATION, TestTokens.admin()))
+                .andExpect(status().isOk());
+    }
+
+    /** Without a Tenant header the filter lets the request through; paths without a tenant still work. */
+    @Test
+    void requestWithoutTenantHeaderPassesTheFilter() throws Exception {
+        mvc.perform(get("/").header(HttpHeaders.AUTHORIZATION, TestTokens.admin())).andExpect(status().isOk());
     }
 
     @Test
