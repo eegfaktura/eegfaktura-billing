@@ -19,7 +19,7 @@ public class JwtRequestFilter  extends OncePerRequestFilter {
 
     private final JwtTokenService jwtTokenService;
 
-    private JwtRequestFilter(final JwtTokenService jwtTokenService) {
+    JwtRequestFilter(final JwtTokenService jwtTokenService) {
         this.jwtTokenService = jwtTokenService;
     }
 
@@ -55,8 +55,13 @@ public class JwtRequestFilter  extends OncePerRequestFilter {
         // Kein Header: hier nicht abweisen. Die Ressourcen pruefen den Mandanten
         // ohnehin ueber TenantContext.validateTenant(); Pfade ohne Mandantenbezug
         // (z. B. "/", "/swagger-ui") sollen deshalb nicht an dieser Stelle scheitern.
+        //
+        // Ausnahme: die Realm-Rolle "superuser" (Betreiber/Support) darf jeden Mandanten
+        // anfragen, wie in backend und energystore. Seit diese Pruefung greift (1.0.4),
+        // wurden Super-Admins sonst bei jeder fremden Gemeinschaft abgewiesen.
         final String requestedTenant = request.getHeader("Tenant");
         if (requestedTenant != null && !requestedTenant.isBlank()
+                && !jwtAuthentication.isSuperuser()
                 && !jwtAuthentication.hasTenant(requestedTenant)) {
             log.warn("User {} not granted permission for tenant {}",
                     jwtAuthentication.getName(), requestedTenant);

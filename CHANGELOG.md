@@ -8,6 +8,14 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Fixed
+- **Super-admins could no longer load another community's billing settings.** Since the tenant
+  check in `JwtRequestFilter` took effect (1.0.4), a token with the realm role `superuser` was
+  refused for every community not in its own `tenant` claim — unlike backend and energystore,
+  which let that role through. The filter now does the same; the `EEG_ADMIN` role and the
+  per-record tenant checks still apply. A token without a `tenant` or `access_groups` claim
+  is no longer rejected as a whole; those lists are simply empty.
+
 ## [1.0.4] – 2026-10-04
 
 ### Security
