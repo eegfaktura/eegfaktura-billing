@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.0.5] – 2026-10-05
+
 ### Fixed
 - **Super-admins could no longer load another community's billing settings.** Since the tenant
   check in `JwtRequestFilter` took effect (1.0.4), a token with the realm role `superuser` was
