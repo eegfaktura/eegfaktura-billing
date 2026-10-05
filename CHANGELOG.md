@@ -84,10 +84,9 @@ this changelog highlights the changes relevant for overview and operations.
   VAT sums, document types and numbers, run status, result text, PDF text and XLSX sums; new test-only
   dependency PDFBox 3.0.8. Five scenarios that expose known defects (#12, #13, #16, #17, #22) are
   committed disabled. No production code changed.
-- Working agreement for developers and AI agents: `AGENTS.md` (tenant isolation, tests, migration
-  concepts, logging, external sources, pinned versions, size limits), `CLAUDE.md`, the tracking
-  files `AGENT_LOG.md`, `known-errors.md`, `open-points.md`, `EXTERNAL_SOURCES.md`,
-  `docs/migrations/` and `scripts/dev/loc-check.sh`.
+- `EXTERNAL_SOURCES.md` (every source of build, tests and service) and `scripts/dev/loc-check.sh`
+  (lines per file). The working agreement, the tracking files and the migration-concept template are
+  kept outside the repository.
 - OCI image labels (title, description, vendor, licenses) for registry and SBOM consumers. (#34)
 - CI builds `env/**` branches and deploys the resulting image into the matching feature
   environment (ADR-0008): a push to `env/billing` pins `eegfaktura-billing` in namespace
