@@ -80,9 +80,17 @@ class JwtRequestFilterWebTests extends WebSliceTest {
         getFile(TestTokens.bearer(TestTokens.expired())).andExpect(status().isForbidden());
     }
 
+    /**
+     * A token without a {@code tenant} claim authenticates since upstream #54 (the claim is read
+     * optionally), but it grants no tenant: the filter refuses the Tenant header — by throwing,
+     * like a foreign tenant (private known-errors.md #35) — before any resource runs.
+     */
     @Test
-    void tokenWithoutTenantClaimIsRejected() throws Exception {
-        getFile(TestTokens.bearer(TestTokens.withoutTenantClaim())).andExpect(status().isForbidden());
+    void tokenWithoutTenantClaimIsRefusedForAnyTenant() {
+        AccessDeniedException refused = assertThrows(AccessDeniedException.class,
+                () -> getFile(TestTokens.bearer(TestTokens.withoutTenantClaim())));
+        assertThat(refused.getMessage(), containsString(OWN));
+        verify(fileDataService, never()).get(any());
     }
 
     @Test
