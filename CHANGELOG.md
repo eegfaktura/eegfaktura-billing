@@ -11,6 +11,7 @@ this changelog highlights the changes relevant for overview and operations.
 ### CI
 - `pr-checks.yml`: unit tests and the full test suite on every pull request (unit = every test class that needs no container (found by the workflow, Docker switched off); full = `test.yml` (`./mvnw clean verify`, JaCoCo gate), which no longer has its own `pull_request` trigger).
 - `security-scan.yml`: leaked secrets in the new commits (Gitleaks, Trivy), vulnerable dependencies (Trivy, OSV-Scanner) and misconfigurations (Trivy). A pull request fails on what it adds; pushes to the default branch and a weekly run fail on every CRITICAL finding (HIGH is reported; `SCAN_FAIL_ON`). Scanners are fixed versions checked by SHA-256, each release at least 7 days old; actions pinned by commit SHA.
+- `pr-checks.yml`, `test.yml`: the JDK is pinned as `21.0.11+10.0.LTS`, the version string under which Temurin publishes 21.0.11+10; `setup-java` found no JDK for `21.0.11+10`, and both jobs failed at their setup step.
 
 ## [1.0.5] – 2026-10-05
 

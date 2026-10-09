@@ -5,7 +5,7 @@
 # A unit test is every test class that neither starts a container nor reaches one through the
 # classes it uses: the step below starts from the files that mention Testcontainers or
 # @SpringBootTest and adds every test file that names one of them, until nothing changes.
-# Versions fixed, each release older than 7 days (checked 2026-10-09): Temurin 21.0.11+10.
+# Versions fixed, each release older than 7 days (checked 2026-10-09): Temurin 21.0.11+10 (setup-java: '21.0.11+10.0.LTS', Temurin's version string).
 # Actions pinned by commit SHA.
 
 name: PR Checks
@@ -36,7 +36,7 @@ jobs:
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
-          java-version: '21.0.11+10'
+          java-version: '21.0.11+10.0.LTS'
           cache: maven
 
       - name: Find the container test classes
