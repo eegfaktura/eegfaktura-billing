@@ -1,0 +1,249 @@
+# Security scans: leaked secrets (Gitleaks, Trivy), vulnerable dependencies (Trivy, OSV-Scanner) and
+# misconfigurations (Trivy). Pull requests fail on what they ADD (head compared with the base
+# commit); pushes to the default branch, the weekly run and a manual run fail on every HIGH or
+# CRITICAL finding, so newly published CVEs show up without a code change.
+#
+# Secrets are only looked for in the new commits (PR or push range) and the files they touch: this
+# repository is public, and a full-tree report would list the locations of known, unfixed findings.
+#
+# Scanners are fixed versions, verified by SHA-256, never a floating tag or a wrapper action; the
+# rule is a release at least 7 days old (checked 2026-10-09):
+#   Trivy 0.75.0 (2026-10-01), OSV-Scanner 2.6.0 (2026-09-14), Gitleaks 8.30.1 (2026-03-21).
+# Actions are pinned by commit SHA. The vulnerability databases are fetched fresh on every run.
+#
+# Identical in every eegfaktura legacy repository — synced from the workspace, do not edit a copy.
+
+name: Security Scan
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_VERSION: '0.75.0'
+  TRIVY_SHA256: 'c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f'
+  OSV_SCANNER_VERSION: '2.6.0'
+  OSV_SCANNER_SHA256: 'ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108'
+  GITLEAKS_VERSION: '8.30.1'
+  GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+  # Pull request: the base commit the head is compared with; empty on every other event.
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  secrets:
+    name: Leaked secrets (new commits)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0  # the commit range below needs the history
+          persist-credentials: false
+
+      - name: Install Gitleaks and Trivy
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSLo gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          curl -fsSLo trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum -c -
+          mkdir -p bin
+          tar -xzf gitleaks.tar.gz -C bin gitleaks
+          tar -xzf trivy.tar.gz -C bin trivy
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      # Pull request: base..head. Push: before..after (a new branch or a force push without the old
+      # commit: only the pushed commit). Schedule and manual runs have no new commits to check.
+      - name: Resolve the commit range
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            pull_request) from="$BASE_SHA"; to="$PR_HEAD_SHA" ;;
+            push)
+              to="$AFTER"
+              if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+                 && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+                from="$BEFORE"
+              else
+                from="$(git rev-parse --verify --quiet "${AFTER}^" || true)"
+              fi ;;
+            *) echo "::notice::No new commits on '$EVENT' — the secret scan runs on pull requests and pushes."
+               echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          if [ -n "$from" ]; then
+            log_opts="${from}..${to}"
+            git diff --name-only --diff-filter=ACMR "$from" "$to" > "$RUNNER_TEMP/changed.txt"
+          else  # root commit
+            log_opts="-1 ${to}"
+            git ls-tree -r --name-only "$to" > "$RUNNER_TEMP/changed.txt"
+          fi
+          { echo "log_opts=${log_opts}"; echo "skip=false"; } >> "$GITHUB_OUTPUT"
+          echo "Commits: ${log_opts}; changed files: $(wc -l < "$RUNNER_TEMP/changed.txt")"
+
+      # --redact: the log of a public repository must never show a secret, not even a revoked one.
+      - name: Gitleaks over the new commits
+        if: steps.range.outputs.skip == 'false'
+        env:
+          LOG_OPTS: ${{ steps.range.outputs.log_opts }}
+        run: gitleaks git --redact --no-banner --exit-code 1 --log-opts="$LOG_OPTS" .
+
+      # A second rule set over the changed files as they are in the head commit. A file that
+      # already held a secret is reported when a change touches it: that is the moment to remove it.
+      - name: Trivy secret scan of the changed files
+        if: steps.range.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/changed"
+          while IFS= read -r f; do
+            if [ -f "$f" ] && [ ! -L "$f" ]; then cp --parents -- "$f" "$RUNNER_TEMP/changed/"; fi
+          done < "$RUNNER_TEMP/changed.txt"
+          trivy fs --scanners secret --exit-code 1 --no-progress --format table "$RUNNER_TEMP/changed"
+
+  vulnerabilities:
+    name: Vulnerable dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: head
+          persist-credentials: false
+
+      - name: Checkout base
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      - name: Install Trivy and OSV-Scanner
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSLo trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum -c -
+          curl -fsSLo osv-scanner \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  osv-scanner" | sha256sum -c -
+          mkdir -p bin
+          tar -xzf trivy.tar.gz -C bin trivy
+          install -m 0755 osv-scanner bin/osv-scanner
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      # sbt projects have no manifest the scanners read: export the resolved dependencies as a
+      # Maven pom (sbt makePom) and drop sbt's target directories again.
+      - name: Set up JDK (sbt projects)
+        if: hashFiles('head/build.sbt') != ''
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17.0.19+10'
+          cache: sbt
+          cache-dependency-path: head/build.sbt
+
+      - name: Set up sbt (sbt projects)
+        if: hashFiles('head/build.sbt') != ''
+        uses: sbt/setup-sbt@6158cb0903b8ceeae04f830055f3155e1b6a5ad7 # v1.5.11
+
+      - name: Export sbt dependencies as pom.xml
+        if: hashFiles('head/build.sbt') != ''
+        run: |
+          set -euo pipefail
+          for d in head base; do
+            [ -f "$d/build.sbt" ] || continue
+            (cd "$d" && sbt -batch makePom)
+            pom="$(find "$d/target" -maxdepth 2 -name '*.pom' -newer "$d/build.sbt" | head -n1)"
+            [ -n "$pom" ] || { echo "::error::sbt makePom wrote no pom in $d"; exit 1; }
+            mkdir -p "$d/sbt-dependencies" && cp "$pom" "$d/sbt-dependencies/pom.xml"
+            rm -rf "$d/target" "$d/project/target" "$d/project/project/target"
+          done
+
+      - name: Scan dependencies
+        run: |
+          set -euo pipefail
+          for d in head base; do
+            [ -d "$d" ] || continue
+            trivy fs --scanners vuln --severity HIGH,CRITICAL --no-progress --format json \
+              --output "$RUNNER_TEMP/$d-trivy.json" "$d"
+            # Exit 0 = clean, 1 = vulnerabilities (judged by the gate), 128 = no manifest found.
+            rc=0; osv-scanner scan source --recursive --format json "$d" > "$RUNNER_TEMP/$d-osv.json" || rc=$?
+            case "$rc" in
+              0|1) ;;
+              128) echo '{"results": []}' > "$RUNNER_TEMP/$d-osv.json" ;;
+              *) echo "::error::OSV-Scanner failed on $d (exit $rc)"; exit 1 ;;
+            esac
+          done
+          trivy fs --scanners vuln --severity HIGH,CRITICAL --no-progress --format table head
+
+      - name: Gate — Trivy
+        if: ${{ !cancelled() }}
+        run: python3 head/.github/scripts/scan-gate.py trivy-vuln "$RUNNER_TEMP/head-trivy.json" ${BASE_SHA:+"$RUNNER_TEMP/base-trivy.json"}
+
+      - name: Gate — OSV-Scanner
+        if: ${{ !cancelled() }}
+        run: python3 head/.github/scripts/scan-gate.py osv "$RUNNER_TEMP/head-osv.json" ${BASE_SHA:+"$RUNNER_TEMP/base-osv.json"}
+
+  misconfigurations:
+    name: Misconfigurations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: head
+          persist-credentials: false
+
+      - name: Checkout base
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      - name: Install Trivy
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSLo trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum -c -
+          mkdir -p bin && tar -xzf trivy.tar.gz -C bin trivy
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Scan Dockerfiles, compose and Kubernetes files
+        run: |
+          set -euo pipefail
+          for d in head base; do
+            [ -d "$d" ] || continue
+            trivy config --severity HIGH,CRITICAL --format json --output "$RUNNER_TEMP/$d-config.json" "$d"
+          done
+          trivy config --severity HIGH,CRITICAL --format table head
+
+      - name: Gate — misconfigurations
+        run: python3 head/.github/scripts/scan-gate.py trivy-config "$RUNNER_TEMP/head-config.json" ${BASE_SHA:+"$RUNNER_TEMP/base-config.json"}

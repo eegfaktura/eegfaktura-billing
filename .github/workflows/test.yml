@@ -1,11 +1,11 @@
-# Tests and coverage gate. Runs on every pull request and is called by rolling-release.yml, so a red
-# run blocks the image and the deploy jobs (known-errors.md #6). GitHub-hosted ubuntu-latest has
-# Docker, which Testcontainers needs for PostgreSQL. Actions pinned by commit SHA (AGENTS.md 12.1).
+# Tests and coverage gate, called by pr-checks.yml on every pull request (as its full suite) and by
+# rolling-release.yml, so a red run blocks the image and the deploy jobs (known-errors.md #6).
+# GitHub-hosted ubuntu-latest has Docker, which Testcontainers needs for PostgreSQL. Actions pinned
+# by commit SHA (AGENTS.md 12.1).
 
 name: Tests
 
 on:
-  pull_request:
   workflow_call:
 
 permissions:

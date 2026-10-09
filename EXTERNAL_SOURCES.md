@@ -15,6 +15,11 @@ artifact's own POM in the local Maven repository on 2026-10-01.
 | Docker Hub `eclipse-temurin:21-jre-jammy` | runtime image | GPLv2+CE | **floating tag** (`known-errors.md` #9) |
 | GitHub Actions: `actions/checkout`, `docker/metadata-action`, `docker/login-action`, `docker/build-push-action`, `actions/attest-build-provenance`, Snyk | CI (`.github/workflows/`) | — | by major tag in `rolling-release.yml`; by SHA in `snyk.yml` |
 | GitHub Actions in `test.yml` (pinned by commit SHA): `actions/checkout` v4.2.2 (2024-10-23), `actions/setup-java` v6.0.1 (2026-09-09), `actions/upload-artifact` v7.0.1 (2026-04-10) | build, test and coverage report in CI | MIT (actions repositories) | SHA verified with `git ls-remote` / GitHub API on 2026-10-01 |
+| Trivy (`aquasecurity/trivy` release binary) | CI `security-scan.yml`: secrets in changed files, vulnerable dependencies, misconfigurations | 0.75.0 (2026-10-01); Apache-2.0 | SHA-256 checked in the workflow |
+| OSV-Scanner (`google/osv-scanner` release binary) | CI `security-scan.yml`: vulnerable dependencies | 2.6.0 (2026-09-14); Apache-2.0 | SHA-256 checked in the workflow |
+| Gitleaks (`gitleaks/gitleaks` release binary) | CI `security-scan.yml`: secrets in the new commits | 8.30.1 (2026-03-21); MIT | SHA-256 checked in the workflow |
+| Trivy vulnerability/check databases, OSV database (osv.dev, deps.dev) | data the scanners fetch on every CI run | — | official; data, not pinned |
+| Temurin JDK via `actions/setup-java` in `pr-checks.yml` | unit test job | 21.0.11+10; GPL-2.0 with Classpath Exception | exact version |
 | `org.jacoco:jacoco-maven-plugin` | coverage report and gate (`pom.xml`) | 0.8.13 (Maven Central 2025-04-02); EPL-2.0 (from the POM) | exact version; build only, not in the jar |
 | GitHub Container Registry `ghcr.io/eegfaktura/eegfaktura-billing` | where the image is published | AGPL-3.0 | tags per release |
 
