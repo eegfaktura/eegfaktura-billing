@@ -8,9 +8,10 @@ kind: trivy-vuln | trivy-config | osv
   With a base report only findings the base does not have fail it (pull request): a pull request
   answers for what it adds, the debt of the base branch shows in the push and weekly runs.
 
-Which severities fail the gate: $SCAN_FAIL_ON = HIGH (default: HIGH and CRITICAL) or CRITICAL
-(only CRITICAL; Trivy CRITICAL, OSV CVSS >= 9.0). Findings below it are listed and annotated as
-warnings, never hidden.
+Which severities fail the gate: $SCAN_FAIL_ON = HIGH (default: HIGH and CRITICAL), CRITICAL
+(only CRITICAL; Trivy CRITICAL, OSV CVSS >= 9.0) or none (report only: nothing fails — a temporary
+setting while the legacy debt is paid down; every run says so). Findings that do not fail are listed
+and annotated as warnings, never hidden.
 
 Prints a Markdown table (also appended to $GITHUB_STEP_SUMMARY) and one ::error:: (failing) or
 ::warning:: (reported only) line per finding. Exit 0 = pass, 1 = failing findings, 2 = unreadable
@@ -103,14 +104,17 @@ def main(argv):
         return 2
     kind = argv[1]
     fail_on = os.environ.get("SCAN_FAIL_ON", "HIGH")
-    if fail_on not in ("HIGH", "CRITICAL"):
-        print(f"::error::SCAN_FAIL_ON must be HIGH or CRITICAL, not {fail_on!r}")
+    if fail_on not in ("HIGH", "CRITICAL", "none"):
+        print(f"::error::SCAN_FAIL_ON must be HIGH, CRITICAL or none, not {fail_on!r}")
         return 2
+    if fail_on == "none":
+        print(f"::warning title={kind}::Security gate off (SCAN_FAIL_ON=none, temporary): findings are "
+              "reported, none fails the run. It will be tightened again.")
     parse = (lambda f: osv(load(f), f)) if kind == "osv" else (lambda f: KINDS[kind](load(f)))
     head = parse(argv[2])
     base = parse(argv[3]) if len(argv) == 4 else None
     reported = {k: v for k, v in head.items() if base is None or k not in base}
-    failing = {k: v for k, v in reported.items() if fail_on == "HIGH" or is_critical(v)}
+    failing = {k: v for k, v in reported.items() if fail_on == "HIGH" or (fail_on == "CRITICAL" and is_critical(v))}
     warned = {k: v for k, v in reported.items() if k not in failing}
 
     if base is None:

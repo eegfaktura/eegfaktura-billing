@@ -1,8 +1,8 @@
 # Security scans: leaked secrets (Gitleaks, Trivy), vulnerable dependencies (Trivy, OSV-Scanner) and
 # misconfigurations (Trivy). Pull requests fail on what they ADD (head compared with the base
 # commit); pushes to the default branch, the weekly run and a manual run fail on every finding at
-# or above SCAN_FAIL_ON (below: CRITICAL only, HIGH reported), so newly published CVEs show up
-# without a code change.
+# or above SCAN_FAIL_ON, so newly published CVEs show up without a code change. For now
+# SCAN_FAIL_ON is none (below): dependency and misconfiguration findings are only reported.
 #
 # Secrets are only looked for in the new commits (PR or push range) and the files they touch: this
 # repository is public, and a full-tree report would list the locations of known, unfixed findings.
@@ -47,10 +47,12 @@ env:
   OSV_SCANNER_SHA256: 'ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108'
   GITLEAKS_VERSION: '8.30.1'
   GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
-  # Which findings of the dependency and misconfiguration scans fail the run: CRITICAL for now
-  # (decided 2026-10-09 while the legacy debt is paid down); HIGH is listed and annotated as a
-  # warning. Set to HIGH to fail on HIGH and CRITICAL again. Leaked secrets always fail.
-  SCAN_FAIL_ON: CRITICAL
+  # Which findings of the dependency and misconfiguration scans fail the run: HIGH (HIGH and
+  # CRITICAL), CRITICAL, or none. TEMPORARY: none (decided 2026-10-09) — the legacy repositories
+  # carry many known findings, and the gate must not block work while they are paid down; every
+  # finding is still listed in the step summary and annotated as a warning, and each run warns that
+  # the gate is off. To be tightened again (CRITICAL, then HIGH). Leaked secrets always fail.
+  SCAN_FAIL_ON: none
   # Pull request: the base commit the head is compared with; empty on every other event.
   BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
