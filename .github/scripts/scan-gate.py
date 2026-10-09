@@ -17,6 +17,7 @@ import os
 import sys
 
 OSV_MIN_CVSS = 7.0  # HIGH and CRITICAL, as the Trivy scans (--severity HIGH,CRITICAL)
+UNSCORED = {}  # report path -> OSV groups without a CVSS score (shown, not gated)
 
 
 def load(path):
@@ -52,7 +53,7 @@ def trivy_config(report):
     return found
 
 
-def osv(report):
+def osv(report, report_file=""):
     if not isinstance(report.get("results", []), list):
         print("::error::unexpected OSV-Scanner JSON (no results list)")
         sys.exit(2)
@@ -65,7 +66,11 @@ def osv(report):
                 try:
                     score = float(g.get("max_severity") or "")
                 except ValueError:
-                    continue  # no CVSS score published: not counted, like the mono pipeline
+                    # no CVSS score published (e.g. Go vulndb only): listed, not gated, like the
+                    # mono pipeline — Trivy reports these as UNKNOWN and skips them as well
+                    UNSCORED.setdefault(report_file, set()).add((p.get("name"), p.get("version"),
+                                                          ", ".join(sorted(g.get("ids") or []))))
+                    continue
                 if score < OSV_MIN_CVSS:
                     continue
                 ids = sorted(g.get("ids") or [])
@@ -83,8 +88,9 @@ def main(argv):
         print(__doc__)
         return 2
     kind = argv[1]
-    head = KINDS[kind](load(argv[2]))
-    base = KINDS[kind](load(argv[3])) if len(argv) == 4 else None
+    parse = (lambda f: osv(load(f), f)) if kind == "osv" else (lambda f: KINDS[kind](load(f)))
+    head = parse(argv[2])
+    base = parse(argv[3]) if len(argv) == 4 else None
     failing = {k: v for k, v in head.items() if base is None or k not in base}
 
     if base is None:
@@ -98,6 +104,12 @@ def main(argv):
         lines += ["| Severity | ID | Package / title | Fixed in | Where |", "|---|---|---|---|---|"]
         for row in sorted(failing.values()):
             lines.append("| " + " | ".join(str(c).replace("|", "\\|") for c in row) + " |")
+    unscored = UNSCORED.get(argv[2], set()) - (UNSCORED.get(argv[3], set()) if base is not None else set())
+    if unscored:
+        lines += ["", f"<details><summary>{len(unscored)} {'new ' if base is not None else ''}advisory group(s) "
+                  "without a CVSS score — not gated, check by hand</summary>", ""]
+        lines += [f"- {n} {v}: {ids}" for n, v, ids in sorted(unscored)]
+        lines += ["", "</details>"]
     lines.append("")
     text = "\n".join(lines)
     print(text)
