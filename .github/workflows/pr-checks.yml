@@ -56,8 +56,12 @@ jobs:
           echo "Left to the full suite: ${exclude:-none}"
           echo "exclude=$exclude" >> "$GITHUB_OUTPUT"
 
-      # DOCKER_HOST points nowhere: a unit test that reaches for a container fails loudly
-      # instead of turning this job into a second integration run.
+      # No Docker in this job: the socket is locked and DOCKER_HOST points nowhere (Testcontainers
+      # falls back to the default socket otherwise), so a unit test that reaches for a container
+      # fails loudly instead of turning this job into a second integration run.
+      - name: Switch Docker off
+        run: sudo chmod 000 /var/run/docker.sock
+
       - name: Unit tests
         env:
           DOCKER_HOST: unix:///nonexistent/docker.sock

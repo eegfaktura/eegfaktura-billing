@@ -47,7 +47,8 @@ def trivy_config(report):
         for m in res.get("Misconfigurations") or []:
             if m.get("Status") != "FAIL":
                 continue
-            key = (m.get("ID"), res.get("Target"))
+            # the message names the resource, so a second instance in the same file counts on its own
+            key = (m.get("ID"), res.get("Target"), m.get("Message"))
             found[key] = (m.get("Severity", ""), m.get("ID", ""), m.get("Title", ""), "-",
                           res.get("Target", ""))
     return found

@@ -18,6 +18,7 @@ artifact's own POM in the local Maven repository on 2026-10-01.
 | Trivy (`aquasecurity/trivy` release binary) | CI `security-scan.yml`: secrets in changed files, vulnerable dependencies, misconfigurations | 0.75.0 (2026-10-01); Apache-2.0 | SHA-256 checked in the workflow |
 | OSV-Scanner (`google/osv-scanner` release binary) | CI `security-scan.yml`: vulnerable dependencies | 2.6.0 (2026-09-14); Apache-2.0 | SHA-256 checked in the workflow |
 | Gitleaks (`gitleaks/gitleaks` release binary) | CI `security-scan.yml`: secrets in the new commits | 8.30.1 (2026-03-21); MIT | SHA-256 checked in the workflow |
+| `actions/upload-artifact` v7.0.1, `actions/download-artifact` v8.0.1 (2026-03-11) in `security-scan.yml` | the poms of the sbt export between two jobs (unused here: no `build.sbt`) | MIT | by SHA `043fb46…`, `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c` |
 | Trivy vulnerability/check databases, OSV database (osv.dev, deps.dev) | data the scanners fetch on every CI run | — | official; data, not pinned |
 | Temurin JDK via `actions/setup-java` in `pr-checks.yml` | unit test job | 21.0.11+10; GPL-2.0 with Classpath Exception | exact version |
 | `org.jacoco:jacoco-maven-plugin` | coverage report and gate (`pom.xml`) | 0.8.13 (Maven Central 2025-04-02); EPL-2.0 (from the POM) | exact version; build only, not in the jar |
