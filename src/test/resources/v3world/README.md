@@ -17,12 +17,14 @@ sub-community GC100403-001 is missing: the legacy energystore refuses its code (
 
 ## Provenance
 
-Chain (2026-10-08): eegfaktura-v3 (AGPL-3.0, same organisation) commit `0b785d2` —
+Chain (2026-10-08, master data re-exported 2026-10-09): eegfaktura-v3 (AGPL-3.0, same organisation) commit `c75b60d` —
 `tools/demo/make-legacy-world.py` (seed 7) plus the dev workspace's variety communities → `tools/bench/load-base.sql`
 into the legacy `base.*` (migrated by eegfaktura-backend `a1b5b18`) → `energy-mock backfill --channel mqtt`
 (2026-01-01 … 2026-10-07) → the legacy energystore `2631ea3` ingests over MQTT → its `/report` and the view were read
-by the dev workspace's `scripts/dev/world/export-billing-snapshot.py`. sha256 `masterdata.json` `c79de5ab74a858d4…`,
-`allocations.json` `64732b09623d842a…`.
+by the dev workspace's `scripts/dev/world/export-billing-snapshot.py`. sha256 `masterdata.json` `c31843b58ee893cd…`,
+`allocations.json` `64732b09623d842a…`. The re-export of 2026-10-09 changed only
+`participant_sepa_direct_debit` (real types NONE/B2B/CORE instead of the generator's ACTIVE/INACTIVE) and the
+mandate references of the NONE members; energy and allocations are the same.
 
 **Refresh** (by hand): seed the dev stack (`scripts/dev/seed-world.sh`), run the export script, review the
 diff (one row per line), run `BillingV3WorldTests`, update the commit ids and checksums here and in
