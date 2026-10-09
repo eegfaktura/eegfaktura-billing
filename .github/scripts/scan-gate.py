@@ -8,8 +8,13 @@ kind: trivy-vuln | trivy-config | osv
   With a base report only findings the base does not have fail it (pull request): a pull request
   answers for what it adds, the debt of the base branch shows in the push and weekly runs.
 
-Prints a Markdown table (also appended to $GITHUB_STEP_SUMMARY) and one ::error:: line per
-failing finding. Exit 0 = pass, 1 = findings, 2 = unreadable report (never counted as clean).
+Which severities fail the gate: $SCAN_FAIL_ON = HIGH (default: HIGH and CRITICAL) or CRITICAL
+(only CRITICAL; Trivy CRITICAL, OSV CVSS >= 9.0). Findings below it are listed and annotated as
+warnings, never hidden.
+
+Prints a Markdown table (also appended to $GITHUB_STEP_SUMMARY) and one ::error:: (failing) or
+::warning:: (reported only) line per finding. Exit 0 = pass, 1 = failing findings, 2 = unreadable
+report or bad $SCAN_FAIL_ON (never counted as clean).
 Python standard library only; synced from eegfaktura-dev scripts/dev/ci/ (do not edit the copies).
 """
 import json
@@ -17,6 +22,14 @@ import os
 import sys
 
 OSV_MIN_CVSS = 7.0  # HIGH and CRITICAL, as the Trivy scans (--severity HIGH,CRITICAL)
+OSV_CRITICAL_CVSS = 9.0  # CVSS v3 "critical"
+
+
+def is_critical(row):
+    sev = str(row[0])
+    if sev.startswith("CVSS "):
+        return float(sev[5:]) >= OSV_CRITICAL_CVSS
+    return sev == "CRITICAL"
 UNSCORED = {}  # report path -> OSV groups without a CVSS score (shown, not gated)
 
 
@@ -89,22 +102,29 @@ def main(argv):
         print(__doc__)
         return 2
     kind = argv[1]
+    fail_on = os.environ.get("SCAN_FAIL_ON", "HIGH")
+    if fail_on not in ("HIGH", "CRITICAL"):
+        print(f"::error::SCAN_FAIL_ON must be HIGH or CRITICAL, not {fail_on!r}")
+        return 2
     parse = (lambda f: osv(load(f), f)) if kind == "osv" else (lambda f: KINDS[kind](load(f)))
     head = parse(argv[2])
     base = parse(argv[3]) if len(argv) == 4 else None
-    failing = {k: v for k, v in head.items() if base is None or k not in base}
+    reported = {k: v for k, v in head.items() if base is None or k not in base}
+    failing = {k: v for k, v in reported.items() if fail_on == "HIGH" or is_critical(v)}
+    warned = {k: v for k, v in reported.items() if k not in failing}
 
     if base is None:
-        title = f"{kind}: {len(head)} finding(s) HIGH/CRITICAL"
+        title = f"{kind}: {len(head)} finding(s) HIGH/CRITICAL, {len(failing)} failing (fails on {fail_on})"
     else:
         fixed = len([k for k in base if k not in head])
-        title = (f"{kind}: {len(failing)} new finding(s) in this pull request "
-                 f"({len(head)} in head, {len(base)} in base, {fixed} fixed)")
+        title = (f"{kind}: {len(reported)} new finding(s) in this pull request, {len(failing)} failing "
+                 f"(fails on {fail_on}; {len(head)} in head, {len(base)} in base, {fixed} fixed)")
     lines = [f"### {title}", ""]
-    if failing:
-        lines += ["| Severity | ID | Package / title | Fixed in | Where |", "|---|---|---|---|---|"]
-        for row in sorted(failing.values()):
-            lines.append("| " + " | ".join(str(c).replace("|", "\\|") for c in row) + " |")
+    if reported:
+        lines += ["| Gate | Severity | ID | Package / title | Fixed in | Where |", "|---|---|---|---|---|---|"]
+        for k, row in sorted(reported.items(), key=lambda kv: (kv[0] not in failing, kv[1])):
+            gate = "fails" if k in failing else "reported"
+            lines.append("| " + " | ".join([gate] + [str(c).replace("|", "\\|") for c in row]) + " |")
     unscored = UNSCORED.get(argv[2], set()) - (UNSCORED.get(argv[3], set()) if base is not None else set())
     if unscored:
         lines += ["", f"<details><summary>{len(unscored)} {'new ' if base is not None else ''}advisory group(s) "
@@ -120,6 +140,8 @@ def main(argv):
             f.write(text + "\n")
     for row in sorted(failing.values()):
         print(f"::error title={kind}::{row[0]} {row[1]} {row[2]} ({row[4]})")
+    for row in sorted(warned.values()):
+        print(f"::warning title={kind}::{row[0]} {row[1]} {row[2]} ({row[4]})")
     return 1 if failing else 0
 
 
