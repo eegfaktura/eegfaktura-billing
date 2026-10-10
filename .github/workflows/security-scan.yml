@@ -9,14 +9,20 @@
 #
 # Scanners are fixed versions, verified by SHA-256, never a floating tag or a wrapper action; the
 # rule is a release at least 7 days old (checked 2026-10-09):
-#   Trivy 0.75.0 (2026-10-01), OSV-Scanner 2.6.0 (2026-09-14), Gitleaks 8.30.1 (2026-03-21).
+#   Trivy 0.75.0 (2026-10-01), OSV-Scanner 2.6.0 (2026-09-14), Gitleaks 8.30.1 (2026-03-21),
+#   Apache Maven 3.9.11 (2025-07-12), maven-dependency-plugin 3.8.1 (2024-10-24).
 # Actions are pinned by commit SHA. The vulnerability databases are fetched fresh on every run.
 #
 # Configuration in the scanned tree is ignored on purpose (.gitleaks.toml, .gitleaksignore, inline
 # gitleaks:allow, trivy.yaml, trivy-secret.yaml, .trivyignore, osv-scanner.toml): a pull request
 # must not be able to switch a rule off without touching this file. Exceptions belong here, reviewed.
-# On pull requests the gate script comes from the base commit, and the PR's build code (sbt makePom)
-# runs in a job of its own that hands over only the exported poms.
+# On pull requests the gate script comes from the base commit, and the PR's build code (sbt makePom,
+# Maven) runs in a job of its own that hands over only pom files.
+#
+# Maven Central: Trivy resolves every pom.xml transitively and fetches what is not in ~/.m2 itself,
+# one request per artifact — on a shared runner IP that ends in 429 Too Many Requests (Retry-After
+# 1800). So the poms are resolved beforehand with a pinned Maven (cached between runs) and Trivy
+# reads them from ~/.m2; the secret scan needs no lookup at all and runs with --offline-scan.
 #
 # Identical in every eegfaktura legacy repository — synced from the workspace, do not edit a copy.
 
@@ -47,6 +53,9 @@ env:
   OSV_SCANNER_SHA256: 'ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108'
   GITLEAKS_VERSION: '8.30.1'
   GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+  MAVEN_VERSION: '3.9.11'
+  MAVEN_SHA512: 'bcfe4fe305c962ace56ac7b5fc7a08b87d5abd8b7e89027ab251069faebee516b0ded8961445d6d91ec1985dfe30f8153268843c89aa392733d1a3ec956c9978'
+  DEPENDENCY_PLUGIN: 'org.apache.maven.plugins:maven-dependency-plugin:3.8.1'
   # Which findings of the dependency and misconfiguration scans fail the run: HIGH (HIGH and
   # CRITICAL), CRITICAL, or none. TEMPORARY: none (decided 2026-10-09) — the legacy repositories
   # carry many known findings, and the gate must not block work while they are paid down; every
@@ -152,16 +161,19 @@ jobs:
             fi
           done < "$RUNNER_TEMP/changed.txt"
           cd "$RUNNER_TEMP"  # no trivy.yaml / trivy-secret.yaml / .trivyignore from the repository
-          trivy fs --scanners secret --secret-config "" --ignorefile "" \
+          # --offline-scan: a changed pom.xml would otherwise be resolved against Maven Central
+          trivy fs --scanners secret --secret-config "" --ignorefile "" --offline-scan \
             --exit-code 1 --no-progress --format table changed
 
-  # sbt projects have no manifest the scanners read: export the declared dependencies as a Maven
-  # pom (sbt makePom; the scanners resolve the transitive ones themselves). This runs the pull
-  # request's build code, so it gets a job of its own and hands over nothing but the pom files.
-  sbt-dependencies:
-    name: sbt dependencies
+  # The poms Trivy needs, resolved here so that Trivy does not ask Maven Central for each one.
+  # sbt projects have no manifest the scanners read: their declared dependencies are exported as a
+  # Maven pom first (sbt makePom; the scanners resolve the transitive ones). Maven then resolves
+  # every pom (billing's, the exported ones) into ~/.m2. This runs the pull request's build code, so
+  # it gets a job of its own and hands over nothing but pom files.
+  build-dependencies:
+    name: Build dependencies
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -175,42 +187,75 @@ jobs:
         run: git -C head worktree add --detach "$GITHUB_WORKSPACE/base" HEAD^1
 
       - name: Set up JDK
-        if: hashFiles('head/build.sbt') != ''
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '17.0.19+10'
-          cache: sbt
-          cache-dependency-path: head/build.sbt
 
       - name: Set up sbt
         if: hashFiles('head/build.sbt') != ''
         uses: sbt/setup-sbt@6158cb0903b8ceeae04f830055f3155e1b6a5ad7 # v1.5.11
 
-      - name: Export the dependencies as pom.xml
+      # Only the poms are cached; the key follows the head's build files, older caches are a start.
+      - name: Cache the resolved poms
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.m2/repository
+          key: scan-m2-${{ hashFiles('head/pom.xml', 'head/build.sbt', 'head/project/*.sbt') }}
+          restore-keys: scan-m2-
+
+      - name: Install Maven
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/poms"
+          cd "$RUNNER_TEMP"
+          curl -fsSLo maven.tar.gz \
+            "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+          echo "${MAVEN_SHA512}  maven.tar.gz" | sha512sum -c -
+          tar -xzf maven.tar.gz
+          echo "$RUNNER_TEMP/apache-maven-${MAVEN_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Export and resolve the poms
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/poms"
+          mkdir -p "$out"
           for d in head base; do
-            [ -f "$d/build.sbt" ] || continue
-            (cd "$d" && sbt -batch makePom)
-            pom="$(find "$d/target" -maxdepth 2 -name '*.pom' -newer "$d/build.sbt" | head -n1)"
-            [ -n "$pom" ] || { echo "::error::sbt makePom wrote no pom in $d"; exit 1; }
-            mkdir -p "$RUNNER_TEMP/poms/$d" && cp "$pom" "$RUNNER_TEMP/poms/$d/pom.xml"
+            [ -d "$d" ] || continue
+            pom=""
+            if [ -f "$d/build.sbt" ]; then
+              (cd "$d" && sbt -batch makePom)
+              pom="$(find "$d/target" -maxdepth 2 -name '*.pom' -newer "$d/build.sbt" | head -n1)"
+              [ -n "$pom" ] || { echo "::error::sbt makePom wrote no pom in $d"; exit 1; }
+              mkdir -p "$out/$d" && cp "$pom" "$out/$d/pom.xml"
+              pom="$out/$d/pom.xml"
+            elif [ -f "$d/pom.xml" ]; then
+              pom="$d/pom.xml"
+            fi
+            [ -n "$pom" ] || continue
+            # the dependency graph (all scopes) needs every pom Trivy reads, but no jar
+            mvn -B -ntp -q -f "$pom" "${DEPENDENCY_PLUGIN}:tree" -DoutputFile=/dev/null \
+              || { echo "::error::Maven could not resolve the dependencies of $d (Maven Central blocked?)"; exit 1; }
           done
-          echo "exported: $(find "$RUNNER_TEMP/poms" -name pom.xml | wc -l)"
+          if [ -d ~/.m2/repository ]; then
+            mkdir -p "$out/m2"
+            (cd ~/.m2/repository && find . -name '*.pom' -print0 | tar --null -T - -cf -) | tar -xf - -C "$out/m2"
+          fi
+          echo "exported: $(find "$out" -maxdepth 2 -name pom.xml | wc -l) sbt pom(s), $(find "$out/m2" -name '*.pom' 2>/dev/null | wc -l) resolved pom(s)"
 
       - name: Hand the poms over
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: sbt-dependencies
+          name: build-dependencies
           path: ${{ runner.temp }}/poms
           if-no-files-found: ignore
           retention-days: 1
 
   vulnerabilities:
     name: Vulnerable dependencies
-    needs: sbt-dependencies
+    needs: build-dependencies
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -227,22 +272,27 @@ jobs:
         if: github.event_name == 'pull_request'
         run: git -C head worktree add --detach "$GITHUB_WORKSPACE/base" HEAD^1
 
-      - name: Fetch the sbt poms
-        if: hashFiles('head/build.sbt') != ''
+      - name: Fetch the poms
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: sbt-dependencies
+          name: build-dependencies
           path: ${{ runner.temp }}/poms
 
-      - name: Place the sbt poms
-        if: hashFiles('head/build.sbt') != ''
+      # sbt: the exported pom goes into the tree; every project: the resolved poms into ~/.m2, where
+      # Trivy looks before it asks Maven Central.
+      - name: Place the poms
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
         run: |
           set -euo pipefail
           for d in head base; do
-            [ -d "$d" ] || continue
+            [ -d "$d" ] && [ -f "$d/build.sbt" ] || continue
             [ -f "$RUNNER_TEMP/poms/$d/pom.xml" ] || { echo "::error::no exported pom for $d"; exit 1; }
             mkdir -p "$d/sbt-dependencies" && cp "$RUNNER_TEMP/poms/$d/pom.xml" "$d/sbt-dependencies/pom.xml"
           done
+          [ -d "$RUNNER_TEMP/poms/m2" ] || { echo "::error::no resolved poms handed over"; exit 1; }
+          mkdir -p ~/.m2/repository && cp -a "$RUNNER_TEMP/poms/m2/." ~/.m2/repository/
+          echo "poms in ~/.m2: $(find ~/.m2/repository -name '*.pom' | wc -l)"
 
       - name: Install Trivy and OSV-Scanner
         run: |
@@ -267,6 +317,7 @@ jobs:
 
       # A Trivy resolution error (e.g. Maven Central answering 429) is fatal, never "no findings".
       - name: Scan dependencies
+        id: scan
         run: |
           set -euo pipefail
           : > "$RUNNER_TEMP/osv-scanner.toml"  # overrides any osv-scanner.toml in the tree
@@ -285,12 +336,13 @@ jobs:
           done
           trivy convert --format table "$RUNNER_TEMP/head-trivy.json"
 
+      # The gates judge reports; without a finished scan there are none (the scan's error says why).
       - name: Gate — Trivy
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
         run: python3 "$SCAN_GATE" trivy-vuln "$RUNNER_TEMP/head-trivy.json" ${BASE_SHA:+"$RUNNER_TEMP/base-trivy.json"}
 
       - name: Gate — OSV-Scanner
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
         run: python3 "$SCAN_GATE" osv "$RUNNER_TEMP/head-osv.json" ${BASE_SHA:+"$RUNNER_TEMP/base-osv.json"}
 
   misconfigurations:
@@ -328,6 +380,7 @@ jobs:
       # output: trivy config prints the offending code lines, which may hold a secret; the gate's
       # summary lists ID, title and file only.
       - name: Scan Dockerfiles and Kubernetes files
+        id: scan
         run: |
           set -euo pipefail
           for d in head base; do
@@ -337,5 +390,5 @@ jobs:
           done
 
       - name: Gate — misconfigurations
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
         run: python3 "$SCAN_GATE" trivy-config "$RUNNER_TEMP/head-config.json" ${BASE_SHA:+"$RUNNER_TEMP/base-config.json"}
