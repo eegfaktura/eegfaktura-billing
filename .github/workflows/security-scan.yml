@@ -1,0 +1,394 @@
+# Security scans: leaked secrets (Gitleaks, Trivy), vulnerable dependencies (Trivy, OSV-Scanner) and
+# misconfigurations (Trivy). Pull requests fail on what they ADD (head compared with the base
+# commit); pushes to the default branch, the weekly run and a manual run fail on every finding at
+# or above SCAN_FAIL_ON, so newly published CVEs show up without a code change. For now
+# SCAN_FAIL_ON is none (below): dependency and misconfiguration findings are only reported.
+#
+# Secrets are only looked for in the new commits (PR or push range) and the files they touch: this
+# repository is public, and a full-tree report would list the locations of known, unfixed findings.
+#
+# Scanners are fixed versions, verified by SHA-256, never a floating tag or a wrapper action; the
+# rule is a release at least 7 days old (checked 2026-10-09):
+#   Trivy 0.75.0 (2026-10-01), OSV-Scanner 2.6.0 (2026-09-14), Gitleaks 8.30.1 (2026-03-21),
+#   Apache Maven 3.9.11 (2025-07-12), maven-dependency-plugin 3.8.1 (2024-10-24).
+# Actions are pinned by commit SHA. The vulnerability databases are fetched fresh on every run.
+#
+# Configuration in the scanned tree is ignored on purpose (.gitleaks.toml, .gitleaksignore, inline
+# gitleaks:allow, trivy.yaml, trivy-secret.yaml, .trivyignore, osv-scanner.toml): a pull request
+# must not be able to switch a rule off without touching this file. Exceptions belong here, reviewed.
+# On pull requests the gate script comes from the base commit, and the PR's build code (sbt makePom,
+# Maven) runs in a job of its own that hands over only pom files.
+#
+# Maven Central: Trivy resolves every pom.xml transitively and fetches what is not in ~/.m2 itself,
+# one request per artifact — on a shared runner IP that ends in 429 Too Many Requests (Retry-After
+# 1800). So the poms are resolved beforehand with a pinned Maven (cached between runs) and Trivy
+# reads them from ~/.m2; the secret scan needs no lookup at all and runs with --offline-scan.
+#
+# Identical in every eegfaktura legacy repository — synced from the workspace, do not edit a copy.
+
+name: Security Scan
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Only a newer push to the same pull request cancels a run. Every other run gets a group of its
+# own (the run id): a push scans exactly its own commits, so it must never be cancelled — not even
+# while pending, which a shared group would do with cancel-in-progress: false.
+concurrency:
+  group: security-scan-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  TRIVY_VERSION: '0.75.0'
+  TRIVY_SHA256: 'c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f'
+  OSV_SCANNER_VERSION: '2.6.0'
+  OSV_SCANNER_SHA256: 'ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108'
+  GITLEAKS_VERSION: '8.30.1'
+  GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+  MAVEN_VERSION: '3.9.11'
+  MAVEN_SHA512: 'bcfe4fe305c962ace56ac7b5fc7a08b87d5abd8b7e89027ab251069faebee516b0ded8961445d6d91ec1985dfe30f8153268843c89aa392733d1a3ec956c9978'
+  DEPENDENCY_PLUGIN: 'org.apache.maven.plugins:maven-dependency-plugin:3.8.1'
+  # Which findings of the dependency and misconfiguration scans fail the run: HIGH (HIGH and
+  # CRITICAL), CRITICAL, or none. TEMPORARY: none (decided 2026-10-09) — the legacy repositories
+  # carry many known findings, and the gate must not block work while they are paid down; every
+  # finding is still listed in the step summary and annotated as a warning, and each run warns that
+  # the gate is off. To be tightened again (CRITICAL, then HIGH). Leaked secrets always fail.
+  SCAN_FAIL_ON: none
+  # Pull request: the base commit the head is compared with; empty on every other event.
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  secrets:
+    name: Leaked secrets (new commits)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0  # the commit range below needs the history
+          persist-credentials: false
+
+      - name: Install Gitleaks and Trivy
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSLo gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          curl -fsSLo trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum -c -
+          mkdir -p bin
+          tar -xzf gitleaks.tar.gz -C bin gitleaks
+          tar -xzf trivy.tar.gz -C bin trivy
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          # the default rules, nothing from the repository
+          printf '[extend]\nuseDefault = true\n' > gitleaks.toml
+          mkdir -p no-gitleaksignore
+
+      # Pull request: base..head. Push: before..after (a new branch or a force push without the old
+      # commit: only the pushed commit). Schedule and manual runs have no new commits to check.
+      - name: Resolve the commit range
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            pull_request) from="$BASE_SHA"; to="$PR_HEAD_SHA"; files_from="$(git merge-base "$BASE_SHA" "$PR_HEAD_SHA")" ;;
+            push)
+              to="$AFTER"
+              if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+                 && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+                from="$BEFORE"
+              else  # new branch or force push: only the pushed commit
+                from="$(git rev-parse --verify --quiet "${AFTER}^" || true)"
+              fi
+              files_from="$from" ;;
+            *) echo "::notice::No new commits on '$EVENT' — the secret scan runs on pull requests and pushes."
+               echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          esac
+          if [ -n "$from" ]; then
+            log_opts="${from}..${to}"
+            # from the merge base: files changed only on the base branch are not this change's
+            git diff --name-only -z --diff-filter=ACMRT "$files_from" "$to" > "$RUNNER_TEMP/changed.txt"
+          else  # root commit
+            log_opts="-1 ${to}"
+            git ls-tree -r -z --name-only "$to" > "$RUNNER_TEMP/changed.txt"
+          fi
+          git rev-parse --verify "${to}^{commit}" > "$RUNNER_TEMP/head-sha"
+          { echo "log_opts=${log_opts}"; echo "skip=false"; } >> "$GITHUB_OUTPUT"
+          echo "Commits: ${log_opts}; changed files: $(tr -cd '\0' < "$RUNNER_TEMP/changed.txt" | wc -c)"
+
+      # --redact: the log of a public repository must never show a secret, not even a revoked one.
+      - name: Gitleaks over the new commits
+        if: steps.range.outputs.skip == 'false'
+        env:
+          LOG_OPTS: ${{ steps.range.outputs.log_opts }}
+        run: |
+          gitleaks git --redact --no-banner --exit-code 1 --ignore-gitleaks-allow \
+            --config "$RUNNER_TEMP/gitleaks.toml" --gitleaks-ignore-path "$RUNNER_TEMP/no-gitleaksignore" \
+            --log-opts="$LOG_OPTS" .
+
+      # A second rule set over the changed files as they are in the head commit. A file that
+      # already held a secret is reported when a change touches it: that is the moment to remove it.
+      # Trivy's built-in allow rules skip test and example paths (tests/, testdata/, src/test/, *.md);
+      # Gitleaks above covers those (and ignores inline gitleaks:allow).
+      - name: Trivy secret scan of the changed files
+        if: steps.range.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          head_sha="$(cat "$RUNNER_TEMP/head-sha")"
+          mkdir -p "$RUNNER_TEMP/changed"
+          while IFS= read -r -d '' f; do
+            # blobs, not the checkout: on a pull request the checkout is the merge commit
+            if [ "$(git cat-file -t "${head_sha}:${f}" 2>/dev/null)" = blob ] \
+               && [ "$(git ls-tree "$head_sha" -- ":(literal)$f" | cut -c1-6)" != 120000 ]; then
+              mkdir -p "$RUNNER_TEMP/changed/$(dirname -- "$f")"
+              git cat-file blob "${head_sha}:${f}" > "$RUNNER_TEMP/changed/$f"
+            fi
+          done < "$RUNNER_TEMP/changed.txt"
+          cd "$RUNNER_TEMP"  # no trivy.yaml / trivy-secret.yaml / .trivyignore from the repository
+          # --offline-scan: a changed pom.xml would otherwise be resolved against Maven Central
+          trivy fs --scanners secret --secret-config "" --ignorefile "" --offline-scan \
+            --exit-code 1 --no-progress --format table changed
+
+  # The poms Trivy needs, resolved here so that Trivy does not ask Maven Central for each one.
+  # sbt projects have no manifest the scanners read: their declared dependencies are exported as a
+  # Maven pom first (sbt makePom; the scanners resolve the transitive ones). Maven then resolves
+  # every pom (billing's, the exported ones) into ~/.m2. This runs the pull request's build code, so
+  # it gets a job of its own and hands over nothing but pom files.
+  build-dependencies:
+    name: Build dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: head
+          fetch-depth: 2  # on a pull request: the merge commit and its first parent
+          persist-credentials: false
+
+      - name: Base of the pull request
+        if: github.event_name == 'pull_request'
+        run: git -C head worktree add --detach "$GITHUB_WORKSPACE/base" HEAD^1
+
+      - name: Set up JDK
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17.0.19+10'
+
+      - name: Set up sbt
+        if: hashFiles('head/build.sbt') != ''
+        uses: sbt/setup-sbt@6158cb0903b8ceeae04f830055f3155e1b6a5ad7 # v1.5.11
+
+      # Only the poms are cached; the key follows the head's build files, older caches are a start.
+      - name: Cache the resolved poms
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.m2/repository
+          key: scan-m2-${{ hashFiles('head/pom.xml', 'head/build.sbt', 'head/project/*.sbt') }}
+          restore-keys: scan-m2-
+
+      - name: Install Maven
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSLo maven.tar.gz \
+            "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+          echo "${MAVEN_SHA512}  maven.tar.gz" | sha512sum -c -
+          tar -xzf maven.tar.gz
+          echo "$RUNNER_TEMP/apache-maven-${MAVEN_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Export and resolve the poms
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/poms"
+          mkdir -p "$out"
+          for d in head base; do
+            [ -d "$d" ] || continue
+            pom=""
+            if [ -f "$d/build.sbt" ]; then
+              (cd "$d" && sbt -batch makePom)
+              pom="$(find "$d/target" -maxdepth 2 -name '*.pom' -newer "$d/build.sbt" | head -n1)"
+              [ -n "$pom" ] || { echo "::error::sbt makePom wrote no pom in $d"; exit 1; }
+              mkdir -p "$out/$d" && cp "$pom" "$out/$d/pom.xml"
+              pom="$out/$d/pom.xml"
+            elif [ -f "$d/pom.xml" ]; then
+              pom="$d/pom.xml"
+            fi
+            [ -n "$pom" ] || continue
+            # the dependency graph (all scopes) needs every pom Trivy reads, but no jar
+            mvn -B -ntp -q -f "$pom" "${DEPENDENCY_PLUGIN}:tree" -DoutputFile=/dev/null \
+              || { echo "::error::Maven could not resolve the dependencies of $d (Maven Central blocked?)"; exit 1; }
+          done
+          if [ -d ~/.m2/repository ]; then
+            mkdir -p "$out/m2"
+            (cd ~/.m2/repository && find . -name '*.pom' -print0 | tar --null -T - -cf -) | tar -xf - -C "$out/m2"
+          fi
+          echo "exported: $(find "$out" -maxdepth 2 -name pom.xml | wc -l) sbt pom(s), $(find "$out/m2" -name '*.pom' 2>/dev/null | wc -l) resolved pom(s)"
+
+      - name: Hand the poms over
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-dependencies
+          path: ${{ runner.temp }}/poms
+          if-no-files-found: ignore
+          retention-days: 1
+
+  vulnerabilities:
+    name: Vulnerable dependencies
+    needs: build-dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: head
+          fetch-depth: 2  # on a pull request: the merge commit and its first parent
+          persist-credentials: false
+
+      # The base of a pull request is the merge commit's first parent — exactly what the merge adds
+      # to, even when the base branch moved after the event.
+      - name: Base of the pull request
+        if: github.event_name == 'pull_request'
+        run: git -C head worktree add --detach "$GITHUB_WORKSPACE/base" HEAD^1
+
+      - name: Fetch the poms
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-dependencies
+          path: ${{ runner.temp }}/poms
+
+      # sbt: the exported pom goes into the tree; every project: the resolved poms into ~/.m2, where
+      # Trivy looks before it asks Maven Central.
+      - name: Place the poms
+        if: hashFiles('head/build.sbt', 'head/pom.xml') != ''
+        run: |
+          set -euo pipefail
+          for d in head base; do
+            [ -d "$d" ] && [ -f "$d/build.sbt" ] || continue
+            [ -f "$RUNNER_TEMP/poms/$d/pom.xml" ] || { echo "::error::no exported pom for $d"; exit 1; }
+            mkdir -p "$d/sbt-dependencies" && cp "$RUNNER_TEMP/poms/$d/pom.xml" "$d/sbt-dependencies/pom.xml"
+          done
+          [ -d "$RUNNER_TEMP/poms/m2" ] || { echo "::error::no resolved poms handed over"; exit 1; }
+          mkdir -p ~/.m2/repository && cp -a "$RUNNER_TEMP/poms/m2/." ~/.m2/repository/
+          echo "poms in ~/.m2: $(find ~/.m2/repository -name '*.pom' | wc -l)"
+
+      - name: Install Trivy and OSV-Scanner
+        run: |
+          set -euo pipefail
+          tools="$(mktemp -d)"
+          cd "$tools"
+          curl -fsSLo trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum -c -
+          curl -fsSLo osv-scanner \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  osv-scanner" | sha256sum -c -
+          mkdir -p bin
+          tar -xzf trivy.tar.gz -C bin trivy
+          install -m 0755 osv-scanner bin/osv-scanner
+          echo "$tools/bin" >> "$GITHUB_PATH"
+          # the gate script of the base commit on a pull request (a PR cannot loosen its own gate)
+          gate=head/.github/scripts/scan-gate.py
+          if [ -f "$GITHUB_WORKSPACE/base/.github/scripts/scan-gate.py" ]; then gate=base/.github/scripts/scan-gate.py; fi
+          cp "$GITHUB_WORKSPACE/$gate" "$tools/scan-gate.py"
+          echo "SCAN_GATE=$tools/scan-gate.py" >> "$GITHUB_ENV"
+
+      # A Trivy resolution error (e.g. Maven Central answering 429) is fatal, never "no findings".
+      - name: Scan dependencies
+        id: scan
+        run: |
+          set -euo pipefail
+          : > "$RUNNER_TEMP/osv-scanner.toml"  # overrides any osv-scanner.toml in the tree
+          for d in head base; do
+            [ -d "$d" ] || continue
+            trivy fs --scanners vuln --severity HIGH,CRITICAL --ignorefile "" --no-progress --format json \
+              --output "$RUNNER_TEMP/$d-trivy.json" "$d"
+            # Exit 0 = clean, 1 = vulnerabilities (judged by the gate), 128 = no manifest found.
+            rc=0; osv-scanner scan source --recursive --config "$RUNNER_TEMP/osv-scanner.toml" --format json "$d" \
+              > "$RUNNER_TEMP/$d-osv.json" || rc=$?
+            case "$rc" in
+              0|1) ;;
+              128) echo '{"results": []}' > "$RUNNER_TEMP/$d-osv.json" ;;
+              *) echo "::error::OSV-Scanner failed on $d (exit $rc)"; exit 1 ;;
+            esac
+          done
+          trivy convert --format table "$RUNNER_TEMP/head-trivy.json"
+
+      # The gates judge reports; without a finished scan there are none (the scan's error says why).
+      - name: Gate — Trivy
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
+        run: python3 "$SCAN_GATE" trivy-vuln "$RUNNER_TEMP/head-trivy.json" ${BASE_SHA:+"$RUNNER_TEMP/base-trivy.json"}
+
+      - name: Gate — OSV-Scanner
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
+        run: python3 "$SCAN_GATE" osv "$RUNNER_TEMP/head-osv.json" ${BASE_SHA:+"$RUNNER_TEMP/base-osv.json"}
+
+  misconfigurations:
+    name: Misconfigurations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: head
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Base of the pull request
+        if: github.event_name == 'pull_request'
+        run: git -C head worktree add --detach "$GITHUB_WORKSPACE/base" HEAD^1
+
+      - name: Install Trivy
+        run: |
+          set -euo pipefail
+          tools="$(mktemp -d)"
+          cd "$tools"
+          curl -fsSLo trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum -c -
+          mkdir -p bin && tar -xzf trivy.tar.gz -C bin trivy
+          echo "$tools/bin" >> "$GITHUB_PATH"
+          gate=head/.github/scripts/scan-gate.py
+          if [ -f "$GITHUB_WORKSPACE/base/.github/scripts/scan-gate.py" ]; then gate=base/.github/scripts/scan-gate.py; fi
+          cp "$GITHUB_WORKSPACE/$gate" "$tools/scan-gate.py"
+          echo "SCAN_GATE=$tools/scan-gate.py" >> "$GITHUB_ENV"
+
+      # Dockerfiles, Kubernetes manifests and Helm charts (Trivy has no compose scanner). No table
+      # output: trivy config prints the offending code lines, which may hold a secret; the gate's
+      # summary lists ID, title and file only.
+      - name: Scan Dockerfiles and Kubernetes files
+        id: scan
+        run: |
+          set -euo pipefail
+          for d in head base; do
+            [ -d "$d" ] || continue
+            trivy config --severity HIGH,CRITICAL --ignorefile "" --quiet --format json \
+              --output "$RUNNER_TEMP/$d-config.json" "$d"
+          done
+
+      - name: Gate — misconfigurations
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
+        run: python3 "$SCAN_GATE" trivy-config "$RUNNER_TEMP/head-config.json" ${BASE_SHA:+"$RUNNER_TEMP/base-config.json"}

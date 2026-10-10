@@ -1,0 +1,73 @@
+# Tests on every pull request: the unit tests (every test class that needs no container) and the
+# full suite (test.yml: ./mvnw clean verify with every Testcontainers suite and the JaCoCo gate —
+# the same job rolling-release.yml runs before an image is built).
+#
+# A unit test is every test class that neither starts a container nor reaches one through the
+# classes it uses: the step below starts from the files that mention Testcontainers or
+# @SpringBootTest and adds every test file that names one of them, until nothing changes.
+# Versions fixed, each release older than 7 days (checked 2026-10-09): Temurin 21.0.11+10 (setup-java: '21.0.11+10.0.LTS', Temurin's version string).
+# Actions pinned by commit SHA.
+
+name: PR Checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21.0.11+10.0.LTS'
+          cache: maven
+
+      - name: Find the container test classes
+        id: split
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git ls-files 'src/test/java/*.java')
+          mapfile -t integ < <(grep -lE 'org\.testcontainers|@SpringBootTest' "${files[@]}" || true)
+          # integ only grows, so an unchanged count means nothing was added
+          while [ "${#integ[@]}" -gt 0 ]; do
+            names="$(printf '%s\n' "${integ[@]}" | xargs -n1 basename | sed 's/\.java$//' | paste -sd'|')"
+            mapfile -t next < <({ printf '%s\n' "${integ[@]}"; grep -lwE "$names" "${files[@]}" || true; } | sort -u)
+            [ "${#next[@]}" -eq "${#integ[@]}" ] && break
+            integ=("${next[@]}")
+          done
+          exclude="$(printf '%s\n' "${integ[@]}" | xargs -r -n1 basename | sed 's/\.java$//; s/^/!/' | paste -sd,)"
+          echo "Left to the full suite: ${exclude:-none}"
+          echo "exclude=$exclude" >> "$GITHUB_OUTPUT"
+
+      # No Docker in this job: the socket is locked and DOCKER_HOST points nowhere (Testcontainers
+      # falls back to the default socket otherwise), so a unit test that reaches for a container
+      # fails loudly instead of turning this job into a second integration run.
+      - name: Switch Docker off
+        run: sudo chmod 000 /var/run/docker.sock
+
+      - name: Unit tests
+        env:
+          DOCKER_HOST: unix:///nonexistent/docker.sock
+          EXCLUDE: ${{ steps.split.outputs.exclude }}
+        run: ./mvnw -B -ntp test ${EXCLUDE:+"-Dtest=$EXCLUDE"} -Dsurefire.failIfNoSpecifiedTests=false
+
+  full:
+    name: Full test suite
+    uses: ./.github/workflows/test.yml

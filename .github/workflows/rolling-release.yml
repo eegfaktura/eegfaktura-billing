@@ -24,7 +24,12 @@ env:
   IMAGE_NAME: vfeeg-development/${{ github.event.repository.name }}
 
 jobs:
+  # Tests gate the image and, through its needs, every deploy job (known-errors.md #6).
+  test:
+    uses: ./.github/workflows/test.yml
+
   build-and-push-image:
+    needs: test
     runs-on: ubuntu-latest
 
     permissions:
