@@ -1,0 +1,40 @@
+eegfaktura-billing
+==================
+
+Billing service of the eegfaktura suite: it lets renewable energy communities
+(EEGs) do their billing.
+
+Part of the eegfaktura suite (https://github.com/eegfaktura), an open-source
+billing and management platform for Austrian renewable energy communities
+(Erneuerbare-Energiegemeinschaften, EEG), published by VFEEG - Verein zur
+Förderung von Erneuerbaren Energiegemeinschaften.
+
+
+License
+-------
+
+Licensed under the GNU Affero General Public License, version 3 (AGPL-3.0).
+See LICENSE for the full text.
+
+Copyright in individual contributions remains with their respective authors.
+The Git history of this repository records who contributed what.
+
+
+Origin
+------
+
+Its Git history begins with a commit by Harald Lacherstorfer on 2023-12-28.
+
+Main authors according to `git shortlog -sn` (as of 2026-10-04):
+  - Harald Lacherstorfer
+  - Matthias Martetschläger (Marki4711)
+
+The complete list of contributors is in the Git history.
+
+
+AGPL-3.0 section 13 (remote network interaction)
+------------------------------------------------
+
+If you modify this software and let users interact with it remotely over a
+computer network, section 13 of the AGPL-3.0 requires you to offer those users
+the Corresponding Source of your modified version.

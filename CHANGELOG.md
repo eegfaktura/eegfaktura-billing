@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+> **Branch `env/billing`:** the entries from here to the next note are only on this branch (feature environment), not on the default branch yet.
+
 ### Added
 - **Time-of-use tariffs (ZVT)**: a time-based tariff prices up to two named
   daytime windows (T1/T2) plus a base price. The caller (web) sends per
@@ -59,9 +61,62 @@ this changelog highlights the changes relevant for overview and operations.
 - Flyway `V1_15`: `billing_run.error_summary` column + unique index on
   `(tenant_id, clearing_period_type, clearing_period_identifier)` (closes the first-creation
   race of two parallel starts; fails visibly if pre-existing duplicate rows need manual cleanup).
-- OCI image labels (title, description, vendor, licenses) for registry and SBOM consumers. (#34)
+
+### Changed
+- Mail deliverability: document mails now go out as **multipart/alternative** (a plain-text part
+  derived from the rendered HTML — a lone `text/html` body is a spam signal), carry an
+  `Auto-Submitted: auto-generated` header, and use a **Message-ID with the `eegfaktura.at` domain**
+  instead of the pod hostname (`spring.mail.properties.mail.from`). The document mail subject now
+  includes the EEG name; the default mail template declares `lang="de"`.
+
+> **End of the `env/billing`-only entries.**
+
+## [1.0.5] – 2026-10-05
+
+### Fixed
+- **Super-admins could no longer load another community's billing settings.** Since the tenant
+  check in `JwtRequestFilter` took effect (1.0.4), a token with the realm role `superuser` was
+  refused for every community not in its own `tenant` claim — unlike backend and energystore,
+  which let that role through. The filter now does the same; the `EEG_ADMIN` role and the
+  per-record tenant checks still apply. A token without a `tenant` or `access_groups` claim
+  is no longer rejected as a whole; those lists are simply empty.
+
+## [1.0.4] – 2026-10-04
 
 ### Security
+- **A billing configuration could be taken over by another community.**
+  `PUT /api/billingConfigs/{id}` only checked the tenant in the request body, never the tenant
+  of the stored record. An EEG admin who knew the id of another community's configuration could
+  send it with their own tenant and so move it over; the other community then billed silently
+  with the default texts and document-number settings. The stored record's tenant is now checked
+  first, and an update never changes the tenant.
+- **Any stored file was readable through one's own logo.** The file ids for logo, footer image
+  and custom template were taken from the request body unchecked, and `GET …/logoImage` returns
+  the referenced file without a tenant check. Setting the id of a known file — an invoice PDF of
+  another community, for instance — as one's own logo made it downloadable. These ids are now set
+  only by the upload and delete endpoints, never from the body.
+  Both reported by a project member in a review of the billing code.
+- Spring Boot 3.5.3 → 3.5.16, which brings patched Tomcat and Spring Security releases, and
+  FreeMarker 2.3.34 → 2.3.35 (template path traversal, the only critical alert on this repo).
+- The database login no longer falls back to `postgres`/`postgres` when
+  `JDBC_DATABASE_USERNAME` or `JDBC_DATABASE_PASSWORD` is missing; the start fails instead. All
+  deployments set both.
+
+- **The tenant check never ran — in any direction.** `JwtRequestFilter` was meant to reject a
+  request whose tenant is not in the caller's token. Three separate defects made it inert:
+  the condition was inverted (`contains` instead of `!contains`); `Authority` overrode no
+  `equals`/`hashCode`, so `contains` compared object identity and never matched anything; and
+  the tenant was read from `TenantContext`, which a servlet filter at `@Order(1)` fills — while
+  the Spring Security chain runs at order −100, i.e. before it. Thirty days of production logs
+  contain the corresponding message exactly zero times.
+  The filter now reads the `Tenant` header itself and checks it against the token's tenant
+  list, which removes the ordering dependency entirely. `Authority` compares its tenant
+  case-insensitively, as everywhere else in the suite.
+  What remained in effect until now was `TenantContext.validateTenant()`, and that compares the
+  tenant from the path against the one from the header — both supplied by the caller. It is
+  only a boundary in combination with the filter check. A request without a tenant header no
+  longer raises a `NullPointerException` (and with it a 500) but is rejected.
+
 - The runtime image now starts from `eclipse-temurin:21-jre-jammy` instead of the full JDK
   image, and runs as a non-root user (UID/GID 1001). The builder stage still carries the JDK
   for `mvn package`, so the build is unchanged — the shipped image simply no longer contains a
@@ -69,6 +124,16 @@ this changelog highlights the changes relevant for overview and operations.
   `runAsNonRoot` against a numeric `USER` directive; a named user yields
   `CreateContainerConfigError`. Prerequisite for the Pod-Security-Admission `restricted`
   profile. (#34)
+
+### Fixed
+- **A document date of "today" was rejected as post-dated during the night.** The container runs
+  in UTC, so between midnight and 01:00 (02:00 in summer) Vienna time `LocalDate.now()` was still
+  the previous day. The calendar day is now taken in `Europe/Vienna` — also for the default
+  document date, which at the turn of the year decided the year and with it the number sequence.
+- A participant fee or metering-point fee without a VAT rate stored the raw `null` and made the
+  whole run fail with a `NullPointerException` in the VAT totals; it now counts as 0 %.
+- `GET /api/billingConfigs/{id}/footerImage` required a multipart file parameter and could not be
+  called as a plain GET; both image downloads now answer 404 instead of 500 when no image is set.
 
 ### Added
 - OCI image labels (title, description, vendor, licenses) for registry and SBOM consumers. (#34)
@@ -85,13 +150,6 @@ this changelog highlights the changes relevant for overview and operations.
 - Add `docs/konzept-zeitvariable-tarife.md` — the ZVT (zeitvariabler Tarif) feature concept
   + tech design + acceptance criteria. billing is the lead component for this cross-component
   feature (backend/energystore/web); the concept lives here as the canonical spec.
-
-### Changed
-- Mail deliverability: document mails now go out as **multipart/alternative** (a plain-text part
-  derived from the rendered HTML — a lone `text/html` body is a spam signal), carry an
-  `Auto-Submitted: auto-generated` header, and use a **Message-ID with the `eegfaktura.at` domain**
-  instead of the pod hostname (`spring.mail.properties.mail.from`). The document mail subject now
-  includes the EEG name; the default mail template declares `lang="de"`.
 
 ## [1.0.2] – 2026-07-05
 
