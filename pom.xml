@@ -15,6 +15,9 @@
     <description>eegfaktura-billing</description>
     <properties>
         <java.version>21</java.version>
+        <!-- Boot 3.5.16 (last 3.5 release) manages Tomcat 10.1.55, which has known CVEs.
+             Remove this override when moving to Spring Boot 4 (Tomcat 11). -->
+        <tomcat.version>10.1.60</tomcat.version>
     </properties>
     <dependencies>
         <dependency>
