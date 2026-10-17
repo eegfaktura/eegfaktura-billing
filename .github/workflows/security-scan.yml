@@ -5,7 +5,7 @@
 # SCAN_FAIL_ON is none (below): dependency and misconfiguration findings are only reported.
 #
 # Secrets are only looked for in the new commits (PR or push range) and the files they touch: this
-# repository is public, and a pull request answers for what it adds.
+# repository is public, and a full-tree report would list the locations of known, unfixed findings.
 #
 # Scanners are fixed versions, verified by SHA-256, never a floating tag or a wrapper action; the
 # rule is a release at least 7 days old (checked 2026-10-09):
@@ -57,10 +57,10 @@ env:
   MAVEN_SHA512: 'bcfe4fe305c962ace56ac7b5fc7a08b87d5abd8b7e89027ab251069faebee516b0ded8961445d6d91ec1985dfe30f8153268843c89aa392733d1a3ec956c9978'
   DEPENDENCY_PLUGIN: 'org.apache.maven.plugins:maven-dependency-plugin:3.8.1'
   # Which findings of the dependency and misconfiguration scans fail the run: HIGH (HIGH and
-  # CRITICAL), CRITICAL, or none. TEMPORARY: none (decided 2026-10-09) — the gate must not block
-  # work while existing findings are worked through; every finding is still listed in the step
-  # summary and annotated as a warning, and each run warns that the gate is off. To be tightened
-  # again (CRITICAL, then HIGH). Leaked secrets always fail.
+  # CRITICAL), CRITICAL, or none. TEMPORARY: none (decided 2026-10-09) — the legacy repositories
+  # carry many known findings, and the gate must not block work while they are paid down; every
+  # finding is still listed in the step summary and annotated as a warning, and each run warns that
+  # the gate is off. To be tightened again (CRITICAL, then HIGH). Leaked secrets always fail.
   SCAN_FAIL_ON: none
   # Pull request: the base commit the head is compared with; empty on every other event.
   BASE_SHA: ${{ github.event.pull_request.base.sha }}
