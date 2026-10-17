@@ -15,10 +15,9 @@
     <description>eegfaktura-billing</description>
     <properties>
         <java.version>21</java.version>
-        <!-- Overrides of Boot 3.5.16 managed versions for security fixes; drop once Boot ships them -->
+        <!-- Boot 3.5.16 (last 3.5 release) manages Tomcat 10.1.55, which has known CVEs.
+             Remove this override when moving to Spring Boot 4 (Tomcat 11). -->
         <tomcat.version>10.1.60</tomcat.version>
-        <jackson-bom.version>2.21.7</jackson-bom.version>
-        <postgresql.version>42.7.14</postgresql.version>
     </properties>
     <dependencies>
         <dependency>

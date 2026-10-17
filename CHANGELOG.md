@@ -9,9 +9,10 @@ this changelog highlights the changes relevant for overview and operations.
 ## [Unreleased]
 
 ### Security
-- Embedded Tomcat raised to 10.1.60 (from 10.1.55), Jackson to 2.21.7 and the PostgreSQL driver to
-  42.7.14, overriding the versions managed by Spring Boot 3.5.16. Fixes known vulnerabilities in the
-  web server that serves every request (incorrect authorization, authentication bypass).
+- Embedded Tomcat raised to 10.1.60 (from 10.1.55, managed by Spring Boot 3.5.16) to fix known
+  vulnerabilities in the web server that serves every request (CVE-2026-68525 incorrect
+  authorization, fixed in 10.1.58; CVE-2026-68569 authentication bypass). Affects
+  `tomcat-embed-core`, `-el` and `-websocket`.
 
 ## [1.0.5] – 2026-10-05
 
