@@ -18,6 +18,11 @@ this changelog highlights the changes relevant for overview and operations.
   `test-results-<job>`, `known-errors-<job>`) for a CI report collector; the secret scan keeps
   outcomes and counts only.
 
+### Removed
+- Unused WebFlux starter (`spring-boot-starter-webflux`). With it netty and reactor-netty leave the
+  image; known CVEs in these libraries no longer apply. The one leftover netty import
+  (`StringUtil.isNullOrEmpty` in `BigDecimalTools`) is replaced by a plain null/empty check.
+
 ## [1.0.6] – 2026-10-17
 
 ### Security
