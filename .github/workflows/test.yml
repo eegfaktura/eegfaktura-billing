@@ -27,9 +27,15 @@ jobs:
           java-version: '21.0.11+10.0.LTS'
           cache: maven
 
-      # clean: stale classes and reports of another run must not count
+      # The test configuration writes the generated documents to a developer's local path
+      # (app.test.store-documents-path); on the runner they go to a directory of the run.
       - name: Build and test
-        run: ./mvnw -B -ntp clean verify
+        env:
+          APP_TEST_STOREDOCUMENTSPATH: ${{ runner.temp }}/billing-documents
+        run: |
+          mkdir -p "$APP_TEST_STOREDOCUMENTSPATH"
+          # clean: stale classes and reports of another run must not count
+          ./mvnw -B -ntp clean verify
 
       - name: Upload test reports
         if: ${{ !cancelled() }}
