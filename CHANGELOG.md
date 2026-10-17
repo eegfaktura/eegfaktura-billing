@@ -8,6 +8,13 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Added
+- CI: PR checks and security scan. Every pull request runs unit tests and the full suite with
+  Testcontainers (`pr-checks.yml`); `security-scan.yml` looks for leaked secrets in new commits,
+  vulnerable dependencies and Dockerfile/Kubernetes misconfigurations. The dependency and
+  misconfiguration scans only report for now and do not block; a leaked secret fails the run. Image
+  build and deploy (`rolling-release.yml`) are unchanged.
+
 ## [1.0.6] – 2026-10-17
 
 ### Security
