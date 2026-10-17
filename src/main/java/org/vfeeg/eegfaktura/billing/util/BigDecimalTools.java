@@ -1,7 +1,5 @@
 package org.vfeeg.eegfaktura.billing.util;
 
-import io.netty.util.internal.StringUtil;
-
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -26,7 +24,7 @@ public class BigDecimalTools {
 
     public static String makeGermanString(BigDecimal bigDecimal, String unit) {
         if (bigDecimal==null) return "";
-        return DECIMAL_FORMAT.format(bigDecimal)+(StringUtil.isNullOrEmpty(unit) ? "" : " "+unit);
+        return DECIMAL_FORMAT.format(bigDecimal)+(unit == null || unit.isEmpty() ? "" : " "+unit);
     }
 
 }
