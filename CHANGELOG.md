@@ -14,6 +14,9 @@ this changelog highlights the changes relevant for overview and operations.
   vulnerable dependencies and Dockerfile/Kubernetes misconfigurations. The dependency and
   misconfiguration scans only report for now and do not block; a leaked secret fails the run. Image
   build and deploy (`rolling-release.yml`) are unchanged.
+- CI: every run keeps its scan and test results as artifacts for 30 days (`scan-*`,
+  `test-results-<job>`, `known-errors-<job>`) for a CI report collector; the secret scan keeps
+  outcomes and counts only.
 
 ## [1.0.6] – 2026-10-17
 

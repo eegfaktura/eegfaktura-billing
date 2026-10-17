@@ -6,6 +6,8 @@
 # @SpringBootTest and adds every test file that names one of them, until nothing changes.
 # Versions fixed, each release older than 7 days (checked 2026-10-09): Temurin 21.0.11+10 (setup-java: '21.0.11+10.0.LTS', Temurin's version string).
 # Actions pinned by commit SHA.
+# Every job keeps its output as an artifact for 30 days (test-results-<job>: the Surefire reports),
+# for the CI report collector (vfeeg-development/eegfaktura-dev).
 
 name: PR Checks
 
@@ -66,6 +68,15 @@ jobs:
           DOCKER_HOST: unix:///nonexistent/docker.sock
           EXCLUDE: ${{ steps.split.outputs.exclude }}
         run: ./mvnw -B -ntp test ${EXCLUDE:+"-Dtest=$EXCLUDE"} -Dsurefire.failIfNoSpecifiedTests=false
+
+      - name: Keep the test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-unit
+          path: target/surefire-reports
+          if-no-files-found: ignore
+          retention-days: 30
 
   full:
     name: Full test suite

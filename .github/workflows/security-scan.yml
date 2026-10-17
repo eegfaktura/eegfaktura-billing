@@ -24,6 +24,11 @@
 # 1800). So the poms are resolved beforehand with a pinned Maven (cached between runs) and Trivy
 # reads them from ~/.m2; the secret scan needs no lookup at all and runs with --offline-scan.
 #
+# Every run keeps its results as artifacts for 30 days, for the CI report collector
+# (vfeeg-development/eegfaktura-dev): scan-vulnerabilities (Trivy and OSV-Scanner JSON),
+# scan-misconfigurations (Trivy JSON without code lines) and scan-secrets-summary (outcomes and
+# counts only — nothing of a secret finding is kept).
+#
 # Identical in every eegfaktura legacy repository — synced from the workspace, do not edit a copy.
 
 name: Security Scan
@@ -134,6 +139,7 @@ jobs:
 
       # --redact: the log of a public repository must never show a secret, not even a revoked one.
       - name: Gitleaks over the new commits
+        id: gitleaks
         if: steps.range.outputs.skip == 'false'
         env:
           LOG_OPTS: ${{ steps.range.outputs.log_opts }}
@@ -147,6 +153,7 @@ jobs:
       # Trivy's built-in allow rules skip test and example paths (tests/, testdata/, src/test/, *.md);
       # Gitleaks above covers those (and ignores inline gitleaks:allow).
       - name: Trivy secret scan of the changed files
+        id: trivy
         if: steps.range.outputs.skip == 'false'
         run: |
           set -euo pipefail
@@ -164,6 +171,34 @@ jobs:
           # --offline-scan: a changed pom.xml would otherwise be resolved against Maven Central
           trivy fs --scanners secret --secret-config "" --ignorefile "" --offline-scan \
             --exit-code 1 --no-progress --format table changed
+
+      # Artifact for the CI report collector: outcomes and counts only. A report of this job could
+      # hold secret material, so no finding, match or file name is kept.
+      - name: Write the scan summary
+        if: always()
+        env:
+          EVENT: ${{ github.event_name }}
+          SKIP: ${{ steps.range.outputs.skip }}
+          LOG_OPTS: ${{ steps.range.outputs.log_opts }}
+          GITLEAKS: ${{ steps.gitleaks.outcome }}
+          TRIVY: ${{ steps.trivy.outcome }}
+        run: |
+          changed=0
+          if [ -f "$RUNNER_TEMP/changed.txt" ]; then changed="$(tr -cd '\0' < "$RUNNER_TEMP/changed.txt" | wc -c)"; fi
+          jq -n --arg event "$EVENT" --arg skip "$SKIP" --arg commits "$LOG_OPTS" \
+            --argjson changed_files "$changed" --arg gitleaks "${GITLEAKS:-not run}" --arg trivy "${TRIVY:-not run}" \
+            '{event: $event, skipped: ($skip == "true"), commits: $commits, changed_files: $changed_files,
+              gitleaks: $gitleaks, trivy_secret: $trivy}' > "$RUNNER_TEMP/secrets-summary.json"
+          cat "$RUNNER_TEMP/secrets-summary.json"
+
+      - name: Keep the scan summary
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scan-secrets-summary
+          path: ${{ runner.temp }}/secrets-summary.json
+          if-no-files-found: ignore
+          retention-days: 30
 
   # The poms Trivy needs, resolved here so that Trivy does not ask Maven Central for each one.
   # sbt projects have no manifest the scanners read: their declared dependencies are exported as a
@@ -345,6 +380,21 @@ jobs:
         if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
         run: python3 "$SCAN_GATE" osv "$RUNNER_TEMP/head-osv.json" ${BASE_SHA:+"$RUNNER_TEMP/base-osv.json"}
 
+      # Artifact for the CI report collector: the reports as the gates read them (packages and
+      # advisories; base-* on a pull request only).
+      - name: Keep the scan results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scan-vulnerabilities
+          path: |
+            ${{ runner.temp }}/head-trivy.json
+            ${{ runner.temp }}/head-osv.json
+            ${{ runner.temp }}/base-trivy.json
+            ${{ runner.temp }}/base-osv.json
+          if-no-files-found: ignore
+          retention-days: 30
+
   misconfigurations:
     name: Misconfigurations
     runs-on: ubuntu-latest
@@ -392,3 +442,28 @@ jobs:
       - name: Gate — misconfigurations
         if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
         run: python3 "$SCAN_GATE" trivy-config "$RUNNER_TEMP/head-config.json" ${BASE_SHA:+"$RUNNER_TEMP/base-config.json"}
+
+      # Artifact for the CI report collector. The JSON holds the offending code lines (see above),
+      # so only what the gate shows is kept: rule, severity, file and line numbers — no code, no
+      # message (it can quote the line).
+      - name: Strip the code from the scan results
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/scan-results"
+          for d in head base; do
+            [ -f "$RUNNER_TEMP/$d-config.json" ] || continue
+            jq '.Results |= (. // [] | map(.Misconfigurations |= (. // [] | map({Type, ID, AVDID, Title,
+                  Description, Resolution, Severity, Status, PrimaryURL,
+                  StartLine: .CauseMetadata.StartLine, EndLine: .CauseMetadata.EndLine}))))' \
+              "$RUNNER_TEMP/$d-config.json" > "$RUNNER_TEMP/scan-results/$d-config.json"
+          done
+
+      - name: Keep the scan results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scan-misconfigurations
+          path: ${{ runner.temp }}/scan-results
+          if-no-files-found: ignore
+          retention-days: 30
