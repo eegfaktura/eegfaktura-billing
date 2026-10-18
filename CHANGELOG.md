@@ -71,6 +71,21 @@ this changelog highlights the changes relevant for overview and operations.
 
 > **End of the `env/billing`-only entries.**
 
+### Added
+- CI: PR checks and security scan. Every pull request runs unit tests and the full suite with
+  Testcontainers (`pr-checks.yml`); `security-scan.yml` looks for leaked secrets in new commits,
+  vulnerable dependencies and Dockerfile/Kubernetes misconfigurations. The dependency and
+  misconfiguration scans only report for now and do not block; a leaked secret fails the run. Image
+  build and deploy (`rolling-release.yml`) are unchanged.
+- CI: every run keeps its scan and test results as artifacts for 30 days (`scan-*`,
+  `test-results-<job>`, `known-errors-<job>`) for a CI report collector; the secret scan keeps
+  outcomes and counts only.
+
+### Removed
+- Unused WebFlux starter (`spring-boot-starter-webflux`). With it netty and reactor-netty leave the
+  image; known CVEs in these libraries no longer apply. The one leftover netty import
+  (`StringUtil.isNullOrEmpty` in `BigDecimalTools`) is replaced by a plain null/empty check.
+
 ## [1.0.6] – 2026-10-17
 
 ### Security
