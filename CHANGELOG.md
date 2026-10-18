@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.0.7] – 2026-10-18
+
 ### Added
 - CI: PR checks and security scan. Every pull request runs unit tests and the full suite with
   Testcontainers (`pr-checks.yml`); `security-scan.yml` looks for leaked secrets in new commits,
