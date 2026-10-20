@@ -10,6 +10,12 @@ this changelog highlights the changes relevant for overview and operations.
 
 > **Branch `env/billing`:** the entries from here to the next note are only on this branch (feature environment), not on the default branch yet.
 
+### Changed
+- **ZVT: tariff options without energy are left out** (pilot feedback 20.10.2026, RC103172). A time-based tariff
+  printed every option even at 0 kWh (decision of 12.07.), e.g. a night window of a PV producer as a 0 kWh line on
+  every credit note and in the billing Excel. Options with 0 kWh are no longer created, the base line included;
+  options with energy stay, also at a price of 0.
+
 ### Fixed
 - **PDF: blank line below the metering point header** (pilot feedback 20.10.2026). Jasper measured text with DejaVu
   Sans, the only font in the image, but the PDF is written in Helvetica, which is narrower: „Zählpunkt AT…“ (233 pt in

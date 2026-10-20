@@ -23,6 +23,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import org.vfeeg.eegfaktura.billing.util.BigDecimalTools;
+
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -136,18 +138,17 @@ class ZvtBillingTests {
 
     @Test
     @Sql("/billing_master_data.sql")
-    void zvtLeereBucketsWerdenAlsNullpositionGezeigt() {
+    void zvtLeereBucketsEntfallen() {
         DoBillingResults results = billingService.doBilling(params("Abr_YQ-2024-2",
                 zvtAllocation(new BigDecimal("100"), new BigDecimal("0"), new BigDecimal("30"))));
 
         List<BillingDocumentItem> items = billingDocumentItemRepository
                 .findByBillingRunId(results.getBillingRunId()).stream()
                 .filter(i -> ZVT_ZP.equals(i.getMeteringPointId())).toList();
-        // ZVT: jede Tarifoption wird gezeigt, AUCH bei 0 kWh, damit keine zu fehlen scheint.
-        assertThat(items, hasSize(3));
-        BillingDocumentItem t1 = itemWithTextContaining(items, "Tarif: Tag (06:00 - 08:00)");
-        assertThat(t1.getAmount(), comparesEqualTo(BigDecimal.ZERO));
-        assertThat(t1.getNetValue(), comparesEqualTo(BigDecimal.ZERO));
+        // Pilot-Rueckmeldung 20.10.2026: Tarifoptionen mit 0 kWh entfallen (PDF und Excel).
+        assertThat(items, hasSize(2));
+        assertThat(items.stream().noneMatch(i -> i.getText() != null && i.getText().contains("Tarif: Tag")), is(true));
+        assertThat(items.stream().noneMatch(i -> BigDecimalTools.isNullOrZero(i.getAmount())), is(true));
     }
 
     @Test

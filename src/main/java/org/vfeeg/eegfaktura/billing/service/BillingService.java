@@ -531,9 +531,13 @@ public class BillingService {
                         "Zaehlpunkt %s: unbekannter Bucket-Key '%s' (erwartet BASE/T1/T2).",
                         billingMasterdata.getMeteringPointId(), bucket.getKey()));
             }
-            // freie kWh gelten nur im Einfach-Modus (Nutzer-Festlegung) und
-            // werden hier bewusst nicht beruecksichtigt. keepZeroPosition=true:
-            // jede Tarifoption (Basis/Zeitraum) erscheint auch bei 0 kWh.
+            // Tarifoptionen ohne Energie (0 kWh, z. B. Nachttarif eines PV-Erzeugers) entfallen in
+            // PDF und Abrechnungs-Excel (Pilot-Rueckmeldung 20.10.2026; ersetzt "jede Option auch bei
+            // 0 kWh" vom 12.07.). Mit Energie bleibt die Position auch bei Preis 0 (keepZeroPosition).
+            // Freie kWh gelten nur im Einfach-Modus (Nutzer-Festlegung).
+            if (BigDecimalTools.isNullOrZero(amount)) {
+                continue;
+            }
             createEnergyDocumentItem(billingDocument, billingDocumentItems, billingMasterdata,
                     amount, BigDecimalTools.makeZeroIfNull(price), label, false, true);
         }
@@ -710,9 +714,8 @@ public class BillingService {
         }
         BigDecimal grossValue = netValue.add(vatEuro);
 
-        // Nullpositionen werden i.d.R. unterdrueckt. ZVT-Positionen (Basis/Zeitraum)
-        // werden bewusst AUCH bei 0 kWh gezeigt (keepZeroPosition), damit alle
-        // konfigurierten Tarifoptionen sichtbar sind und keine zu fehlen scheint.
+        // Nullpositionen (0 €) werden i.d.R. unterdrueckt. ZVT-Positionen mit Energie bleiben
+        // auch bei 0 € (keepZeroPosition); ZVT-Optionen mit 0 kWh legt der Aufrufer gar nicht an.
         if (!keepZeroPosition && BigDecimalTools.isNullOrZero(grossValue)) return;
 
         newBillingDocumentItem.setAmount(amount);
