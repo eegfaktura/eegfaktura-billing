@@ -14,8 +14,11 @@ this changelog highlights the changes relevant for overview and operations.
 - **PDF: blank line below the metering point header** (pilot feedback 20.10.2026). Jasper measured text with DejaVu
   Sans, the only font in the image, but the PDF is written in Helvetica, which is narrower: „Zählpunkt AT…“ (233 pt in
   DejaVu Sans Bold, cell 194 pt) got two lines reserved and printed in one. The image now installs
-  `fonts-liberation` and Jasper measures with Liberation Sans (`jasperreports.properties`), which has Helvetica's
-  glyph widths (189 pt). The PDF font is unchanged; long headers wrap visibly instead of leaving a blank line.
+  `fonts-liberation` and fontconfig prefers Liberation Sans (Helvetica's glyph widths, 189 pt) for sans-serif, the
+  font Jasper measures with. The PDF fonts stay Helvetica/Helvetica-Bold.
+- **PDF: bold text lost** (only on env/billing since #64): setting Jasper's default font to „Liberation Sans“ made the
+  PDF export use plain Helvetica for bold text too. The default font stays SansSerif again (`jasperreports.properties`
+  removed); the measuring font comes from fontconfig instead.
 
 ### Changed
 - **PDF: no „Zwischensumme Zählpunkt“ for a single position** (pilot feedback 20.10.2026). A metering point block

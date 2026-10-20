@@ -21,10 +21,16 @@ LABEL org.opencontainers.image.description="EEG Faktura Abrechnungs-Service (Rec
 LABEL org.opencontainers.image.vendor="Verein zur Förderung von Erneuerbaren Energiegemeinschaften"
 LABEL org.opencontainers.image.licenses=AGPL-3.0
 
-# Liberation Sans: same glyph widths as Helvetica, the font the PDF is written in. Without it Jasper measures text
-# with DejaVu Sans (the only font in the base image, wider) and reserves a second, empty line for texts that fit in
-# Helvetica (pilot feedback 20.10.2026: blank line below "Zählpunkt AT…" in the PDF). See jasperreports.properties.
-RUN apt-get update     && apt-get install -y --no-install-recommends fonts-liberation     && rm -rf /var/lib/apt/lists/*
+# Text is measured with the JDK's "SansSerif", which fontconfig maps to the first sans-serif font - in the base image
+# DejaVu Sans, wider than Helvetica, the font the PDF is written in. Jasper then reserved a second, empty line for
+# texts that fit in Helvetica (pilot feedback 20.10.2026: blank line below "Zählpunkt AT…"). Liberation Sans has
+# Helvetica's glyph widths; preferring it for sans-serif makes measuring match printing. The PDF fonts stay
+# Helvetica/Helvetica-Bold (Jasper's default font must stay SansSerif, a named font loses the bold PDF face).
+COPY docker/fontconfig-local.conf /etc/fonts/local.conf
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-liberation \
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -f
 
 # Non-root runtime user (Pod-Security-Admission "restricted" + Defense-in-Depth).
 RUN groupadd -r app --gid 1001 \
