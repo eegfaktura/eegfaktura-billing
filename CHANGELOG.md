@@ -10,6 +10,13 @@ this changelog highlights the changes relevant for overview and operations.
 
 > **Branch `env/billing`:** the entries from here to the next note are only on this branch (feature environment), not on the default branch yet.
 
+### Fixed
+- **PDF: blank line below the metering point header** (pilot feedback 20.10.2026). Jasper measured text with DejaVu
+  Sans, the only font in the image, but the PDF is written in Helvetica, which is narrower: „Zählpunkt AT…“ (233 pt in
+  DejaVu Sans Bold, cell 194 pt) got two lines reserved and printed in one. The image now installs
+  `fonts-liberation` and Jasper measures with Liberation Sans (`jasperreports.properties`), which has Helvetica's
+  glyph widths (189 pt). The PDF font is unchanged; long headers wrap visibly instead of leaving a blank line.
+
 ### Changed
 - **PDF: no „Zwischensumme Zählpunkt“ for a single position** (pilot feedback 20.10.2026). A metering point block
   with one position (simple tariff without metering point fee) repeated it as subtotal. The subtotal now appears
