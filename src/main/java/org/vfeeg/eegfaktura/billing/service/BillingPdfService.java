@@ -161,12 +161,14 @@ public class BillingPdfService {
 
     /**
      * Baut die Tabellenzeilen: je Zaehlpunkt ein Block (Kopfzeile fett,
-     * Positionszeilen, Zwischensumme fett), danach die Teilnehmer-Positionen
+     * Positionszeilen, Zwischensumme fett nur bei mehr als einer Position -
+     * bei einer Position waere sie eine Wiederholung, Pilot-Rueckmeldung
+     * 20.10.2026), danach die Teilnehmer-Positionen
      * ohne Zaehlpunkt (z.B. Mitgliedsbeitrag). Die Detailzellen des Templates
      * rendern styled markup - alle Texte werden escaped, fette Zeilen in
      * <b>...</b> gesetzt.
      */
-    private ArrayList<Map<String,?>> buildGroupedItemRows(List<BillingDocumentItem> items,
+    ArrayList<Map<String,?>> buildGroupedItemRows(List<BillingDocumentItem> items,
                                                           Map<String, String> meteringPointNames) {
         ArrayList<Map<String,?>> rows = new ArrayList<>();
 
@@ -225,6 +227,9 @@ public class BillingPdfService {
                 }
             }
 
+            if (blockItems.size() < 2) {
+                continue;
+            }
             HashMap<String, String> subtotal = labelOnlyRow(
                     "<b>" + escapeStyled("Zwischensumme Zählpunkt") + "</b>", "S");
             if (hasEnergy) {
