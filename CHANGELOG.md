@@ -10,6 +10,11 @@ this changelog highlights the changes relevant for overview and operations.
 
 > **Branch `env/billing`:** the entries from here to the next note are only on this branch (feature environment), not on the default branch yet.
 
+### Changed
+- **PDF: no „Zwischensumme Zählpunkt“ for a single position** (pilot feedback 20.10.2026). A metering point block
+  with one position (simple tariff without metering point fee) repeated it as subtotal. The subtotal now appears
+  only when the block has two or more positions (time-based tariff, metering point fee).
+
 ### Added
 - **Time-of-use tariffs (ZVT)**: a time-based tariff prices up to two named
   daytime windows (T1/T2) plus a base price. The caller (web) sends per
