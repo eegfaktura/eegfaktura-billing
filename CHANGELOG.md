@@ -20,6 +20,9 @@ this changelog highlights the changes relevant for overview and operations.
 - Build: the code is compiled for Java 21 (`release` follows `java.version`; was 17), the version
   the image is built and runs with (Temurin 21) and CI tests with. Qodana's `projectJDK` is 21 as
   well. A local build now needs JDK 21.
+- CI: `rolling-release.yml` runs the full test suite (`test.yml`) before it builds and pushes the
+  image; a push to `master`, `preview/**`, `env/**` or a `v*` tag whose tests fail no longer
+  produces an image or a deploy. Build and deploy take a few minutes longer.
 
 ## [1.0.7] – 2026-10-18
 

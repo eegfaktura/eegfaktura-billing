@@ -1,6 +1,6 @@
-# Full test suite, called by pr-checks.yml on every pull request: ./mvnw clean verify with every
-# Testcontainers suite. GitHub-hosted ubuntu-latest has Docker, which Testcontainers needs for
-# PostgreSQL. Actions pinned by commit SHA.
+# Full test suite, called by pr-checks.yml on every pull request and by rolling-release.yml before
+# the image build: ./mvnw clean verify with every Testcontainers suite. GitHub-hosted ubuntu-latest
+# has Docker, which Testcontainers needs for PostgreSQL. Actions pinned by commit SHA.
 
 name: Tests
 
