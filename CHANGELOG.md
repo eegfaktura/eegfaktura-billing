@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.1.0] – 2026-10-21
+
 ### Added
 - **Time-of-use tariffs (ZVT)**: a time-based tariff prices up to two named
   daytime windows (T1/T2) plus a base price. The caller (web) sends per
