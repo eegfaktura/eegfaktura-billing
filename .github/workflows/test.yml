@@ -27,8 +27,8 @@ jobs:
           java-version: '21.0.11+10.0.LTS'
           cache: maven
 
-      # The test configuration writes the generated documents to a developer's local path
-      # (app.test.store-documents-path); on the runner they go to a directory of the run.
+      # app.test.store-documents-path is empty in the test configuration (no documents written);
+      # on the runner the generated documents go to a directory of the run, so that path is tested too.
       - name: Build and test
         env:
           APP_TEST_STOREDOCUMENTSPATH: ${{ runner.temp }}/billing-documents

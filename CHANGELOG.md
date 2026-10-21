@@ -12,6 +12,9 @@ this changelog highlights the changes relevant for overview and operations.
 - Tests: `BillingIntegrationTests` read `billing_master_data.sql` with the platform charset, so
   umlauts in the test data broke six tests on JDK 17 / Windows (Cp1252). The SQL scripts are now
   read as UTF-8 (`@SqlConfig(encoding = "UTF-8")`).
+- Tests: the test configuration no longer points `app.test.store-documents-path` at a developer's
+  local directory (`/home/hla/temp`); it is empty by default (no documents written), and
+  `APP_TEST_STOREDOCUMENTSPATH` still sets it (as in CI).
 
 ## [1.0.7] – 2026-10-18
 
