@@ -1,4 +1,4 @@
-# `v3world/` — billing on the eegfaktura-v3 world (M3 optional item 1, B-16)
+# `v3world/` — billing on the eegfaktura-v3 world (M3 optional item 1)
 
 A **snapshot**, read by `scenario/BillingV3WorldTests`; the generator never runs in billing's build, there is
 no network and no sibling checkout in CI. Fictional data (names, IBANs, meter points are generated).

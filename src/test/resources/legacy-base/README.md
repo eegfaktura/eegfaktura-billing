@@ -1,12 +1,12 @@
 # `legacy-base/` — the real `base.billing_masterdata` view for the M6 contract tests
 
 Billing reads master data through the view `base.billing_masterdata`, which the Go backend
-(`eegfaktura-backend`) owns (AGENTS.md section 8, `known-errors.md` #10). These files build the
+(`eegfaktura-backend`) owns (`known-errors.md` #10). These files build the
 **real** view in the own database of `support/LegacyBaseDatabase` (never the M3 database, which
 holds a plain table of the same name). Used by `contract/LegacyMasterdataViewContractTests` and
 `contract/LegacyMasterdataEntityReadTests`.
 
-## Provenance (AGPL-3.0, decision B-16)
+## Provenance (AGPL-3.0)
 
 Copied **byte-identical** (checked with `cmp`) from eegfaktura-v3
 `docker/legacy-base/` at commit `ad120d1d712765f37c418b770e7c099f8bb4fd10` (2026-09-29, the last
@@ -48,4 +48,4 @@ Nothing is fetched by the build: CI never reads a sibling checkout.
    `LegacyBaseDatabase.SCRIPTS` in order, update the table above, the sha256 in
    `LegacyMasterdataViewContractTests.COPIED`, the commit id here and the row in `EXTERNAL_SOURCES.md`.
 4. Run `-Dtest='LegacyMasterdata*Tests'`. A failure names the column; a column billing reads that
-   disappears is a contract break to be agreed with the backend first (AGENTS.md section 8).
+   disappears is a contract break to be agreed with the backend first.

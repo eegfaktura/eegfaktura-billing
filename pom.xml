@@ -182,14 +182,14 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <!-- reads the generated PDFs in the billing scenarios (M3, open-points B-12) -->
+            <!-- reads the generated PDFs in the billing scenarios (M3) -->
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>3.0.8</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <!-- SMTP server in the mail tests (M5, open-points B-12): the core artifact, started once per JVM by
+            <!-- SMTP server in the mail tests (M5): the core artifact, started once per JVM by
                  support/GreenMailHolder (the JUnit 5 extension would restart it with a new port per class while the
                  cached Spring context keeps the old one). Jakarta Mail/Angus versions come from Spring Boot.
                  JUnit 4 is only needed by GreenMail's JUnit 4 rule, which is not used. -->
@@ -248,7 +248,7 @@
                         </goals>
                     </execution>
                     <execution>
-                        <!-- gate only in verify; ./mvnw test stays the fast loop (AGENTS.md section 10.3) -->
+                        <!-- gate only in verify; ./mvnw test stays the fast loop -->
                         <id>check</id>
                         <phase>verify</phase>
                         <goals>

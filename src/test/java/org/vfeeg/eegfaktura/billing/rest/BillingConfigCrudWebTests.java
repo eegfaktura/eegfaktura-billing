@@ -69,7 +69,7 @@ class BillingConfigCrudWebTests extends BillingConfigWebSlice {
 
     /**
      * F8: the body names the own community, the stored record belongs to another one. The stored
-     * record's tenant must decide (AGENTS.md section 6); today only the body's is compared.
+     * record's tenant must decide; today only the body's is compared.
      */
     @Disabled("known-errors #19")
     @Test

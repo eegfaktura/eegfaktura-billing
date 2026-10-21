@@ -38,7 +38,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 /**
- * Optional M3 item 1 (B-16): billing on the eegfaktura-v3 world instead of hand-built rows.
+ * Optional M3 item 1: billing on the eegfaktura-v3 world instead of hand-built rows.
  *
  * <p>{@code v3world/} is a committed snapshot (see its README): per community the rows of the real legacy view
  * {@code base.billing_masterdata} and the allocations of one settlement period as the legacy web builds them
