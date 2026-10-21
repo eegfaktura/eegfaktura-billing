@@ -8,6 +8,13 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Security
+- Jackson raised to 2.21.7 (from 2.21.4, managed by Spring Boot 3.5.16): fixes CVE-2026-89425,
+  CVE-2026-89407 (jackson-core), CVE-2026-91777, CVE-2026-91776, CVE-2026-68497 and several
+  moderate ones (jackson-databind).
+- PostgreSQL JDBC driver raised to 42.7.14 (from 42.7.11): fixes CVE-2026-54291 (silent
+  channel-binding downgrade).
+
 ### Fixed
 - Tests: `BillingIntegrationTests` read `billing_master_data.sql` with the platform charset, so
   umlauts in the test data broke six tests on JDK 17 / Windows (Cp1252). The SQL scripts are now
