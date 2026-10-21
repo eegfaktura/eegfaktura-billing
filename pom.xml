@@ -61,6 +61,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+            <!-- android-json (via jsonassert) repackages org.json; org.json:json is a direct
+                 dependency, so the classes were on the test classpath twice. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>com.vaadin.external.google</groupId>
+                    <artifactId>android-json</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>net.datafaker</groupId>
