@@ -8,6 +8,11 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Fixed
+- Tests: `BillingIntegrationTests` read `billing_master_data.sql` with the platform charset, so
+  umlauts in the test data broke six tests on JDK 17 / Windows (Cp1252). The SQL scripts are now
+  read as UTF-8 (`@SqlConfig(encoding = "UTF-8")`).
+
 ## [1.0.7] – 2026-10-18
 
 ### Added
