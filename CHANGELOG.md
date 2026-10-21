@@ -8,27 +8,6 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
-### Changed
-- **ZVT: tariff options without energy are left out** (pilot feedback 20.10.2026, RC103172). A time-based tariff
-  printed every option even at 0 kWh (decision of 12.07.), e.g. a night window of a PV producer as a 0 kWh line on
-  every credit note and in the billing Excel. Options with 0 kWh are no longer created, the base line included;
-  options with energy stay, also at a price of 0.
-
-### Fixed
-- **PDF: blank line below the metering point header** (pilot feedback 20.10.2026). Jasper measured text with DejaVu
-  Sans, the only font in the image, but the PDF is written in Helvetica, which is narrower: „Zählpunkt AT…“ (233 pt in
-  DejaVu Sans Bold, cell 194 pt) got two lines reserved and printed in one. The image now installs
-  `fonts-liberation` and fontconfig prefers Liberation Sans (Helvetica's glyph widths, 189 pt) for sans-serif, the
-  font Jasper measures with. The PDF fonts stay Helvetica/Helvetica-Bold.
-- **PDF: bold text lost** (only on env/billing since #64): setting Jasper's default font to „Liberation Sans“ made the
-  PDF export use plain Helvetica for bold text too. The default font stays SansSerif again (`jasperreports.properties`
-  removed); the measuring font comes from fontconfig instead.
-
-### Changed
-- **PDF: no „Zwischensumme Zählpunkt“ for a single position** (pilot feedback 20.10.2026). A metering point block
-  with one position (simple tariff without metering point fee) repeated it as subtotal. The subtotal now appears
-  only when the block has two or more positions (time-based tariff, metering point fee).
-
 ### Added
 - **Time-of-use tariffs (ZVT)**: a time-based tariff prices up to two named
   daytime windows (T1/T2) plus a base price. The caller (web) sends per
@@ -46,11 +25,13 @@ this changelog highlights the changes relevant for overview and operations.
   simple-mode-only.
 
 ### Changed
-- **ZVT: all tariff options are shown, even at 0 kWh**: for a time-based
-  tariff every configured position (`Tarif: Basis` / the active windows) is
-  rendered even when its quantity is 0 kWh (0,00 €), so no option appears to
-  be missing to the reader. The general "no zero position" suppression still
-  applies to simple tariffs.
+- **ZVT: tariff options without energy are left out** (pilot feedback 20.10.2026, RC103172). A time-based tariff
+  printed every option even at 0 kWh (decision of 12.07.), e.g. a night window of a PV producer as a 0 kWh line on
+  every credit note and in the billing Excel. Options with 0 kWh are no longer created, the base line included;
+  options with energy stay, also at a price of 0.
+- **PDF: no „Zwischensumme Zählpunkt“ for a single position** (pilot feedback 20.10.2026). A metering point block
+  with one position (simple tariff without metering point fee) repeated it as subtotal. The subtotal now appears
+  only when the block has two or more positions (time-based tariff, metering point fee).
 - **PDF layout: items are now grouped per metering point on ALL documents**
   (invoice, credit note, RC credit note, info): a bold block header
   `Zählpunkt <nr> - <name> (Rabatt xx %)`, the item rows without the
@@ -76,34 +57,14 @@ this changelog highlights the changes relevant for overview and operations.
   ephemeral HTTP response) and can be restarted (cleanup of partial documents included).
   Preview runs end back at `NEW` (unchanged semantics), final runs at `DONE`;
   `DONE`/`CANCELLED` still reject new starts.
-
 - Flyway `V1_15`: `billing_run.error_summary` column + unique index on
   `(tenant_id, clearing_period_type, clearing_period_identifier)` (closes the first-creation
   race of two parallel starts; fails visibly if pre-existing duplicate rows need manual cleanup).
-
-### Changed
 - Mail deliverability: document mails now go out as **multipart/alternative** (a plain-text part
   derived from the rendered HTML — a lone `text/html` body is a spam signal), carry an
   `Auto-Submitted: auto-generated` header, and use a **Message-ID with the `eegfaktura.at` domain**
   instead of the pod hostname (`spring.mail.properties.mail.from`). The document mail subject now
   includes the EEG name; the default mail template declares `lang="de"`.
-
-### Security
-- Jackson raised to 2.21.7 (from 2.21.4, managed by Spring Boot 3.5.16): fixes CVE-2026-89425,
-  CVE-2026-89407 (jackson-core), CVE-2026-91777, CVE-2026-91776, CVE-2026-68497 and several
-  moderate ones (jackson-databind).
-- PostgreSQL JDBC driver raised to 42.7.14 (from 42.7.11): fixes CVE-2026-54291 (silent
-  channel-binding downgrade).
-
-### Fixed
-- Tests: `BillingIntegrationTests` read `billing_master_data.sql` with the platform charset, so
-  umlauts in the test data broke six tests on JDK 17 / Windows (Cp1252). The SQL scripts are now
-  read as UTF-8 (`@SqlConfig(encoding = "UTF-8")`).
-- Tests: the test configuration no longer points `app.test.store-documents-path` at a developer's
-  local directory (`/home/hla/temp`); it is empty by default (no documents written), and
-  `APP_TEST_STOREDOCUMENTSPATH` still sets it (as in CI).
-
-### Changed
 - Build: the code is compiled for Java 21 (`release` follows `java.version`; was 17), the version
   the image is built and runs with (Temurin 21) and CI tests with. Qodana's `projectJDK` is 21 as
   well. A local build now needs JDK 21.
@@ -114,6 +75,26 @@ this changelog highlights the changes relevant for overview and operations.
 - Tests: `android-json` (pulled in by `spring-boot-starter-test` via jsonassert) is excluded; it
   repackaged `org.json`, which is already a direct dependency, so the same classes were on the
   test classpath twice. Test-only, the image is unchanged.
+
+### Fixed
+- **PDF: blank line below the metering point header** (pilot feedback 20.10.2026). Jasper measured text with DejaVu
+  Sans, the only font in the image, but the PDF is written in Helvetica, which is narrower: „Zählpunkt AT…“ (233 pt in
+  DejaVu Sans Bold, cell 194 pt) got two lines reserved and printed in one. The image now installs
+  `fonts-liberation` and fontconfig prefers Liberation Sans (Helvetica's glyph widths, 189 pt) for sans-serif, the
+  font Jasper measures with. The PDF fonts stay Helvetica/Helvetica-Bold.
+- Tests: `BillingIntegrationTests` read `billing_master_data.sql` with the platform charset, so
+  umlauts in the test data broke six tests on JDK 17 / Windows (Cp1252). The SQL scripts are now
+  read as UTF-8 (`@SqlConfig(encoding = "UTF-8")`).
+- Tests: the test configuration no longer points `app.test.store-documents-path` at a developer's
+  local directory (`/home/hla/temp`); it is empty by default (no documents written), and
+  `APP_TEST_STOREDOCUMENTSPATH` still sets it (as in CI).
+
+### Security
+- Jackson raised to 2.21.7 (from 2.21.4, managed by Spring Boot 3.5.16): fixes CVE-2026-89425,
+  CVE-2026-89407 (jackson-core), CVE-2026-91777, CVE-2026-91776, CVE-2026-68497 and several
+  moderate ones (jackson-databind).
+- PostgreSQL JDBC driver raised to 42.7.14 (from 42.7.11): fixes CVE-2026-54291 (silent
+  channel-binding downgrade).
 
 ## [1.0.7] – 2026-10-18
 
