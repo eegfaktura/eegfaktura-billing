@@ -29,7 +29,8 @@ this changelog highlights the changes relevant for overview and operations.
   well. A local build now needs JDK 21.
 - CI: `rolling-release.yml` runs the full test suite (`test.yml`) before it builds and pushes the
   image; a push to `master`, `preview/**`, `env/**` or a `v*` tag whose tests fail no longer
-  produces an image or a deploy. Build and deploy take a few minutes longer.
+  produces an image or a deploy. Build and deploy take a few minutes longer. If a test fails only by chance
+  (e.g. a Testcontainers start), „Re-run failed jobs“ on the Docker Image CI run builds and deploys after all.
 - Tests: `android-json` (pulled in by `spring-boot-starter-test` via jsonassert) is excluded; it
   repackaged `org.json`, which is already a direct dependency, so the same classes were on the
   test classpath twice. Test-only, the image is unchanged.
