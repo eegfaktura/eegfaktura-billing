@@ -16,6 +16,11 @@ this changelog highlights the changes relevant for overview and operations.
   local directory (`/home/hla/temp`); it is empty by default (no documents written), and
   `APP_TEST_STOREDOCUMENTSPATH` still sets it (as in CI).
 
+### Changed
+- Build: the code is compiled for Java 21 (`release` follows `java.version`; was 17), the version
+  the image is built and runs with (Temurin 21) and CI tests with. Qodana's `projectJDK` is 21 as
+  well. A local build now needs JDK 21.
+
 ## [1.0.7] – 2026-10-18
 
 ### Added
