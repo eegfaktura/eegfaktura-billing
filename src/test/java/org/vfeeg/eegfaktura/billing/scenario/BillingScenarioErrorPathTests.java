@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
+import org.vfeeg.eegfaktura.billing.service.BillingService;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
 import org.vfeeg.eegfaktura.billing.support.BillingScenarioBase;
 
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
@@ -82,11 +84,10 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
     void s09_documentDateInTheFutureIsRefusedAndNothingIsSaved() {
         BillingRunFixture world = oneConsumer("100");
 
-        DoBillingResults results = bill(world, false, FUTURE);
+        // since 1.0.8 the service refuses with an exception (the resource answers 400); nothing is saved
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> bill(world, false, FUTURE));
 
-        assertThat(results.getAbstractText(), is(RESULT_FAILED
-                + "Ungültiges Belegdatum (2999-01-01): Rechnung darf nicht vordatiert werden."));
-        assertThat(results.getBillingRunId(), nullValue());
+        assertThat(refused.getMessage(), is("Ungültiges Belegdatum (2999-01-01): Rechnung darf nicht vordatiert werden."));
         assertThat(count("billing_run where tenant_id = ?"), is(0));
         assertThat(count("billing_document where tenant_id = ?"), is(0));
         assertThat(documentNumbers(), is(empty()));
@@ -103,11 +104,12 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
         List<BillingDocumentDTO> before = documents(first.getBillingRunId());
         int documentsOfTenant = count("billing_document where tenant_id = ?");
 
-        DoBillingResults second = bill(world, false);
+        // since 1.0.8 the service refuses with an exception (the resource answers 409 with the run's id)
+        BillingService.BillingRunAlreadyClosedException refused = assertThrows(
+                BillingService.BillingRunAlreadyClosedException.class, () -> bill(world, false));
 
         assertThat(first.getAbstractText(), is(RESULT_FINAL_OK));
-        assertThat(second.getAbstractText(), startsWith(RESULT_FAILED + "Abrechnungslauf bereits abgeschlossen"));
-        assertThat(second.getBillingRunId(), is(first.getBillingRunId()));
+        assertThat(refused.getMessage(), startsWith("Abrechnungslauf bereits abgeschlossen"));
         assertThat(billingRunService.get(first.getBillingRunId()).getRunStatus(), is(BillingRunStatus.DONE));
         List<BillingDocumentDTO> after = documents(first.getBillingRunId());
         assertThat(after.stream().map(BillingDocumentDTO::getId).toList(),
@@ -153,9 +155,10 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
         assertThat(documentNumbers(), contains("TRECH202400042"));
         assertThat(billingRunService.get(runId).getRunStatus(), is(BillingRunStatus.DONE));
 
-        DoBillingResults preview3 = bill(world, true);
+        BillingService.BillingRunAlreadyClosedException refused = assertThrows(
+                BillingService.BillingRunAlreadyClosedException.class, () -> bill(world, true));
 
-        assertThat(preview3.getAbstractText(), containsString("Abrechnungslauf bereits abgeschlossen"));
+        assertThat(refused.getMessage(), containsString("Abrechnungslauf bereits abgeschlossen"));
         assertThat(single(runId).getId(), is(invoice.getId()));
         assertThat(documentNumbers(), contains("TRECH202400042"));
     }

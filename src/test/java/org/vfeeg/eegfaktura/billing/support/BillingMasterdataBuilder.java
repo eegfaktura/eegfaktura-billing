@@ -165,4 +165,16 @@ public final class BillingMasterdataBuilder {
     private static BigDecimal bd(String value) {
         return new BigDecimal(value);
     }
+
+    /** The tariff is time-based (ZVT, billing 1.0.8): the base price plus the windows set with {@link #timeWindow}. */
+    public BillingMasterdataBuilder timeTariff() {
+        return column("tariff_use_time_tariff", true);
+    }
+
+    /** Window {@code n} (1 or 2) of a time-based tariff; {@code centPerKwh} null = active without a price. */
+    public BillingMasterdataBuilder timeWindow(int n, String name, String from, String to, String centPerKwh) {
+        return column("tariff_time" + n + "_active", true).column("tariff_time" + n + "_name", name)
+                .column("tariff_time" + n + "_from", from).column("tariff_time" + n + "_to", to)
+                .column("tariff_time" + n + "_cent_per_kwh", centPerKwh == null ? null : bd(centPerKwh));
+    }
 }

@@ -7,17 +7,18 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
-import org.vfeeg.eegfaktura.billing.repos.InMemoryLockRepository;
+import org.springframework.core.task.TaskRejectedException;
+import org.vfeeg.eegfaktura.billing.domain.BillingRun;
+import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
+import org.vfeeg.eegfaktura.billing.service.BillingRunLauncher;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
 
 import java.util.List;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.sameInstance;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,14 +29,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.vfeeg.eegfaktura.billing.rest.Endpoint.ID;
 import static org.vfeeg.eegfaktura.billing.rest.TestTokens.OWN;
 
-/** {@code POST /api/billing}: the billing run (tenant in the body, per-tenant lock). */
+/** {@code POST /api/billing}: the billing run (tenant in the body; since 1.0.8 accepted with 202, claimed, launched). */
 @WebMvcTest(controllers = BillingResource.class)
 class BillingWebTests extends EndpointMatrix {
 
     @MockitoBean
     BillingService billingService;
-    @Autowired
-    InMemoryLockRepository lockRepository;
+    @MockitoBean
+    BillingRunLauncher billingRunLauncher;
 
     @Override
     protected List<Endpoint> endpoints() {
@@ -49,10 +50,11 @@ class BillingWebTests extends EndpointMatrix {
 
     @Override
     protected void stubRecordsOf(String tenant) {
-        DoBillingResults results = new DoBillingResults();
-        results.setBillingRunId(ID);
-        results.setAbstractText("2 invoices");
-        when(billingService.doBilling(any())).thenReturn(results);
+        BillingRun run = new BillingRun();
+        run.setId(ID);
+        run.setRunStatus(BillingRunStatus.NEW);
+        when(billingService.acceptBillingRun(any())).thenReturn(run);
+        when(billingService.claimBillingRun(ID)).thenReturn(true);
     }
 
     @Override
@@ -64,22 +66,34 @@ class BillingWebTests extends EndpointMatrix {
     void runOfTheOwnTenantReturnsTheResults() throws Exception {
         stubRecordsOf(OWN);
         mvc.perform(endpoint(POST, "/api/billing").request(OWN, OWN, TestTokens.admin()))
-                .andExpect(status().isOk())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.billingRunId").value(ID.toString()))
-                .andExpect(jsonPath("$.abstractText").value("2 invoices"));
-        verify(billingService).doBilling(argThat(p -> OWN.equals(p.getTenantId())
+                .andExpect(jsonPath("$.abstractText").value("Abrechnungslauf gestartet."));
+        verify(billingService).acceptBillingRun(argThat(p -> OWN.equals(p.getTenantId())
                 && "YQ-2024-1".equals(p.getClearingPeriodIdentifier()) && p.isPreview()));
+        verify(billingRunLauncher).launch(eq(ID), argThat(p -> OWN.equals(p.getTenantId())));
     }
 
-    /** The lock of the tenant is released after the run, also when the run fails. */
+    /** A second start while the period runs: the claim is lost, 409 with the run's id, nothing is launched. */
     @Test
-    void aFailedRunReleasesTheTenantLock() throws Exception {
-        Object lockBefore = lockRepository.getLock(OWN);
-        when(billingService.doBilling(any())).thenThrow(new IllegalStateException("run failed"));
+    void aRunningPeriodIsRefusedWithConflict() throws Exception {
+        stubRecordsOf(OWN);
+        when(billingService.claimBillingRun(ID)).thenReturn(false);
         mvc.perform(endpoint(POST, "/api/billing").request(OWN, OWN, TestTokens.admin()))
-                .andExpect(status().isInternalServerError());
-        assertThat(lockRepository.getLock(OWN), not(sameInstance(lockBefore)));
-        lockRepository.releaseLock(OWN);
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.billingRunId").value(ID.toString()));
+        verify(billingRunLauncher, never()).launch(any(), any());
+    }
+
+    /** The executor is full: 503, and the claim goes back to the status before it. */
+    @Test
+    void aRejectedLaunchRevertsTheClaim() throws Exception {
+        stubRecordsOf(OWN);
+        doThrow(new TaskRejectedException("full")).when(billingRunLauncher).launch(eq(ID), any());
+        mvc.perform(endpoint(POST, "/api/billing").request(OWN, OWN, TestTokens.admin()))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.billingRunId").value(ID.toString()));
+        verify(billingService).revertBillingRunClaim(ID, BillingRunStatus.NEW);
     }
 
     /** A body without the community must be a validation error, not a refused tenant (500). */
@@ -91,7 +105,7 @@ class BillingWebTests extends EndpointMatrix {
                         .header("Tenant", OWN).header(HttpHeaders.AUTHORIZATION, TestTokens.admin()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors[0].field").value("tenantId"));
-        verify(billingService, never()).doBilling(any());
+        verify(billingService, never()).acceptBillingRun(any());
     }
 
     @Disabled("known-errors #31")

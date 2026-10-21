@@ -19,13 +19,15 @@ import org.vfeeg.eegfaktura.billing.config.JacksonConfig;
 import org.vfeeg.eegfaktura.billing.model.Allocation;
 import org.vfeeg.eegfaktura.billing.model.BillingConfigDTO;
 import org.vfeeg.eegfaktura.billing.model.BillingConfigImageType;
+import org.vfeeg.eegfaktura.billing.domain.BillingRun;
+import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
-import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
 import org.vfeeg.eegfaktura.billing.rest.BillingConfigResource;
 import org.vfeeg.eegfaktura.billing.rest.BillingResource;
 import org.vfeeg.eegfaktura.billing.rest.TestTokens;
 import org.vfeeg.eegfaktura.billing.rest.WebSliceTest;
 import org.vfeeg.eegfaktura.billing.service.BillingConfigService;
+import org.vfeeg.eegfaktura.billing.service.BillingRunLauncher;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
 import org.vfeeg.eegfaktura.billing.service.FileDataService;
 
@@ -66,17 +68,22 @@ class CallerRequestContractTests extends WebSliceTest {
     @MockitoBean
     BillingService billingService;
     @MockitoBean
+    BillingRunLauncher billingRunLauncher;
+    @MockitoBean
     BillingConfigService billingConfigService;
     @MockitoBean
     FileDataService fileDataService;
 
+    /** Since 1.0.8 the run is accepted (202) and calculated by the launcher; the caller's params reach the service as before. */
     private DoBillingParams postBilling(JsonNode fixture, JsonNode body) throws Exception {
-        DoBillingResults results = new DoBillingResults();
-        results.setAbstractText("Vorschau: erfolgreich abgeschlossen.");
-        when(billingService.doBilling(any())).thenReturn(results);
-        mvc.perform(ContractFixtures.request(fixture, body)).andExpect(status().isOk());
+        BillingRun run = new BillingRun();
+        run.setId(CREATED_ID);
+        run.setRunStatus(BillingRunStatus.NEW);
+        when(billingService.acceptBillingRun(any())).thenReturn(run);
+        when(billingService.claimBillingRun(CREATED_ID)).thenReturn(true);
+        mvc.perform(ContractFixtures.request(fixture, body)).andExpect(status().isAccepted());
         ArgumentCaptor<DoBillingParams> params = ArgumentCaptor.forClass(DoBillingParams.class);
-        verify(billingService).doBilling(params.capture());
+        verify(billingService).acceptBillingRun(params.capture());
         return params.getValue();
     }
 

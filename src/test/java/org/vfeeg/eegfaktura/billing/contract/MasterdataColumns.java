@@ -48,14 +48,16 @@ final class MasterdataColumns {
     private MasterdataColumns() {
     }
 
-    /** Column name → Java type of every persistent field of the entity except the generated {@code id}. */
+    /** Column name ({@code @Column(name)} or the naming strategy) → Java type of every persistent field of the entity except the generated {@code id}. */
     static Map<String, Class<?>> entityColumns() {
         Map<String, Class<?>> columns = new TreeMap<>();
         for (Field field : BillingMasterdata.class.getDeclaredFields()) {
             if (Modifier.isStatic(field.getModifiers()) || field.getName().equals("id")) {
                 continue;
             }
-            columns.put(columnName(field.getName()), field.getType());
+            jakarta.persistence.Column column = field.getAnnotation(jakarta.persistence.Column.class);
+            String name = column != null && !column.name().isEmpty() ? column.name() : columnName(field.getName());
+            columns.put(name, field.getType());
         }
         return columns;
     }

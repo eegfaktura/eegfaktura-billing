@@ -21,12 +21,13 @@ import java.util.List;
  */
 public final class LegacyBaseDatabase {
 
-    /** The minimal ordered subset of v3's {@code docker/legacy-base/01..08} that builds the view. */
+    /** The minimal ordered subset of v3's {@code docker/legacy-base/01..08} that builds the view, plus the backend's ZVT migration (2026). */
     public static final List<String> SCRIPTS = List.of(
             "legacy-base/01_20250603103206_activeMeterView.up.sql",
             "legacy-base/02_20250603150318_create_views.up.sql",
             "legacy-base/04_20250604182344_add_bank_fields.up.sql",
-            "legacy-base/05_20250605091807_add_account_info_to_billing_view.up.sql");
+            "legacy-base/05_20250605091807_add_account_info_to_billing_view.up.sql",
+            "legacy-base/06_20260711120000_zvt_time_tariff.up.sql");
 
     public static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:15-alpine")
