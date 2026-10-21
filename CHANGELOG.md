@@ -8,6 +8,33 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Security
+- Jackson raised to 2.21.7 (from 2.21.4, managed by Spring Boot 3.5.16): fixes CVE-2026-89425,
+  CVE-2026-89407 (jackson-core), CVE-2026-91777, CVE-2026-91776, CVE-2026-68497 and several
+  moderate ones (jackson-databind).
+- PostgreSQL JDBC driver raised to 42.7.14 (from 42.7.11): fixes CVE-2026-54291 (silent
+  channel-binding downgrade).
+
+### Fixed
+- Tests: `BillingIntegrationTests` read `billing_master_data.sql` with the platform charset, so
+  umlauts in the test data broke six tests on JDK 17 / Windows (Cp1252). The SQL scripts are now
+  read as UTF-8 (`@SqlConfig(encoding = "UTF-8")`).
+- Tests: the test configuration no longer points `app.test.store-documents-path` at a developer's
+  local directory (`/home/hla/temp`); it is empty by default (no documents written), and
+  `APP_TEST_STOREDOCUMENTSPATH` still sets it (as in CI).
+
+### Changed
+- Build: the code is compiled for Java 21 (`release` follows `java.version`; was 17), the version
+  the image is built and runs with (Temurin 21) and CI tests with. Qodana's `projectJDK` is 21 as
+  well. A local build now needs JDK 21.
+- CI: `rolling-release.yml` runs the full test suite (`test.yml`) before it builds and pushes the
+  image; a push to `master`, `preview/**`, `env/**` or a `v*` tag whose tests fail no longer
+  produces an image or a deploy. Build and deploy take a few minutes longer. If a test fails only by chance
+  (e.g. a Testcontainers start), „Re-run failed jobs“ on the Docker Image CI run builds and deploys after all.
+- Tests: `android-json` (pulled in by `spring-boot-starter-test` via jsonassert) is excluded; it
+  repackaged `org.json`, which is already a direct dependency, so the same classes were on the
+  test classpath twice. Test-only, the image is unchanged.
+
 ## [1.0.7] – 2026-10-18
 
 ### Added

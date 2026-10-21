@@ -18,6 +18,11 @@
         <!-- Boot 3.5.16 (last 3.5 release) manages Tomcat 10.1.55, which has known CVEs.
              Remove this override when moving to Spring Boot 4 (Tomcat 11). -->
         <tomcat.version>10.1.60</tomcat.version>
+        <!-- Boot 3.5.16 manages Jackson 2.21.4 and the PostgreSQL driver 42.7.11, both with known
+             CVEs (Jackson fixed in 2.21.7, PostgreSQL in 42.7.12). Remove with the next Boot bump
+             that manages these versions or newer. -->
+        <jackson-bom.version>2.21.7</jackson-bom.version>
+        <postgresql.version>42.7.14</postgresql.version>
     </properties>
     <dependencies>
         <dependency>
@@ -61,6 +66,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+            <!-- android-json (via jsonassert) repackages org.json; org.json:json is a direct
+                 dependency, so the classes were on the test classpath twice. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>com.vaadin.external.google</groupId>
+                    <artifactId>android-json</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>net.datafaker</groupId>
@@ -188,8 +201,7 @@
 		<artifactId>maven-compiler-plugin</artifactId>
 		<version>3.11.0</version>
 		<configuration>
-			<source>17</source>
-			<release>17</release>
+			<release>${java.version}</release>
 		</configuration>
 	    </plugin>
         </plugins>

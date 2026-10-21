@@ -12,6 +12,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.util.MimeTypeUtils;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -38,6 +39,7 @@ import static org.hamcrest.Matchers.*;
 @SpringBootTest
 @Testcontainers
 @Transactional
+@SqlConfig(encoding = "UTF-8")
 class BillingIntegrationTests {
 
     public final static String[][] TEST_ALLOCATIONS = new String[][] {
