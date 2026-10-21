@@ -24,7 +24,15 @@ env:
   IMAGE_NAME: vfeeg-development/${{ github.event.repository.name }}
 
 jobs:
+  # The full test suite (test.yml) first: the Dockerfile builds with -DskipTests, so no image is
+  # pushed (and nothing deployed) for a commit whose tests fail.
+  test:
+    uses: ./.github/workflows/test.yml
+    permissions:
+      contents: read
+
   build-and-push-image:
+    needs: test
     runs-on: ubuntu-latest
 
     permissions:
