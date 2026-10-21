@@ -64,23 +64,129 @@ public class BillingService {
         this.participantAmountService = participantAmountService;
     }
 
+    /**
+     * Annahme-Teil des Abrechnungslaufs (laeuft im Request-Thread): validiert
+     * das Belegdatum, laedt oder erzeugt den BillingRun und prueft den
+     * DONE/CANCELLED-Guard. Wirft bei Ablehnung - der Lauf selbst wird hier
+     * noch NICHT gerechnet (siehe executeBillingRun).
+     */
     @Transactional
-    public DoBillingResults doBilling(DoBillingParams doBillingParams) {
+    public BillingRun acceptBillingRun(DoBillingParams doBillingParams) {
 
-        DoBillingResults doBillingResults = new DoBillingResults();
-        BillingRun billingRun = null;
+        // Pruefe das gewuenschte Belegdatum. Dieses darf nicht in die Zukunft
+        // datiert werden => Fehler
+        if (doBillingParams.getClearingDocumentDate()!=null
+                && doBillingParams.getClearingDocumentDate().isAfter(LocalDate.now(BILLING_ZONE))) {
+            throw new IllegalArgumentException(String.format("Ungültiges Belegdatum (%s): Rechnung darf nicht vordatiert werden.",
+                    doBillingParams.getClearingDocumentDate()
+            ));
+        }
 
-        try {
+        // Hole oder erzeuge den Datensatz für den Abrechnungslauf (BillingRun)
+        List<BillingRun> billingRunList = billingRunRepository.findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(
+                doBillingParams.getTenantId(),
+                doBillingParams.getClearingPeriodType(),
+                doBillingParams.getClearingPeriodIdentifier()
+        );
 
-            // Pruefe das gewuenschte Belegdatum. Dieses darf nicht in die Zukunft
-            // datiert werden => Fehler
-            if (doBillingParams.getClearingDocumentDate()!=null
-                    && doBillingParams.getClearingDocumentDate().isAfter(LocalDate.now(BILLING_ZONE))) {
-                throw new RuntimeException(String.format("Ungültiges Belegdatum (%s): Rechnung darf nicht vordatiert werden.",
-                        doBillingParams.getClearingDocumentDate()
+        // Kein passender Abrechnungslauf gefunden: Neuen erstellen!
+        BillingRun billingRun;
+        if (billingRunList.isEmpty()) {
+            billingRun = new BillingRun();
+            billingRun.setClearingPeriodIdentifier(doBillingParams.getClearingPeriodIdentifier());
+            billingRun.setClearingPeriodType(doBillingParams.getClearingPeriodType());
+            billingRun.setTenantId(doBillingParams.getTenantId());
+            billingRun.setRunStatus(BillingRunStatus.NEW);
+            billingRun.setRunStatusDateTime(LocalDateTime.now());
+            billingRun = billingRunRepository.save(billingRun);
+        } else {
+            // Mehr als ein Abrechnungslauf gefunden? Dürfte nicht passieren!
+            // (Seit V1_15 zusaetzlich durch Unique-Index abgesichert.)
+            if (billingRunList.size() > 1) {
+                throw new IllegalStateException(String.format("Mehr als ein Abrechnungslauf gefunden?! TenantId=%s," +
+                                "ClearingPeriodType=%s, ClearingPeriodIdentifier=%s",
+                        doBillingParams.getTenantId(),
+                        doBillingParams.getClearingPeriodType(),
+                        doBillingParams.getClearingPeriodIdentifier()
                 ));
             }
+            billingRun = billingRunList.get(0);
 
+            // Wenn der Abrechnungslauf bereits abgeschlossen oder storniert ist, dann mit Fehler beenden
+            if (billingRun.getRunStatus() == BillingRunStatus.DONE
+                    || billingRun.getRunStatus() == BillingRunStatus.CANCELLED) {
+                throw new BillingRunAlreadyClosedException(String.format("Abrechnungslauf bereits abgeschlossen" +
+                                " oder storniert! TenantId=%s," +
+                                "ClearingPeriodType=%s, ClearingPeriodIdentifier=%s",
+                        doBillingParams.getTenantId(),
+                        doBillingParams.getClearingPeriodType(),
+                        doBillingParams.getClearingPeriodIdentifier()
+                ));
+            }
+        }
+        return billingRun;
+    }
+
+    /** Bereits abgeschlossener/stornierter Lauf - vom Aufrufer als Konflikt zu behandeln. */
+    public static class BillingRunAlreadyClosedException extends RuntimeException {
+        public BillingRunAlreadyClosedException(String message) { super(message); }
+    }
+
+    /**
+     * Atomarer Status-Claim (RUNNING nur aus NEW/FAILED) - genau ein Gewinner,
+     * auch bei konkurrierenden Starts ueber mehrere Replicas.
+     */
+    @Transactional
+    public boolean claimBillingRun(UUID billingRunId) {
+        return billingRunRepository.claimRun(billingRunId, LocalDateTime.now()) > 0;
+    }
+
+    /**
+     * Rollback eines Claims (z.B. Executor voll): RUNNING -> vorheriger Status.
+     */
+    @Transactional
+    public void revertBillingRunClaim(UUID billingRunId, BillingRunStatus previousStatus) {
+        if (billingRunRepository.releaseClaim(billingRunId, previousStatus, null, LocalDateTime.now()) == 0) {
+            log.warn("Claim-Rollback ohne Wirkung (Run {} nicht mehr RUNNING)", billingRunId);
+        }
+    }
+
+    /**
+     * Markiert einen laufenden Abrechnungslauf als FAILED und persistiert eine
+     * kurze fachliche Fehlerzusammenfassung (keine Stacktraces).
+     */
+    @Transactional
+    public void markBillingRunFailed(UUID billingRunId, String errorSummary) {
+        if (billingRunRepository.releaseClaim(billingRunId, BillingRunStatus.FAILED, errorSummary, LocalDateTime.now()) == 0) {
+            log.warn("FAILED-Markierung ohne Wirkung (Run {} nicht mehr RUNNING)", billingRunId);
+        }
+    }
+
+    /**
+     * Synchrone Komposition aus Annahme + Berechnung - fuer Tests und
+     * interne Aufrufer. Der asynchrone Pfad laeuft ueber acceptBillingRun /
+     * claimBillingRun / BillingRunLauncher.
+     */
+    @Transactional
+    public DoBillingResults doBilling(DoBillingParams doBillingParams) {
+        BillingRun billingRun = acceptBillingRun(doBillingParams);
+        return executeBillingRun(billingRun.getId(), doBillingParams);
+    }
+
+    /**
+     * Rechen-Teil des Abrechnungslaufs (laeuft asynchron im Launcher bzw.
+     * synchron via doBilling). Exceptions propagieren - der fruehere
+     * catch-all lebt jetzt im BillingRunLauncher (-> Status FAILED).
+     */
+    @Transactional
+    public DoBillingResults executeBillingRun(UUID billingRunId, DoBillingParams doBillingParams) {
+
+        DoBillingResults doBillingResults = new DoBillingResults();
+
+        BillingRun billingRun = billingRunRepository.findById(billingRunId)
+                .orElseThrow(() -> new IllegalStateException("Abrechnungslauf nicht gefunden: " + billingRunId));
+
+        {
             // Hole Abrechnungsrelevante Daten zu EEG, Teilnehmer, Zählpunkt und Tarif
             List<BillingMasterdata> billingMasterdataList = billingMasterdataRepository
                     .findByTenantId(doBillingParams.getTenantId());
@@ -92,63 +198,20 @@ public class BillingService {
             }
             doBillingParams.setBillingConfig(billingConfig.get());
 
-            // Hole oder erzeuge den Datensatz für den Abrechnungslauf (BillingRun)
-            List<BillingRun> billingRunList = billingRunRepository.findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(
-                    doBillingParams.getTenantId(),
-                    doBillingParams.getClearingPeriodType(),
-                    doBillingParams.getClearingPeriodIdentifier()
-            );
-
-            // Kein passender Abrechnungslauf gefunden: Neuen erstellen!
-            if (billingRunList.isEmpty()) {
-                billingRun = new BillingRun();
-                billingRun.setClearingPeriodIdentifier(doBillingParams.getClearingPeriodIdentifier());
-                billingRun.setClearingPeriodType(doBillingParams.getClearingPeriodType());
-                billingRun.setTenantId(doBillingParams.getTenantId());
-                billingRun.setRunStatus(BillingRunStatus.NEW);
-                billingRun.setRunStatusDateTime(LocalDateTime.now());
-                billingRun = billingRunRepository.save(billingRun);
-            } else {
-                // Mehr als ein Abrechnungslauf gefunden? Dürfte nicht passieren!
-                if (billingRunList.size() > 1) {
-                    throw new IllegalStateException(String.format("Mehr als ein Abrechnungslauf gefunden?! TenantId=%s," +
-                                    "ClearingPeriodType=%s, ClearingPeriodIdentifier=%s",
-                            doBillingParams.getTenantId(),
-                            doBillingParams.getClearingPeriodType(),
-                            doBillingParams.getClearingPeriodIdentifier()
-                    ));
-                }
-                billingRun = billingRunList.get(0);
-
-                // Wenn der Abrechnungslauf bereits abgeschlossen oder storniert ist, dann mit Fehler beenden
-                if (billingRun.getRunStatus() == BillingRunStatus.DONE
-                        || billingRun.getRunStatus() == BillingRunStatus.CANCELLED) {
-                    //@TODO: doBillingResult mit Inhalten der gefundenen Abrechnung befüllen
-                    throw new RuntimeException(String.format("Abrechnungslauf bereits abgeschlossen" +
-                                    " oder storniert! TenantId=%s," +
-                                    "ClearingPeriodType=%s, ClearingPeriodIdentifier=%s",
-                            doBillingParams.getTenantId(),
-                            doBillingParams.getClearingPeriodType(),
-                            doBillingParams.getClearingPeriodIdentifier()
-                    ));
-                }
-
-                // Wenn der Abrechnungslauf noch nicht abgeschlossen ist, dann wird im Folgenden
-                // eine Preview oder der finale Abrechnungslauf durchgeführt. Für diesen Fall
-                // löschen wir ggf. zuvor erstellte Abrechnungsdokumente
-                fileDataRepository.deleteByBillingRunId(billingRun.getId());
-                billingDocumentFileRepository.deleteByBillingRunId(billingRun.getId());
-                billingDocumentItemRepository.deleteByBillingRunId(billingRun.getId());
-                billingDocumentRepository.deleteByBillingRunId(billingRun.getId());
-            }
+            // Vor der (Neu-)Berechnung loeschen wir ggf. zuvor erstellte
+            // Abrechnungsdokumente (Preview-Wiederholung oder FAILED-Neustart)
+            fileDataRepository.deleteByBillingRunId(billingRun.getId());
+            billingDocumentFileRepository.deleteByBillingRunId(billingRun.getId());
+            billingDocumentItemRepository.deleteByBillingRunId(billingRun.getId());
+            billingDocumentRepository.deleteByBillingRunId(billingRun.getId());
 
             // Aus den Daten des Eingangsparameters erstellen wir eine Map aus dem Tupel
-            // Teilnehmer/Zaehlpunkt (key) mit ihren zugehoerigen Verbrauchs/Erzeugerdaten (value)
-            Map<String, BigDecimal> allocationMap = Arrays.stream(doBillingParams.getAllocations())
+            // Teilnehmer/Zaehlpunkt (key) mit ihren zugehoerigen Verbrauchs/Erzeugerdaten (value).
+            // Seit ZVT traegt die Allocation neben allocationKWh optional buckets/timeWindows.
+            Map<String, Allocation> allocationMap = Arrays.stream(doBillingParams.getAllocations())
                     .collect(Collectors.toMap(
                             allocation -> allocation.getParticipantId()+"@"+allocation.getMeteringPoint(),
-                            allocation -> allocation.getAllocationKWh()!=null ? allocation.getAllocationKWh()
-                            : BigDecimal.ZERO));
+                            allocation -> allocation));
 
             // Weiters erstellen wir eine Map mit den Teilnehmern (key) und deren Zaehlpunkten (value)
             Map<String, List<BillingMasterdata>> participantsWithAllocationsMap = billingMasterdataList.stream()
@@ -160,32 +223,34 @@ public class BillingService {
                 doBillingForParticipant(p, allocationMap, doBillingParams, billingRun, doBillingResults);
             }
 
-            if (!doBillingParams.isPreview()) {
-                billingRun.setRunStatus(BillingRunStatus.DONE);
-                billingRun.setRunStatusDateTime(LocalDateTime.now());
-            }
+            // Preview-Laeufe bleiben wiederholbar (NEW), finale Laeufe sind DONE.
+            // Explizit setzen - im Async-Pfad steht der Lauf hier auf RUNNING.
+            billingRun.setRunStatus(doBillingParams.isPreview() ? BillingRunStatus.NEW : BillingRunStatus.DONE);
+            billingRun.setRunStatusDateTime(LocalDateTime.now());
 
             billingRun = billingRunRepository.save(billingRun);
 
             doBillingResults.setBillingRunId(billingRun.getId());
             doBillingResults.setAbstractText("Abrechnung " + (doBillingParams.isPreview() ? "(Vorschau)" : "")
                     + ": erfolgreich abgeschlossen.");
-        } catch (Exception e) {
-            log.error("Abrechnung fehlgeschlagen", e);
-            doBillingResults.setAbstractText("Abrechnung fehlgeschlagen: "+e.getMessage());
-            doBillingResults.setBillingRunId(billingRun!=null ? billingRun.getId() : null);
         }
         return doBillingResults;
     }
 
     private void doBillingForParticipant(List<BillingMasterdata> billingMasterdataList,
-                                         Map<String, BigDecimal> allocationMap,
+                                         Map<String, Allocation> allocationMap,
                                          DoBillingParams doBillingParams, BillingRun billingRun,
                                          DoBillingResults doBillingResults) {
 
         BillingMasterdata firstBillingMasterdata = billingMasterdataList.get(0);
         ParticipantAmount participantAmount = new ParticipantAmount();
         participantAmount.setId(UUID.fromString(firstBillingMasterdata.getParticipantId()));
+
+        // ZP-Bezeichnungen fuer die Block-Kopfzeilen im PDF (je Zaehlpunkt ein Block)
+        Map<String, String> meteringPointNames = billingMasterdataList.stream()
+                .collect(Collectors.toMap(BillingMasterdata::getMeteringPointId,
+                        m -> StringUtils.defaultString(m.getMeteringEquipmentName()),
+                        (a, b) -> a));
 
         // (1) Erzeuge Rechnungen (INVOICES)
         {
@@ -225,7 +290,7 @@ public class BillingService {
             // Wir erstellen nur Rechnungen mit Beträgen > 0 und keine Nullrechnungen
             if (!BigDecimalTools.isNullOrZero(invoice.getGrossAmountInEuro())) {
                 createAndAddDocumentNumber(invoice, firstBillingMasterdata, doBillingParams);
-                billingPdfService.createAndSavePDF(invoice, invoiceItems,
+                billingPdfService.createAndSavePDF(invoice, invoiceItems, meteringPointNames,
                         doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
                         doBillingParams.getBillingConfig().getFooterImageFileDataId(),
                         doBillingParams.isPreview());
@@ -261,7 +326,7 @@ public class BillingService {
 
             if (!BigDecimalTools.isNullOrZero(producerDocument.getGrossAmountInEuro())) {
                 createAndAddDocumentNumber(producerDocument, firstBillingMasterdata, doBillingParams);
-                billingPdfService.createAndSavePDF(producerDocument, creditNotesItems,
+                billingPdfService.createAndSavePDF(producerDocument, creditNotesItems, meteringPointNames,
                         doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
                         doBillingParams.getBillingConfig().getFooterImageFileDataId(), doBillingParams.isPreview());
                 producerDocument.setBillingRun(billingRun);
@@ -402,17 +467,213 @@ public class BillingService {
     private void createBillingDocumentItem(BillingDocument billingDocument,
                                            List<BillingDocumentItem> billingDocumentItems,
                                            BillingMasterdata billingMasterdata,
-                                           Map<String, BigDecimal> allocationMap) {
+                                           Map<String, Allocation> allocationMap) {
 
         if (billingMasterdata.getMeteringPointType()!=MeteringPointType.CONSUMER &&
                 billingMasterdata.getMeteringPointType()!=MeteringPointType.PRODUCER) {
             throw new IllegalArgumentException("Unknown or empty MeteringPointType");
         }
 
+        Allocation allocation = allocationMap.get(
+                billingMasterdata.getParticipantId()+"@"+billingMasterdata.getMeteringPointId());
+        boolean useTimeTariff = Boolean.TRUE.equals(billingMasterdata.getTariffUseTimeTariff());
+
+        if (!useTimeTariff) {
+            // Einfach-Tarif: fail-loud, wenn der Aufrufer Fenster-Teilsummen
+            // mitschickt - Preis und Menge wuerden sonst still auseinanderlaufen.
+            if (allocation != null && allocation.getBuckets() != null && allocation.getBuckets().length > 0) {
+                throw new ZvtContractViolationException(String.format(
+                        "Zaehlpunkt %s: buckets im Payload, aber der Tarif ist nicht zeitbasiert. " +
+                        "Tarifkonfiguration und Abrechnungsaufruf passen nicht zusammen.",
+                        billingMasterdata.getMeteringPointId()));
+            }
+
+            BigDecimal amount = BigDecimalTools.makeZeroIfNull(
+                    allocation != null ? allocation.getAllocationKWh() : null)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            BigDecimal tariffPpuInCent =
+                    billingMasterdata.getMeteringPointType()==MeteringPointType.CONSUMER ?
+                    BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffWorkingFeePerConsumedkwh()) :
+                    BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffCreditAmountPerProducedkwh());
+
+            createEnergyDocumentItem(billingDocument, billingDocumentItems, billingMasterdata,
+                    amount, tariffPpuInCent, null, true, false);
+            return;
+        }
+
+        // ZVT (zeitbasierter Tarif): Konsistenz-Guard + je Bucket eine Position.
+        validateZvtAllocation(billingMasterdata, allocation);
+
+        for (AllocationBucket bucket : sortedBuckets(allocation.getBuckets())) {
+            BigDecimal amount = BigDecimalTools.makeZeroIfNull(bucket.getKWh())
+                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal price;
+            String label;
+            switch (bucket.getKey()) {
+                case "BASE" -> {
+                    price = billingMasterdata.getMeteringPointType()==MeteringPointType.CONSUMER ?
+                            BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffWorkingFeePerConsumedkwh()) :
+                            BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffCreditAmountPerProducedkwh());
+                    label = "Tarif: Basis";
+                }
+                case "T1" -> {
+                    price = billingMasterdata.getTariffTime1CentPerKwh();
+                    label = buildTimeWindowLabel(billingMasterdata.getTariffTime1Name(),
+                            billingMasterdata.getTariffTime1From(), billingMasterdata.getTariffTime1To());
+                }
+                case "T2" -> {
+                    price = billingMasterdata.getTariffTime2CentPerKwh();
+                    label = buildTimeWindowLabel(billingMasterdata.getTariffTime2Name(),
+                            billingMasterdata.getTariffTime2From(), billingMasterdata.getTariffTime2To());
+                }
+                default -> throw new ZvtContractViolationException(String.format(
+                        "Zaehlpunkt %s: unbekannter Bucket-Key '%s' (erwartet BASE/T1/T2).",
+                        billingMasterdata.getMeteringPointId(), bucket.getKey()));
+            }
+            // Tarifoptionen ohne Energie (0 kWh, z. B. Nachttarif eines PV-Erzeugers) entfallen in
+            // PDF und Abrechnungs-Excel (Pilot-Rueckmeldung 20.10.2026; ersetzt "jede Option auch bei
+            // 0 kWh" vom 12.07.). Mit Energie bleibt die Position auch bei Preis 0 (keepZeroPosition).
+            // Freie kWh gelten nur im Einfach-Modus (Nutzer-Festlegung).
+            if (BigDecimalTools.isNullOrZero(amount)) {
+                continue;
+            }
+            createEnergyDocumentItem(billingDocument, billingDocumentItems, billingMasterdata,
+                    amount, BigDecimalTools.makeZeroIfNull(price), label, false, true);
+        }
+    }
+
+    /** Anzeige-Label eines Zeitfensters: "Tarif: <Name> (HH:MM - HH:MM)"; leerer Name -> nur Zeitraum. */
+    private static String buildTimeWindowLabel(String name, String from, String to) {
+        String window = String.format("(%s - %s)", from, to);
+        return StringUtils.isBlank(name) ? "Tarif: " + window : "Tarif: " + name.trim() + " " + window;
+    }
+
+    /** Buckets in stabiler Reihenfolge BASE, T1, T2 (Positionen und PDF-Zeilen). */
+    private static List<AllocationBucket> sortedBuckets(AllocationBucket[] buckets) {
+        return Arrays.stream(buckets).sorted(Comparator.comparingInt(
+                b -> switch (String.valueOf(b.getKey())) {
+                    case "BASE" -> 0;
+                    case "T1" -> 1;
+                    case "T2" -> 2;
+                    default -> 3;
+                })).toList();
+    }
+
+    /**
+     * Fail-loud-Kontrakt fuer zeitbasierte Tarife (Fable-Review B2/B3):
+     * buckets muessen vorhanden sein, die mitgesendeten timeWindows muessen
+     * exakt den AKTUELLEN Masterdata-Fenstern entsprechen (die View ist live,
+     * kein Snapshot), und Bucket-Keys muessen zu aktiven Fenstern gehoeren.
+     */
+    private void validateZvtAllocation(BillingMasterdata billingMasterdata, Allocation allocation) {
+        final String zp = billingMasterdata.getMeteringPointId();
+
+        if (allocation == null || allocation.getBuckets() == null || allocation.getBuckets().length == 0) {
+            throw new ZvtContractViolationException(String.format(
+                    "Zaehlpunkt %s: zeitbasierter Tarif, aber keine Fenster-Teilsummen (buckets) im Payload. " +
+                    "Abrechnung abgebrochen - kein stiller Basispreis-Fallback.", zp));
+        }
+
+        boolean w1Active = Boolean.TRUE.equals(billingMasterdata.getTariffTime1Active());
+        boolean w2Active = Boolean.TRUE.equals(billingMasterdata.getTariffTime2Active());
+
+        if (w1Active && billingMasterdata.getTariffTime1CentPerKwh() == null) {
+            throw new ZvtContractViolationException(String.format(
+                    "Zaehlpunkt %s: Zeitfenster 1 aktiv, aber ohne Preis in den Tarif-Stammdaten.", zp));
+        }
+        if (w2Active && billingMasterdata.getTariffTime2CentPerKwh() == null) {
+            throw new ZvtContractViolationException(String.format(
+                    "Zaehlpunkt %s: Zeitfenster 2 aktiv, aber ohne Preis in den Tarif-Stammdaten.", zp));
+        }
+
+        // Konsistenz-Guard: mitgesendete Fenster == aktuelle Masterdata-Fenster
+        Map<String, AllocationTimeWindow> sent = new HashMap<>();
+        if (allocation.getTimeWindows() != null) {
+            for (AllocationTimeWindow tw : allocation.getTimeWindows()) {
+                if (sent.put(tw.getKey(), tw) != null) {
+                    throw new ZvtContractViolationException(String.format(
+                            "Zaehlpunkt %s: Zeitfenster-Key %s mehrfach im Payload.", zp, tw.getKey()));
+                }
+            }
+        }
+        assertWindowMatches(zp, "T1", w1Active,
+                billingMasterdata.getTariffTime1From(), billingMasterdata.getTariffTime1To(), sent.get("T1"));
+        assertWindowMatches(zp, "T2", w2Active,
+                billingMasterdata.getTariffTime2From(), billingMasterdata.getTariffTime2To(), sent.get("T2"));
+
+        // Bucket-Keys: eindeutig und nur fuer aktive Fenster
+        Set<String> seenKeys = new HashSet<>();
+        for (AllocationBucket bucket : allocation.getBuckets()) {
+            String key = String.valueOf(bucket.getKey());
+            if (!seenKeys.add(key)) {
+                throw new ZvtContractViolationException(String.format(
+                        "Zaehlpunkt %s: Bucket-Key %s mehrfach im Payload.", zp, key));
+            }
+            switch (key) {
+                case "BASE" -> { /* immer erlaubt */ }
+                case "T1" -> {
+                    if (!w1Active) throw new ZvtContractViolationException(String.format(
+                            "Zaehlpunkt %s: Bucket T1, aber Zeitfenster 1 ist im Tarif nicht aktiv.", zp));
+                }
+                case "T2" -> {
+                    if (!w2Active) throw new ZvtContractViolationException(String.format(
+                            "Zaehlpunkt %s: Bucket T2, aber Zeitfenster 2 ist im Tarif nicht aktiv.", zp));
+                }
+                default -> throw new ZvtContractViolationException(String.format(
+                        "Zaehlpunkt %s: unbekannter Bucket-Key '%s' (erwartet BASE/T1/T2).", zp, key));
+            }
+        }
+    }
+
+    private static void assertWindowMatches(String zp, String key, boolean active,
+                                            String masterFrom, String masterTo, AllocationTimeWindow sent) {
+        if (active) {
+            if (sent == null) {
+                throw new ZvtContractViolationException(String.format(
+                        "Zaehlpunkt %s: Zeitfenster %s ist im Tarif aktiv, fehlt aber im Payload (timeWindows). " +
+                        "Tarif wurde vermutlich zwischenzeitlich geaendert - Abrechnung bitte neu starten.", zp, key));
+            }
+            if (!StringUtils.equals(StringUtils.trim(masterFrom), StringUtils.trim(sent.getFrom()))
+                    || !StringUtils.equals(StringUtils.trim(masterTo), StringUtils.trim(sent.getTo()))) {
+                throw new ZvtContractViolationException(String.format(
+                        "Zaehlpunkt %s: Zeitfenster %s weicht von den aktuellen Tarif-Stammdaten ab " +
+                        "(Payload %s-%s, Tarif %s-%s). Tarif wurde vermutlich zwischenzeitlich geaendert - " +
+                        "Abrechnung bitte neu starten.", zp, key,
+                        sent.getFrom(), sent.getTo(), masterFrom, masterTo));
+            }
+        } else if (sent != null) {
+            throw new ZvtContractViolationException(String.format(
+                    "Zaehlpunkt %s: Zeitfenster %s im Payload, ist im Tarif aber nicht aktiv. " +
+                    "Tarif wurde vermutlich zwischenzeitlich geaendert - Abrechnung bitte neu starten.", zp, key));
+        }
+    }
+
+    /** Kontraktverletzung zeitbasierter Tarif (ZVT) - fuehrt zum Lauf-Abbruch (FAILED im Async-Pfad). */
+    public static class ZvtContractViolationException extends RuntimeException {
+        public ZvtContractViolationException(String message) { super(message); }
+    }
+
+    /**
+     * Erzeugt eine Energie-Position (Einfach: genau eine je ZP; ZVT: eine je
+     * Bucket). Rabatt/USt/Rundung je Position wie bisher; freie kWh nur im
+     * Einfach-Modus (applyFreeKwh).
+     */
+    private void createEnergyDocumentItem(BillingDocument billingDocument,
+                                          List<BillingDocumentItem> billingDocumentItems,
+                                          BillingMasterdata billingMasterdata,
+                                          BigDecimal amount,
+                                          BigDecimal tariffPpuInCent,
+                                          String timeWindowLabel,
+                                          boolean applyFreeKwh,
+                                          boolean keepZeroPosition) {
+
         BillingDocumentItem newBillingDocumentItem = new BillingDocumentItem();
         newBillingDocumentItem.setMeteringPointId(billingMasterdata.getMeteringPointId());
         newBillingDocumentItem.setMeteringPointType(billingMasterdata.getMeteringPointType());
-        newBillingDocumentItem.setText(buildItemText(billingMasterdata));
+        newBillingDocumentItem.setText(timeWindowLabel == null
+                ? buildItemText(billingMasterdata)
+                : buildItemText(billingMasterdata) + "\n" + timeWindowLabel);
         final String documentText = billingMasterdata.getTariffText();
         newBillingDocumentItem.setDocumentText(StringUtils.isNotEmpty(documentText) ?
                 documentText.replace("##", "\n"): documentText);
@@ -420,14 +681,11 @@ public class BillingService {
         newBillingDocumentItem.setTariffId(billingMasterdata.getTariffId());
         newBillingDocumentItem.setTariffVersion(billingMasterdata.getTariffVersion());
 
-        BigDecimal amount = BigDecimalTools.makeZeroIfNull(allocationMap.get(
-                billingMasterdata.getParticipantId()+"@"+billingMasterdata.getMeteringPointId()))
-                .setScale(2, RoundingMode.HALF_UP);
         BigDecimal tariffFreekwh = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffFreekwh())
                 .setScale(2, RoundingMode.HALF_UP);
 
         // Freie kWh berücksichtigen
-        if (billingMasterdata.getMeteringPointType()==MeteringPointType.CONSUMER &&
+        if (applyFreeKwh && billingMasterdata.getMeteringPointType()==MeteringPointType.CONSUMER &&
                 !BigDecimalTools.isNullOrZero(tariffFreekwh)) {
                 String newText = newBillingDocumentItem.getText();
                 BigDecimal newAmount = amount.subtract(tariffFreekwh);
@@ -441,11 +699,6 @@ public class BillingService {
                 newBillingDocumentItem.setText(newText);
                 amount = newAmount;
         }
-
-        BigDecimal tariffPpuInCent =
-                billingMasterdata.getMeteringPointType()==MeteringPointType.CONSUMER ?
-                BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffWorkingFeePerConsumedkwh()) :
-                BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffCreditAmountPerProducedkwh());
 
         BigDecimal discountPercent = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffDiscount());
         BigDecimal netValue = amount.multiply(tariffPpuInCent).divide(BigDecimal.valueOf(100.0))
@@ -461,7 +714,9 @@ public class BillingService {
         }
         BigDecimal grossValue = netValue.add(vatEuro);
 
-        if (BigDecimalTools.isNullOrZero(grossValue)) return; // Keine Nullposition!
+        // Nullpositionen (0 €) werden i.d.R. unterdrueckt. ZVT-Positionen mit Energie bleiben
+        // auch bei 0 € (keepZeroPosition); ZVT-Optionen mit 0 kWh legt der Aufrufer gar nicht an.
+        if (!keepZeroPosition && BigDecimalTools.isNullOrZero(grossValue)) return;
 
         newBillingDocumentItem.setAmount(amount);
         newBillingDocumentItem.setPricePerUnit(tariffPpuInCent);
@@ -561,6 +816,9 @@ public class BillingService {
 
         if (BigDecimalTools.isNullOrZero(grossValue)) return; // Keine Nullposition!
 
+        // Gruppierungsschluessel fuer die ZP-Bloecke im PDF; ParticipantAmountService
+        // nimmt Gebuehren-Items weiterhin per Text-Prefix aus den Energie-Betraegen aus.
+        newBillingDocumentItem.setMeteringPointId(billingMasterdata.getMeteringPointId());
         newBillingDocumentItem.setText(String.format(ZAEHLPUNKTGEBUEHR_TEXT + ": %s", billingMasterdata.getMeteringPointId()));
         final String documentText = billingMasterdata.getTariffMeteringPointFeeText();
         newBillingDocumentItem.setDocumentText(StringUtils.isNotEmpty(documentText) ?

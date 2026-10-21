@@ -40,6 +40,9 @@ public class BillingRun {
     @Column
     private LocalDateTime runStatusDateTime;
 
+    @Column (columnDefinition = "TEXT")
+    private String errorSummary;
+
     @Column
     private String mailStatus;
 
