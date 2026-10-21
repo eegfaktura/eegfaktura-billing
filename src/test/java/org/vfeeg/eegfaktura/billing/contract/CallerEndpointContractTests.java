@@ -69,7 +69,7 @@ class CallerEndpointContractTests {
         }
     }
 
-    /** The routes used by the two callers, as listed in {@code AGENT_LOG.md} (M6): 18 web, 20 v3, 21 distinct. */
+    /** The routes used by the two callers, as read from their code (M6): 18 web, 20 v3, 21 distinct. */
     @Test
     void theCallersUseTwentyOneOfTheThirtyOneEndpoints() {
         Set<String> web = routes("eegfaktura-web");

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lines per file against the size limits of AGENTS.md section 13.
+# Lines per file against the size limits: up to 300 green, 450 yellow, 600 red, above blocked.
 # Usage: bash scripts/dev/loc-check.sh [--all]   (default: only files above 300 lines)
 set -euo pipefail
 cd "$(dirname "$0")/../.."

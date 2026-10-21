@@ -13,7 +13,7 @@ import static org.hamcrest.Matchers.sameInstance;
 /**
  * The German number strings are printed on every invoice and credit note (BillingPdfService).
  * Rounding: DecimalFormat's default HALF_EVEN on the exact BigDecimal value; no thousands separator.
- * Whether the print should round HALF_UP is part of the rounding question open-points B-13.
+ * Whether the print should round HALF_UP is part of an open rounding question.
  */
 class BigDecimalToolsTests {
 

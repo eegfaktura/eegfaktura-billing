@@ -49,7 +49,7 @@ repository, file (with lines), commit and date in `source`.
    key names, nulls, number formats) and the `readBy` lists in `responses/`, each with the new
    commit, date and source lines.
 3. Run `-Dtest='Caller*ContractTests'`. A failing route or field is a contract change: billing keeps
-   its contract or the change is agreed with the caller (AGENTS.md section 7, `CHANGELOG.md`).
+   its contract or the change is agreed with the caller (and noted in `CHANGELOG.md`).
 4. A billing-side change of a response field fails `CallerResponseContractTests` until the snapshot's
    `fields` is updated on purpose; tell both callers.
 5. v3's view: copy `V190__…` (or its successor) unchanged, update the sha256 in

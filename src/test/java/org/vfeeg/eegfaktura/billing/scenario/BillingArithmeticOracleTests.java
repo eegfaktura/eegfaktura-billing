@@ -28,7 +28,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 /**
- * Optional M3 item (B-16): billing's item amounts against an oracle not written by billing's authors.
+ * Optional M3 item: billing's item amounts against an oracle not written by billing's authors.
  *
  * <p>{@code v3oracle/billing-arithmetic-cases.json} is a byte-identical copy of
  * {@code eegfaktura-v3/backend/src/test/resources/golden/billing-arithmetic-cases.json} (AGPL-3.0, same
@@ -36,8 +36,8 @@ import static org.hamcrest.Matchers.is;
  * {@code 830d846c…}; identical with the copy in {@code energy-mock}). Refresh by copying the file again and
  * reviewing the diff. Only the rows billing has a line for are used: 1 (consumer energy), 2 (producer
  * energy), 3 (participant fee), 4 (meter-point fee). Row 5 (base fee) has no line in billing
- * ({@code tariff_basic_fee} is read but never billed, {@code open-points.md} B-24); row 14 (instalment) is
- * not a billing concept. A disagreement is a question for the business side (B-13), not automatically a
+ * ({@code tariff_basic_fee} is read but never billed, an open question); row 14 (instalment) is
+ * not a billing concept. A disagreement is a question for the business side, not automatically a
  * billing defect.
  */
 class BillingArithmeticOracleTests extends BillingScenarioBase {
