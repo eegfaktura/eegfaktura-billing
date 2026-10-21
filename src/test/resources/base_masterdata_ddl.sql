@@ -63,5 +63,17 @@ create table if not exists base.billing_masterdata
     tariff_metering_point_fee             numeric,
     tariff_metering_point_fee_text        varchar,
     tariff_metering_point_vat             numeric,
-    tariff_use_metering_point_fee         boolean default false
+    tariff_use_metering_point_fee         boolean default false,
+    -- time-of-use tariff (ZVT, upstream 2026-10-21): two windows, the entity reads them
+    tariff_use_time_tariff                boolean default false,
+    tariff_time1_active                   boolean default false,
+    tariff_time1_name                     varchar,
+    tariff_time1_from                     varchar,
+    tariff_time1_to                       varchar,
+    tariff_time1_cent_per_kwh             numeric,
+    tariff_time2_active                   boolean default false,
+    tariff_time2_name                     varchar,
+    tariff_time2_from                     varchar,
+    tariff_time2_to                       varchar,
+    tariff_time2_cent_per_kwh             numeric
 );

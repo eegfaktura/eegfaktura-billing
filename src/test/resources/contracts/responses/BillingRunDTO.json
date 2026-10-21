@@ -9,6 +9,7 @@
   "fields": [
     "clearingPeriodIdentifier",
     "clearingPeriodType",
+    "errorSummary",
     "id",
     "mailStatus",
     "mailStatusDateTime",

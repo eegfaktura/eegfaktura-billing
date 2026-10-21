@@ -20,6 +20,7 @@ AGPL-3.0, same as billing; row in `EXTERNAL_SOURCES.md`.
 | `01_20250603103206_activeMeterView.up.sql` | base tables `eeg`, `participant`, `tariff`, `address`, `bankaccount`, `contactdetail`, `meteringpoint`, … | `8dd321dd994763f0702078bdad6c7aa6ee554f5dde5ef049664af9915d01422c` |
 | `02_20250603150318_create_views.up.sql` | views `activeMeteringPartition`, `activeTariff`, first `billing_masterdata` | `0c38063b20306713031632a2bb3040faa0f778c3cd188ab08d2ae35520852d44` |
 | `04_20250604182344_add_bank_fields.up.sql` | `bankaccount.mandate_*`, `sepa_direct_debit`, `eeg.creditor_id` | `d82172801b0b3f24e3b2e836e9d367043ecac771639054b93912edd8dadd7ebb` |
+| `06_20260711120000_zvt_time_tariff.up.sql` | `tariff."useTimeTariff"`, `"timeTariff1…"`, `"timeTariff2…"`; rebuilds `activeTariff` and `billing_masterdata` with the 11 ZVT columns the entity reads since billing 1.0.8 — copied byte-identical 2026-10-21 from `eegfaktura-backend/migrations/` at `81ab6f87e525918e7f71f92889c3c68c205540bd` (2026-09-26) | `a9a044f46addea0740eda1188617b2a31ac59558491de8a405b353600e9161cd` |
 | `05_20250605091807_add_account_info_to_billing_view.up.sql` | replaces `billing_masterdata` (64 columns) | `699253d230b57cc7be72416a92d6634ca38a311f5ae0565fed0e46e709812113` |
 
 The sha256 values are also in `LegacyMasterdataViewContractTests.COPIED`; a local edit fails

@@ -12,6 +12,7 @@ import org.vfeeg.eegfaktura.billing.support.BillingScenarioBase;
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
@@ -108,15 +109,17 @@ class BillingScenarioVatTests extends BillingScenarioBase {
         assertThat(count("billing_run where tenant_id = ? and run_status = 1"), is(0));
     }
 
-    /** S4 without the defect part: the failure is reported in the result text (holds today). */
+    /**
+     * S4 without the defect part: the run fails with the reason. Since 1.0.8 the service throws it (the launcher
+     * records the run as FAILED with "Abrechnung fehlgeschlagen: " + the message, the resource's caller polls it).
+     */
     @Test
-    void s04_threeVatRatesAreReportedInTheResultText() {
+    void s04_threeVatRatesFailTheRun() {
         BillingRunFixture world = insert(threeRateWorld(), false);
 
-        DoBillingResults results = bill(world, true);
+        IllegalArgumentException failed = assertThrows(IllegalArgumentException.class, () -> bill(world, true));
 
-        assertThat(results.getAbstractText(), startsWith(RESULT_FAILED + "More than 2 VAT rates not supported"));
-        assertThat(results.getBillingRunId(), notNullValue());
+        assertThat(failed.getMessage(), startsWith("More than 2 VAT rates not supported"));
     }
 
     /**

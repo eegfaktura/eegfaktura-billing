@@ -55,7 +55,7 @@ class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
         assertThat(mail.getRecipients(MimeMessage.RecipientType.TO), arrayContaining(new InternetAddress(MEMBER_1)));
         assertThat(mail.getRecipients(MimeMessage.RecipientType.CC), arrayContaining(new InternetAddress(COMMUNITY)));
         assertThat(receivedBy(COMMUNITY), arrayWithSize(1));
-        assertThat(mail.getSubject(), is("Rechnung " + PERIOD));
+        assertThat(mail.getSubject(), is("Rechnung " + PERIOD + " - Energiegemeinschaft Holy Grail")); // the issuer since 1.0.8
 
         List<Part> parts = leaves(mail);
         Part pdf = parts.stream().filter(p -> isType(p, "application/pdf")).findFirst()

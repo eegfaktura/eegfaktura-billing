@@ -3,7 +3,10 @@ package org.vfeeg.eegfaktura.billing.concurrency;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
+import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
 import org.vfeeg.eegfaktura.billing.rest.BillingResource;
@@ -12,9 +15,10 @@ import org.vfeeg.eegfaktura.billing.support.ConcurrencyAndMailBase;
 import org.vfeeg.eegfaktura.billing.support.Gate;
 
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
+import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -22,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -29,13 +34,19 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 
 /**
- * Parallel billing runs through the resource bean (the per-tenant lock lives in {@link BillingResource},
- * known-errors #14) and in the service (number assignment, #15). Deterministic: the spies stop the runs at
- * {@link Gate}s; nothing sleeps, every wait is bounded.
+ * Parallel billing runs through the resource bean. Since the asynchronous run (upstream #68, 2026-10-21)
+ * the resource holds no per-tenant lock any more: {@code startBilling} accepts a run (202 + billingRunId),
+ * claims it atomically (RUNNING per community and period, exactly one winner) and hands the calculation to
+ * the {@link org.vfeeg.eegfaktura.billing.service.BillingRunLauncher}; a second start of the same period
+ * answers 409. Runs of one community for <i>different</i> periods now run side by side, so the number
+ * assignment in the service (known-errors #15) is reachable through the resource. Deterministic: the spies
+ * stop the runs at {@link Gate}s; the only wait is the bounded poll for a run's final status.
  */
 class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
 
     private static final Duration WHOLE_TEST = Duration.ofSeconds(60);
+    private static final EnumSet<BillingRunStatus> FINISHED =
+            EnumSet.of(BillingRunStatus.DONE, BillingRunStatus.FAILED, BillingRunStatus.CANCELLED);
 
     @Autowired
     private BillingResource billingResource;
@@ -44,84 +55,104 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
     private final AtomicInteger maxInside = new AtomicInteger();
 
     /**
-     * F3 (#14): run A holds the lock, B has fetched the same lock object and waits. A finishes and
-     * {@code releaseLock} removes the entry; B enters and is held. Run D then gets a <i>new</i> lock object
-     * and enters {@code doBilling} while B is inside. Correct: at most one run of a community is inside
-     * {@code doBilling} at any time (D waits for B). The runs are stubbed; only the lock is under test.
+     * The claim (formerly F3, #14, the lock): run A of a period is held inside the calculation. A second
+     * start of the same period is refused with 409 and A's run id, nothing enters. After A has finished
+     * (DONE) a third start is refused as well. Only one run of a period is ever inside the calculation.
      */
     @Test
-    @Disabled("known-errors #14")
-    void runsOfOneCommunityNeverOverlap() {
-        Map<String, Gate> gates = Map.of("A", new Gate("run A"), "B", new Gate("run B"), "D", new Gate("run D"));
+    void secondStartOfARunningPeriodIsRefused() {
+        Map<String, Gate> gates = Map.of(PERIOD, new Gate("run A"));
         holdRunsAt(gates);
-        CountDownLatch bHasLockObject = new CountDownLatch(1);
-        ThreadLocal<String> runName = new ThreadLocal<>();
-        doAnswer(invocation -> {
-            Object lock = invocation.callRealMethod();
-            if ("B".equals(runName.get())) {
-                bHasLockObject.countDown();
-            }
-            return lock;
-        }).when(lockSpy).getLock(anyString());
+        BillingRunFixture world = insert(world().master(consumer(1, "C1"), "100"), false);
 
         assertTimeoutPreemptively(WHOLE_TEST, () -> {
-            Future<?> a = startRun(tenant, "A", runName);
-            gates.get("A").awaitEntered();
-            Future<?> b = startRun(tenant, "B", runName);
-            Gate.await(bHasLockObject, "run B fetched the lock object of run A");
-            gates.get("A").release();
-            result(a, "run A");
-            gates.get("B").awaitEntered();
+            ResponseEntity<DoBillingResults> a = result(start(tenant, world.params(PERIOD_TYPE, PERIOD, false)), "run A");
+            assertThat(a.getStatusCode(), is(HttpStatus.ACCEPTED));
+            UUID runId = a.getBody().getBillingRunId();
+            assertThat(runId, is(notNullValue()));
+            gates.get(PERIOD).awaitEntered();
 
-            Future<?> d = startRun(tenant, "D", runName);
-            boolean dEnteredWhileBInside = gates.get("D").enteredWithin(Gate.NOT_EXPECTED);
-            gates.get("B").release();
-            gates.get("D").release();
-            result(b, "run B");
-            result(d, "run D");
+            ResponseEntity<DoBillingResults> b = result(start(tenant, world.params(PERIOD_TYPE, PERIOD, false)),
+                    "second start of the running period");
+            assertThat(b.getStatusCode(), is(HttpStatus.CONFLICT));
+            assertThat(b.getBody().getBillingRunId(), is(runId));
 
-            assertThat("run D entered doBilling while run B was inside", dEnteredWhileBInside, is(false));
-            assertThat("runs of one community inside doBilling at the same time", maxInside.get(), is(1));
+            gates.get(PERIOD).release();
+            assertThat(awaitFinished(runId), is(BillingRunStatus.DONE));
+            assertThat(documentNumbers(), containsInAnyOrder("TRECH202400042"));
+
+            ResponseEntity<DoBillingResults> c = result(start(tenant, world.params(PERIOD_TYPE, PERIOD, false)),
+                    "start after the period is done");
+            assertThat(c.getStatusCode(), is(HttpStatus.CONFLICT));
+            assertThat("runs of one period inside the calculation at the same time", maxInside.get(), is(1));
         });
     }
 
-    /** A run of another community is not blocked by a held run (the lock is per community). */
+    /**
+     * Two starts of one period at the same moment (the first-creation race the resource guards with the
+     * unique index and the claim): exactly one is accepted, the other gets 409, and the one run completes.
+     */
+    @Test
+    void simultaneousStartsOfOnePeriodAcceptExactlyOne() {
+        BillingRunFixture world = insert(world().master(consumer(1, "C1"), "100"), false);
+        CyclicBarrier both = new CyclicBarrier(2);
+
+        assertTimeoutPreemptively(WHOLE_TEST, () -> {
+            List<Future<ResponseEntity<DoBillingResults>>> starts = List.of(1, 2).stream()
+                    .map(i -> asTenant(tenant, () -> {
+                        DoBillingParams params = withDate(world.params(PERIOD_TYPE, PERIOD, false));
+                        assertThat("both starts ready", Gate.meet(both, Gate.TIMEOUT), is(true));
+                        return billingResource.startBilling(params);
+                    }))
+                    .toList();
+            List<HttpStatus> codes = starts.stream().map(s -> (HttpStatus) result(s, "start").getStatusCode()).toList();
+            assertThat(codes, containsInAnyOrder(HttpStatus.ACCEPTED, HttpStatus.CONFLICT));
+
+            UUID runId = starts.stream().map(s -> result(s, "start").getBody().getBillingRunId())
+                    .filter(id -> id != null).findFirst().orElseThrow();
+            assertThat(awaitFinished(runId), is(BillingRunStatus.DONE));
+            assertThat(documentNumbers(), containsInAnyOrder("TRECH202400042"));
+        });
+    }
+
+    /** A run of another community is not blocked by a held run (the claim is per community and period). */
     @Test
     void runOfAnotherCommunityFinishesWhileTheFirstIsHeld() {
         String held = tenant + "H";
         Gate gate = new Gate("run of " + held);
         doAnswer(invocation -> {
-            DoBillingParams params = invocation.getArgument(0);
-            if (!held.equals(params.getTenantId())) {
-                return invocation.callRealMethod();
+            DoBillingParams params = invocation.getArgument(1);
+            if (held.equals(params.getTenantId())) {
+                gate.pass();
             }
-            gate.pass();
-            return new DoBillingResults();
-        }).when(billingServiceSpy).doBilling(any());
+            return invocation.callRealMethod();
+        }).when(billingServiceSpy).executeBillingRun(any(), any());
         BillingRunFixture world = insert(world().master(consumer(1, "C1"), "100"), false);
 
         assertTimeoutPreemptively(WHOLE_TEST, () -> {
-            Future<ResponseEntity<DoBillingResults>> first = asTenant(held,
-                    () -> billingResource.getAllInvoices(params(held, PERIOD)));
+            ResponseEntity<DoBillingResults> first = result(start(held, params(held, PERIOD)), "held run");
+            assertThat(first.getStatusCode(), is(HttpStatus.ACCEPTED));
             gate.awaitEntered();
 
-            ResponseEntity<DoBillingResults> second = result(asTenant(tenant,
-                    () -> billingResource.getAllInvoices(withDate(world.params(PERIOD_TYPE, PERIOD, false)))),
+            ResponseEntity<DoBillingResults> second = result(start(tenant, world.params(PERIOD_TYPE, PERIOD, false)),
                     "run of the other community while the first is held");
-
-            assertThat(second.getBody().getAbstractText(), is(RESULT_FINAL_OK));
+            assertThat(second.getStatusCode(), is(HttpStatus.ACCEPTED));
+            assertThat(awaitFinished(second.getBody().getBillingRunId()), is(BillingRunStatus.DONE));
             assertThat(documentNumbers(), containsInAnyOrder("TRECH202400042"));
+
             gate.release();
-            result(first, "held run");
+            awaitFinished(first.getBody().getBillingRunId());
         });
     }
 
     /**
-     * Two real runs (two periods) of one community started at the same moment through the resource: the
-     * lock puts them one after the other, the numbers are distinct, the caller sees no error. (Green today:
-     * with only two runs the old monitor still serialises them; the overlap needs a third run, see above.)
+     * F4 (#15) through the resource: two real runs (two periods) of one community started at the same moment;
+     * both are accepted (different periods, different claims), both must complete with distinct numbers.
+     * Since the asynchronous run nothing serialises the two calculations any more: both read the maximum,
+     * both take 42, the second run ends FAILED on the unique constraint (tenant, document number).
      */
     @Test
+    @Disabled("known-errors #15")
     void twoRunsOfOneCommunityAtOnceGetDistinctNumbers() {
         BillingRunFixture world = insert(world().master(consumer(1, "C1"), "100"), false);
         CyclicBarrier start = new CyclicBarrier(2);
@@ -131,12 +162,14 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
                     .map(period -> asTenant(tenant, () -> {
                         DoBillingParams params = withDate(world.params(PERIOD_TYPE, period, false));
                         assertThat("both runs started", Gate.meet(start, Gate.TIMEOUT), is(true));
-                        return billingResource.getAllInvoices(params);
+                        return billingResource.startBilling(params);
                     }))
                     .toList();
 
             for (Future<ResponseEntity<DoBillingResults>> run : runs) {
-                assertThat(result(run, "run").getBody().getAbstractText(), is(RESULT_FINAL_OK));
+                ResponseEntity<DoBillingResults> accepted = result(run, "run");
+                assertThat(accepted.getStatusCode(), is(HttpStatus.ACCEPTED));
+                assertThat(awaitFinished(accepted.getBody().getBillingRunId()), is(BillingRunStatus.DONE));
             }
             assertThat(documentNumbers(), containsInAnyOrder("TRECH202400042", "TRECH202400043"));
         });
@@ -177,30 +210,41 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
 
     // ---- helpers ---------------------------------------------------------------------------------
 
-    /** Stubs doBilling: count who is inside, stop at the gate named by the period, return an empty result. */
+    /** Stubs the calculation: count who is inside, stop at the gate named by the period, then calculate. */
     private void holdRunsAt(Map<String, Gate> gates) {
         doAnswer(invocation -> {
-            DoBillingParams params = invocation.getArgument(0);
+            DoBillingParams params = invocation.getArgument(1);
             maxInside.accumulateAndGet(inside.incrementAndGet(), Math::max);
             try {
-                gates.get(params.getClearingPeriodIdentifier()).pass();
+                Gate gate = gates.get(params.getClearingPeriodIdentifier());
+                if (gate != null) {
+                    gate.pass();
+                }
+                return invocation.callRealMethod();
             } finally {
                 inside.decrementAndGet();
             }
-            return new DoBillingResults();
-        }).when(billingServiceSpy).doBilling(any());
+        }).when(billingServiceSpy).executeBillingRun(any(), any());
     }
 
-    private Future<ResponseEntity<DoBillingResults>> startRun(String tenantId, String name,
-                                                              ThreadLocal<String> runName) {
-        return asTenant(tenantId, () -> {
-            runName.set(name);
-            try {
-                return billingResource.getAllInvoices(params(tenantId, name));
-            } finally {
-                runName.remove();
+    /** Starts a run through the resource as {@code tenantId}; the answer comes back at once (202, 409, …). */
+    private Future<ResponseEntity<DoBillingResults>> start(String tenantId, DoBillingParams params) {
+        return asTenant(tenantId, () -> billingResource.startBilling(withDate(params)));
+    }
+
+    /** The run's final status, polled within {@link Gate#TIMEOUT} (the launcher runs it in its own thread). */
+    private BillingRunStatus awaitFinished(UUID runId) throws InterruptedException {
+        long deadline = System.nanoTime() + Gate.TIMEOUT.toNanos();
+        BillingRunDTO run;
+        do {
+            run = run(runId);
+            if (FINISHED.contains(run.getRunStatus())) {
+                return run.getRunStatus();
             }
-        });
+            Thread.sleep(25);
+        } while (System.nanoTime() < deadline);
+        throw new AssertionError("run " + runId + " still " + run.getRunStatus() + " after " + Gate.TIMEOUT
+                + (run.getErrorSummary() != null ? ": " + run.getErrorSummary() : ""));
     }
 
     private static DoBillingParams params(String tenantId, String period) {

@@ -109,7 +109,7 @@ class BillingDocumentMailServiceTests {
         ArgumentCaptor<Map<String, byte[]>> attachments = ArgumentCaptor.forClass(Map.class);
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendEmail(eq("no-reply@eegfaktura.at"), eq("anna@example.at"), eq("office@eeg.at"),
-                eq("Rechnung Abr_YQ-2024-3"), body.capture(), attachments.capture());
+                eq("Rechnung Abr_YQ-2024-3 - EEG Sonnenstrom"), body.capture(), attachments.capture());
         assertThat(attachments.getValue(), hasKey("R202400001.pdf"));
         assertThat(attachments.getValue(), hasKey(BillingDocumentMailService.ATTACHMENT_LOGO_NAME));
         assertThat(body.getValue(), containsString("Anna Muster"));

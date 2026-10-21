@@ -111,6 +111,13 @@ class EmailServiceTests {
         verify(mailSender, never()).send(any(MimeMessage.class));
     }
 
+    /** The plain-text alternative (1.0.8): tags and entities go, nothing from nothing. */
+    @Test
+    void plainTextIsDerivedFromTheHtml() {
+        assertThat(EmailService.htmlToPlainText(null), is(""));
+        assertThat(EmailService.htmlToPlainText("<p>Hallo&nbsp;<b>Welt</b></p><br/>&auml;"), is("Hallo Welt\n\nä"));
+    }
+
     @Test
     void pngIsEmbeddedInlineAndOtherFilesAreAttachedAsPdf() throws Exception {
         Map<String, byte[]> attachments = new LinkedHashMap<>();
@@ -131,8 +138,16 @@ class EmailServiceTests {
 
         List<MimeBodyPart> bodies = parts.stream().filter(p -> header(p, "Content-ID") == null && header(p, "Content-Disposition") == null)
                 .toList();
-        assertThat(bodies, hasSize(1));
-        assertThat((String) bodies.get(0).getContent(), containsString("Hallo"));
+        // multipart/alternative since 1.0.8: the plain-text part beside the HTML, both carry the text
+        assertThat(bodies, hasSize(2));
+        int html = 0;
+        for (MimeBodyPart body : bodies) {
+            assertThat((String) body.getContent(), containsString("Hallo"));
+            if (body.getDataHandler().getContentType().toLowerCase().startsWith("text/html")) {
+                html++;
+            }
+        }
+        assertThat(html, is(1));
     }
 
     private MimeMessage sentMessage() {

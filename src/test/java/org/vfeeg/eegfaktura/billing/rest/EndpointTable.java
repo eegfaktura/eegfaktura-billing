@@ -70,8 +70,8 @@ public final class EndpointTable {
             // BillingDocumentNumberResource (2)
             row(BillingDocumentNumberResource.class, GET, "/api/billingDocumentNumbers/{id}", ID, 200),
             row(BillingDocumentNumberResource.class, DELETE, "/api/billingDocumentNumbers/{id}", ID, 204),
-            // BillingResource (1): annotated 201, returns 200; validates nothing (known-errors #31)
-            new Endpoint(BillingResource.class, POST, "/api/billing", BODY_TENANT, 200,
+            // BillingResource (1): since 1.0.8 the run is accepted with 202; validates nothing (known-errors #31)
+            new Endpoint(BillingResource.class, POST, "/api/billing", BODY_TENANT, 202,
                     BILLING_BODY, false, null),
             // FileDataResource (1)
             row(FileDataResource.class, GET, "/api/fileData/{id}", ID, 200)
