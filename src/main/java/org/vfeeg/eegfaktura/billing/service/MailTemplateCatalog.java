@@ -52,8 +52,10 @@ public class MailTemplateCatalog {
 
     /**
      * Today's text of BillingEmailDefaultTemplate.ftl in the stored format (the eegfaktura logo on
-     * top is the built-in image {@code mailfile:eegfaktura-logo}); the subject is today's
-     * "Belegart Zeitraum - EEG". Raising defaultVersion marks stored texts as "default changed".
+     * top is the built-in image {@code mailfile:eegfaktura-logo}). The subject keeps today's pattern
+     * "Belegart Zeitraum - EEG", but the period is now the readable date range (document.period, e.g.
+     * "01.07.2026 - 30.09.2026" instead of "Abr_YQ-2026-3"), and with an empty EEG name it ends in " -".
+     * Raising defaultVersion marks stored texts as "default changed".
      */
     private static final String BILLING_DOCUMENT_BODY =
             "<p style=\"text-align:center\"><img src=\"mailfile:" + MailHtmlPolicy.BUILTIN_LOGO_ID

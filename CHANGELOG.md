@@ -25,9 +25,9 @@ this changelog highlights the changes relevant for overview and operations.
 ### Changed
 - **Billing run mail** uses the EEG's stored text, else the default. The default reproduces the former mail
   (logo, greeting, text, signature, footer); differences: the logo is a centered paragraph instead of a
-  fixed-height header row, the period in the subject is now the readable date
-  range (e.g. `01.07.2026 - 30.09.2026` instead of `Abr_YQ-2026-3`), the footer text is no longer
-  extra-small, and with an empty EEG name the subject ends in ` -`. If a stored text cannot be rendered, the
+  fixed-height header row, the footer text is no longer extra-small. **Subject:** same pattern
+  `<Belegart> <Zeitraum> - <EEG>`, but the period is now the readable date range (e.g.
+  `01.07.2026 - 30.09.2026` instead of `Abr_YQ-2026-3`), and with an empty EEG name the subject ends in ` -`. If a stored text cannot be rendered, the
   default is sent and the run's send protocol says so.
 - `spring.servlet.multipart.max-file-size` 256KB → 512KB (image limit of the mail text; also applies to
   logo/footer uploads).
