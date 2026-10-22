@@ -15,4 +15,7 @@ public interface BillingConfigRepository extends JpaRepository<BillingConfig, UU
 
     Optional<BillingConfig> findFirstByTenantId(String tenantId);
 
+    /** Case-insensitive lookup (mail texts: the stored tenant case need not match the header). */
+    Optional<BillingConfig> findFirstByTenantIdIgnoreCase(String tenantId);
+
 }

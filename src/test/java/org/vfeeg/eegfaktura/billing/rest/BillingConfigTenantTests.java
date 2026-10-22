@@ -130,9 +130,39 @@ class BillingConfigTenantTests {
         });
 
         resource.uploadLogoImage(own.getId(),
-                new MockMultipartFile("file", "logo.png", "image/png", new byte[]{1, 2, 3}));
+                new MockMultipartFile("file", "logo.png", "image/png", PNG_BYTES));
 
         assertEquals(newFileId, own.getHeaderImageFileDataId());
+    }
+
+    private static final byte[] PNG_BYTES = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0};
+
+    @Test
+    @DisplayName("Logo-Upload setzt den Mandanten der Datei und den Typ aus dem Inhalt, auch ohne Content-Type")
+    void uploadSetsTenantAndDetectedType() {
+        BillingConfig own = stored(OWN);
+        when(fileDataRepository.save(any(FileData.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        resource.uploadLogoImage(own.getId(),
+                new MockMultipartFile("file", "logo", null, PNG_BYTES));
+
+        ArgumentCaptor<FileData> saved = ArgumentCaptor.forClass(FileData.class);
+        verify(fileDataRepository).save(saved.capture());
+        assertEquals(OWN, saved.getValue().getTenantId());
+        assertEquals("image/png", saved.getValue().getMimeType());
+    }
+
+    @Test
+    @DisplayName("Logo-Upload ohne Content-Type und ohne Bildinhalt wird abgewiesen")
+    void uploadWithoutContentTypeAndUnknownContentIsRejected() {
+        BillingConfig own = stored(OWN);
+
+        assertThrows(RuntimeException.class, () -> resource.uploadLogoImage(own.getId(),
+                new MockMultipartFile("file", "logo.png", null, "<script>alert(1)</script>".getBytes())));
+        assertThrows(RuntimeException.class, () -> resource.uploadLogoImage(own.getId(),
+                new MockMultipartFile("file", "logo.png", "image/png", "%PDF-1.7".getBytes())));
+
+        verify(fileDataRepository, never()).save(any());
     }
 
     @Test
