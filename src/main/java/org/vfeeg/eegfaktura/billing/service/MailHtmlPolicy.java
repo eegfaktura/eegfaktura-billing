@@ -6,7 +6,6 @@ import org.owasp.html.AttributePolicy;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.HtmlSanitizer;
 import org.owasp.html.HtmlStreamEventReceiver;
-import org.owasp.html.HtmlStreamRenderer;
 import org.owasp.html.PolicyFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -49,9 +48,9 @@ public class MailHtmlPolicy {
     /** Built-in image every tenant may use ({@code mailfile:eegfaktura-logo}), as in eegfaktura-backend. */
     public static final String BUILTIN_LOGO_ID = "eegfaktura-logo";
 
-    /** File ids are lower-case UUIDs, compared exactly (an upper-case id is not a file, as in the backend). */
+    /** File ids are UUIDs; an upper-case id is normalised to lower case (shared case file). */
     private static final Pattern FILE_ID = Pattern.compile(
-            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
 
     private final Map<String, List<String>> elements = new LinkedHashMap<>();
     private final Map<String, List<String>> urlSchemes = new LinkedHashMap<>();
@@ -123,8 +122,7 @@ public class MailHtmlPolicy {
     /** Sanitizes {@code html}; images are kept only for the given mailfile ids (lowercase UUIDs). */
     public String sanitize(String html, Set<String> allowedFileIds) {
         StringBuilder out = new StringBuilder(html == null ? 0 : html.length());
-        HtmlStreamRenderer renderer = HtmlStreamRenderer.create(out, badHtml -> { });
-        HtmlSanitizer.sanitize(html == null ? "" : html, builder(allowedFileIds).build(renderer));
+        HtmlSanitizer.sanitize(html == null ? "" : html, builder(allowedFileIds).build(new Writer(out)));
         return out.toString();
     }
 
@@ -135,7 +133,7 @@ public class MailHtmlPolicy {
      */
     public String walk(String sanitizedHtml, UnaryOperator<HtmlStreamEventReceiver> wrap) {
         StringBuilder out = new StringBuilder(sanitizedHtml == null ? 0 : sanitizedHtml.length());
-        HtmlStreamEventReceiver receiver = wrap.apply(HtmlStreamRenderer.create(out, badHtml -> { }));
+        HtmlStreamEventReceiver receiver = wrap.apply(new Writer(out));
         HtmlSanitizer.sanitize(sanitizedHtml == null ? "" : sanitizedHtml, new HtmlSanitizer.Policy() {
             @Override public void openDocument() {
                 receiver.openDocument();
@@ -215,8 +213,8 @@ public class MailHtmlPolicy {
     }
 
     /**
-     * The file id of a {@code mailfile:<id>} src (scheme case-insensitive, id exact): a lower-case
-     * UUID or the built-in logo id; otherwise null.
+     * The file id of a {@code mailfile:<id>} src (scheme case-insensitive): a UUID in lower case or
+     * the built-in logo id; otherwise null.
      */
     public static String mailfileId(String src) {
         if (src == null) {
@@ -228,7 +226,10 @@ public class MailHtmlPolicy {
             return null;
         }
         String id = trimmed.substring(colon + 1);
-        return BUILTIN_LOGO_ID.equals(id) || FILE_ID.matcher(id).matches() ? id : null;
+        if (BUILTIN_LOGO_ID.equals(id)) {
+            return id;
+        }
+        return FILE_ID.matcher(id).matches() ? id.toLowerCase(Locale.ROOT) : null;
     }
 
     /**
@@ -276,11 +277,76 @@ public class MailHtmlPolicy {
         return builder;
     }
 
+    /**
+     * Writes the filtered events as HTML. Escapes only what HTML needs ({@code & < > " '}), unlike
+     * OWASP's renderer, which also writes {@code = @ +} as entities — the stored text and the mail
+     * then match the backend (shared case file: {@code href="mailto:info@eeg.example"}). Element and
+     * attribute names come from the allowlist only.
+     */
+    private static final class Writer implements HtmlStreamEventReceiver {
+        private static final Set<String> VOID = Set.of("br", "img");
+        private final StringBuilder out;
+
+        Writer(StringBuilder out) {
+            this.out = out;
+        }
+
+        @Override public void openDocument() { }
+        @Override public void closeDocument() { }
+
+        @Override
+        public void openTag(String name, List<String> attrs) {
+            out.append('<').append(name);
+            for (int i = 0; i + 1 < attrs.size(); i += 2) {
+                out.append(' ').append(attrs.get(i)).append("=\"");
+                escape(attrs.get(i + 1), true);
+                out.append('"');
+            }
+            out.append(VOID.contains(name) ? " />" : ">");
+        }
+
+        @Override
+        public void closeTag(String name) {
+            if (!VOID.contains(name)) {
+                out.append("</").append(name).append('>');
+            }
+        }
+
+        @Override
+        public void text(String text) {
+            escape(text, false);
+        }
+
+        private void escape(String s, boolean attribute) {
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                switch (c) {
+                    case '&' -> out.append("&amp;");
+                    case '<' -> out.append("&lt;");
+                    case '>' -> out.append("&gt;");
+                    case '"' -> out.append(attribute ? "&#34;" : "\"");
+                    case '\'' -> out.append(attribute ? "&#39;" : "'");
+                    default -> out.append(c);
+                }
+            }
+        }
+    }
+
+    /** img width: a number of pixels or a percentage, as in the backend. */
+    private static final Pattern WIDTH = Pattern.compile("[0-9]{1,4}%?");
+
     private AttributePolicy attributePolicy(String element, String attribute, Set<String> allowedFileIds) {
         if ("style".equals(attribute)) {
             return (e, a, value) -> style(value);
         }
-        // data-ph is kept as written; an unknown key is a 400 of the service (as in the backend)
+        if ("width".equals(attribute)) {
+            return (e, a, value) -> WIDTH.matcher(value.trim()).matches() ? value.trim() : null;
+        }
+        if (PLACEHOLDER_ATTRIBUTE.equals(attribute)) {
+            // any non-empty key is kept, an unknown one is a 400 of the service; an empty data-ph
+            // counts as missing, so the span/div is unwrapped (as in the backend)
+            return (e, a, value) -> value.isEmpty() ? null : value;
+        }
         List<String> schemes = urlSchemes.get(element + "." + attribute);
         if (schemes != null) {
             return (e, a, value) -> url(value, schemes, allowedFileIds);
@@ -302,6 +368,9 @@ public class MailHtmlPolicy {
             String id = mailfileId(trimmed);
             return id != null && (BUILTIN_LOGO_ID.equals(id) || allowedFileIds != null && allowedFileIds.contains(id))
                     ? MAILFILE_SCHEME + ":" + id : null;
+        }
+        if ("mailto".equals(scheme) && trimmed.substring(colon + 1).isBlank()) {
+            return null; // mailto without address
         }
         if ("https".equals(scheme)) {
             // an https link needs a host (as in the backend), e.g. not "https:/path"

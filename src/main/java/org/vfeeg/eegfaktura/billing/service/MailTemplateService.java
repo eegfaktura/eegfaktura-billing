@@ -137,7 +137,7 @@ public class MailTemplateService {
     public record RenderedMail(String subject, String html, List<EmailService.InlineImage> inlineImages) {
     }
 
-    private record Validated(String subject, String bodyHtml, Set<String> fileIds) {
+    record Validated(String subject, String bodyHtml, Set<String> fileIds) {
     }
 
     private final MailTemplateCatalog catalog;
@@ -551,7 +551,8 @@ public class MailTemplateService {
         return images;
     }
 
-    private Validated validate(MailTemplateCatalog.Entry entry, String subject, String bodyHtml, Set<String> imageIds) {
+    // package-private for the shared case test (mail-html-policy-cases.json)
+    Validated validate(MailTemplateCatalog.Entry entry, String subject, String bodyHtml, Set<String> imageIds) {
         List<ValidationError> errors = new ArrayList<>();
         Set<String> known = entry.placeholderKeys();
 

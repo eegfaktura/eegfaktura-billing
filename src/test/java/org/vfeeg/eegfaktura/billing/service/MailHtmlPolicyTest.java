@@ -75,8 +75,9 @@ class MailHtmlPolicyTest {
         assertEquals("<p>a<img src=\"mailfile:eegfaktura-logo\" /></p>", clean("<p>a<img src=\"mailfile:eegfaktura-logo\"></p>"));
         assertEquals("<p>a<img src=\"mailfile:" + OWN_FILE + "\" alt=\"Logo\" width=\"200\" /></p>",
                 clean("<p>a<img src=\"MAILFILE:" + OWN_FILE + "\" alt=\"Logo\" width=\"200\" onerror=\"x()\" /></p>"));
-        // ids are exact: an upper-case id is not a file of this mail (as in the backend)
-        assertEquals("<p>a</p>", clean("<p>a<img src=\"mailfile:" + OWN_FILE.toUpperCase() + "\" /></p>"));
+        // an upper-case id is normalised to lower case (shared case file)
+        assertEquals("<p>a<img src=\"mailfile:" + OWN_FILE + "\" /></p>",
+                clean("<p>a<img src=\"mailfile:" + OWN_FILE.toUpperCase() + "\" /></p>"));
         // an image without (allowed) src is removed, also with alt
         assertEquals("<p>a</p>", clean("<p>a<img alt=\"x\" /><img src=\"javascript:x\" alt=\"y\" /></p>"));
     }
@@ -103,7 +104,9 @@ class MailHtmlPolicyTest {
         assertEquals("<p>Hallo Name</p>", clean("<p>Hallo <span class=\"x\">Name</span></p>"));
         assertEquals("<p>Text</p>", clean("<div><p>Text</p></div>"));
         // an invalid key is dropped, the span then has no attribute left and is unwrapped
-        // any data-ph value is kept for the 400 check of the service (unknown key), as in the backend
+        // an empty data-ph counts as missing: unwrapped
+        assertEquals("<p>Name</p>", clean("<p><span data-ph=\"\">Name</span></p>"));
+        // any other data-ph value is kept for the 400 check of the service (unknown key), as in the backend
         assertEquals(Set.of("x\"><script>"),
                 policy.inspect(clean("<p><span data-ph=\"x&quot;><script>\">Name</span></p>")).placeholderKeys());
     }
