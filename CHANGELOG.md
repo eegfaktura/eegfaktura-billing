@@ -19,8 +19,15 @@ this changelog highlights the changes relevant for overview and operations.
   from `base.billing_masterdata`, without cc, subject prefixed `[Test] ` (send failure: 502). The
   eegfaktura logo is the built-in image `mailfile:eegfaktura-logo` (as in the backend; served under
   `/files/eegfaktura-logo`, not counted against the limits, not deletable).
+  Uploads are drafts (`committed=false`, never sent) until a saved version uses them; PUT removes files the
+  version no longer uses and drafts older than 24 h, DELETE of a file the saved version uses answers 409.
+  Uploads, saves and deletes of one mail are serialized (advisory lock), so the limits hold. A block
+  placeholder is allowed only as a top-level `div`; in the subject only `{key}` with the catalog syntax is a
+  placeholder (`{EEG}` stays text). `billing.footerText` is HTML (as in the PDF) and goes through the same
+  sanitizer instead of being escaped. The test mail to the EEG goes to every valid address of a `;` list;
+  an EEG without participants has no address in `base.billing_masterdata` (400).
 - Flyway `V1_16`: tables `billing_mail_template` and `billing_mail_template_file` (additive; files in
-  `file_data`).
+  `file_data`). `V1_17`: column `billing_mail_template_file.committed` (additive).
 
 ### Changed
 - **Billing run mail** uses the EEG's stored text, else the default. The default reproduces the former mail
@@ -35,6 +42,7 @@ this changelog highlights the changes relevant for overview and operations.
   logo/footer uploads).
 
 ### Fixed
+- The plain-text part of the billing mail decodes all HTML entities (numeric ones such as `&#64;` showed).
 - Recipient and EEG name were inserted into the billing mail without HTML escaping (FreeMarker without
   output format); the FreeMarker template and dependency are removed.
 - Logo/footer upload: `file_data.tenant_id` is set, and the type is checked from the content (PNG/JPEG/GIF);
