@@ -8,6 +8,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.web.util.HtmlUtils;
 import org.vfeeg.eegfaktura.billing.util.EmailAddressUtil;
 
 import java.util.ArrayList;
@@ -109,12 +110,8 @@ public class EmailService {
                 .replaceAll("(?i)<br\\s*/?>", "\n")
                 .replaceAll("(?i)</(p|div|tr|li|h[1-6]|table)>", "\n")
                 .replaceAll("(?s)<[^>]+>", "");
-        t = t.replace("&nbsp;", " ")
-                .replace("&auml;", "ä").replace("&ouml;", "ö").replace("&uuml;", "ü")
-                .replace("&Auml;", "Ä").replace("&Ouml;", "Ö").replace("&Uuml;", "Ü")
-                .replace("&szlig;", "ß")
-                .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-                .replace("&quot;", "\"").replace("&#39;", "'");
+        // all named and numeric entities (the sanitizer writes e.g. &#64; and &#43;)
+        t = HtmlUtils.htmlUnescape(t).replace(' ', ' ');
         return t.replaceAll("[ \\t]+", " ")
                 .replaceAll("(?m)^[ \\t]+", "")
                 .replaceAll("\\n{3,}", "\n\n")
