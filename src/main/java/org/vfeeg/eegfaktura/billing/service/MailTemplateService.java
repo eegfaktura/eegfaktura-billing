@@ -415,7 +415,7 @@ public class MailTemplateService {
     private void deleteFile(BillingMailTemplateFile file) {
         fileRepository.delete(file);
         fileRepository.flush();
-        fileDataRepository.deleteById(file.getFileDataId());
+        fileDataRepository.deleteWithoutLoading(file.getFileDataId());
     }
 
     public Preview preview(String requestTenant, String key, PreviewRequest request) {
@@ -541,16 +541,16 @@ public class MailTemplateService {
 
     private MailTemplate toDto(MailTemplateCatalog.Entry entry, BillingMailTemplate template,
                                List<BillingMailTemplateFile> files) {
-        Map<UUID, FileData> fileData = new HashMap<>();
-        // name and type only; the bytes are fetched per file via GET .../files/{id}
-        for (BillingMailTemplateFile file : files) {
-            fileDataRepository.findById(file.getFileDataId()).ifPresent(fd -> fileData.put(file.getId(), fd));
-        }
+        // name and type only, without the bytes (those come per file via GET .../files/{id})
+        Map<UUID, FileDataRepository.FileMeta> meta = files.isEmpty() ? Map.of()
+                : fileDataRepository.findMetaByIdIn(files.stream().map(BillingMailTemplateFile::getFileDataId).toList())
+                        .stream().collect(Collectors.toMap(FileDataRepository.FileMeta::getId, Function.identity()));
         List<MailFile> mailFiles = files.stream()
-                .map(f -> new MailFile(f.getId().toString(), f.getKind(),
-                        fileData.containsKey(f.getId()) ? fileData.get(f.getId()).getName() : null,
-                        fileData.containsKey(f.getId()) ? fileData.get(f.getId()).getMimeType() : null,
-                        f.getSize()))
+                .map(f -> {
+                    FileDataRepository.FileMeta m = meta.get(f.getFileDataId());
+                    return new MailFile(f.getId().toString(), f.getKind(), m == null ? null : m.getName(),
+                            m == null ? null : m.getMimeType(), f.getSize());
+                })
                 .toList();
         boolean customized = template != null;
         return new MailTemplate(entry.key(), entry.name(), entry.description(),
