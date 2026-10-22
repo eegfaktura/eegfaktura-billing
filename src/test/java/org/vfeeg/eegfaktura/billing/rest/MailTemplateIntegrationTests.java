@@ -234,6 +234,12 @@ class MailTemplateIntegrationTests {
         putTemplate(TENANT_B, "x", "<script>alert(1)</script><p> </p>", 0)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("bodyHtml"));
+        // a block only on the top level
+        putTemplate(TENANT_B, "x", "<ul><li>Kontakt: <div data-ph=\"eeg.contactBlock\">K</div></li></ul>", 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].message").value(containsString("eeg.contactBlock")));
+        putTemplate(TENANT_B, "x", "<p><span data-ph=\"eeg.contactBlock\">K</span></p>", 0)
+                .andExpect(status().isBadRequest());
         putTemplate(TENANT_B, "x".repeat(201), "<p>a</p>", 0)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("subject"));

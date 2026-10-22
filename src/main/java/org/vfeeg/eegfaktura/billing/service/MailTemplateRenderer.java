@@ -21,8 +21,11 @@ import java.util.regex.Pattern;
 @Component
 public class MailTemplateRenderer {
 
-    /** Placeholders in the subject: plain-text tokens {@code {key}} (section H); a lone brace stays text. */
-    private static final Pattern SUBJECT_PLACEHOLDER = Pattern.compile("\\{([A-Za-z][A-Za-z0-9.]{0,63})}");
+    /**
+     * Placeholders in the subject: plain-text tokens {@code {key}} with the catalog key syntax
+     * (section H); anything else in braces, e.g. {@code {EEG}}, and a lone brace stay text.
+     */
+    private static final Pattern SUBJECT_PLACEHOLDER = Pattern.compile("\\{([a-z][A-Za-z]*(?:\\.[A-Za-z]+)*)}");
     private static final Set<String> VOID_ELEMENTS = Set.of("br", "img");
 
     /** Fixed frame around the EEG text, as today's BillingEmailDefaultTemplate.ftl. */

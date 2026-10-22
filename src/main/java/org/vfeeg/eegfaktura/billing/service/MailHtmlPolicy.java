@@ -158,11 +158,18 @@ public class MailHtmlPolicy {
 
     /** The placeholder keys and mailfile ids in already sanitized HTML, in document order. */
     public Inspection inspect(String sanitizedHtml) {
-        Inspection inspection = new Inspection(new LinkedHashSet<>(), new LinkedHashSet<>(), new StringBuilder());
+        Inspection inspection = new Inspection(new LinkedHashSet<>(), new LinkedHashSet<>(), new StringBuilder(),
+                new ArrayList<>());
         HtmlSanitizer.sanitize(sanitizedHtml == null ? "" : sanitizedHtml, new HtmlSanitizer.Policy() {
+            private int depth;
+
             @Override public void openDocument() { }
             @Override public void closeDocument() { }
-            @Override public void closeTag(String name) { }
+            @Override public void closeTag(String name) {
+                if (!"br".equals(name) && !"img".equals(name)) {
+                    depth--;
+                }
+            }
             @Override public void text(String text) {
                 inspection.text().append(text);
             }
@@ -170,6 +177,10 @@ public class MailHtmlPolicy {
                 String placeholder = attribute(attrs, PLACEHOLDER_ATTRIBUTE);
                 if (placeholder != null) {
                     inspection.placeholderKeys().add(placeholder);
+                    inspection.placeholderUses().add(new PlaceholderUse(placeholder, name, depth == 0));
+                }
+                if (!"br".equals(name) && !"img".equals(name)) {
+                    depth++;
                 }
                 String fileId = "img".equals(name) ? mailfileId(attribute(attrs, "src")) : null;
                 if (fileId != null) {
@@ -181,7 +192,12 @@ public class MailHtmlPolicy {
     }
 
     /** Placeholder keys, mailfile ids and the plain text of a sanitized HTML. */
-    public record Inspection(Set<String> placeholderKeys, Set<String> fileIds, StringBuilder text) {
+    /** Where a placeholder is used: its element and whether it is on the top level. */
+    public record PlaceholderUse(String key, String element, boolean topLevel) {
+    }
+
+    public record Inspection(Set<String> placeholderKeys, Set<String> fileIds, StringBuilder text,
+                             List<PlaceholderUse> placeholderUses) {
         /** True if the HTML has neither visible text, nor placeholders, nor images. */
         public boolean isEmpty() {
             return text.toString().isBlank() && placeholderKeys.isEmpty() && fileIds.isEmpty();

@@ -585,6 +585,13 @@ public class MailTemplateService {
                     errors.add(new ValidationError("bodyHtml", "Unbekannter Platzhalter: " + key));
                 }
             }
+            // section H: a block (div[data-ph]) only on the top level, not inside a paragraph or span
+            for (MailHtmlPolicy.PlaceholderUse use : inspection.placeholderUses()) {
+                if (entry.blockKeys().contains(use.key()) && !("div".equals(use.element()) && use.topLevel())) {
+                    errors.add(new ValidationError("bodyHtml",
+                            "Der Baustein " + use.key() + " ist nur als eigener Absatz möglich."));
+                }
+            }
             if (errors.isEmpty()) {
                 sanitized = renderer.relabel(sanitized, entry.placeholders().stream()
                         .collect(Collectors.toMap(MailTemplateCatalog.Placeholder::key,

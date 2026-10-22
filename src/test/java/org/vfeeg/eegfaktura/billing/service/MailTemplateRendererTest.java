@@ -22,7 +22,9 @@ class MailTemplateRendererTest {
                         Map.of("recipient.name", "Max\r\n", "eeg.name", "EEG"), keys, Set.of()));
         assertEquals("<b>", renderer.renderSubject("{recipient.name}", Map.of("recipient.name", "<b>"), keys, Set.of()));
         assertEquals("a", renderer.renderSubject("a {eeg.name}", Map.of(), keys, Set.of()));
-        assertEquals(Set.of("recipient.name", "x"), MailTemplateRenderer.subjectPlaceholders("{recipient.name} {x} { y }"));
+        assertEquals(Set.of("recipient.name", "x"),
+                MailTemplateRenderer.subjectPlaceholders("{recipient.name} {x} { y } {EEG} {a1} {a.} {.a}"));
+        assertEquals("EEG {EEG} {1}", renderer.renderSubject("{eeg.name} {EEG} {1}", Map.of("eeg.name", "EEG"), keys, Set.of()));
     }
 
     @Test
