@@ -110,6 +110,53 @@ public class MailTemplateRenderer {
                 out -> new Substitution(mailHtmlPolicy, out, values, knownKeys, blockKeys, htmlKeys, imageSrc));
     }
 
+    /**
+     * Replaces the content of every placeholder element of sanitized HTML with the catalog label
+     * of its key (the stored form, as in the backend: never EEG text inside a placeholder).
+     */
+    public String relabel(String sanitizedBody, Map<String, String> labels) {
+        return mailHtmlPolicy.walk(sanitizedBody, out -> new HtmlStreamEventReceiver() {
+            private int skipDepth;
+            private String placeholderElement;
+
+            @Override public void openDocument() {
+                out.openDocument();
+            }
+            @Override public void closeDocument() {
+                out.closeDocument();
+            }
+            @Override public void openTag(String name, List<String> attrs) {
+                if (skipDepth > 0) {
+                    if (!VOID_ELEMENTS.contains(name)) {
+                        skipDepth++;
+                    }
+                    return;
+                }
+                out.openTag(name, attrs);
+                String key = MailHtmlPolicy.attribute(attrs, MailHtmlPolicy.PLACEHOLDER_ATTRIBUTE);
+                if (key != null) {
+                    out.text(labels.getOrDefault(key, key));
+                    placeholderElement = name;
+                    skipDepth = 1;
+                }
+            }
+            @Override public void closeTag(String name) {
+                if (skipDepth > 0) {
+                    if (!VOID_ELEMENTS.contains(name) && --skipDepth == 0) {
+                        out.closeTag(placeholderElement);
+                    }
+                    return;
+                }
+                out.closeTag(name);
+            }
+            @Override public void text(String text) {
+                if (skipDepth == 0) {
+                    out.text(text);
+                }
+            }
+        });
+    }
+
     /** The complete mail HTML: the fixed frame around the rendered body. */
     public String frame(String renderedBody) {
         return FRAME.replace("{{BODY}}", renderedBody);

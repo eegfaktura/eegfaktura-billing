@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -47,9 +49,9 @@ public class MailHtmlPolicy {
     /** Built-in image every tenant may use ({@code mailfile:eegfaktura-logo}), as in eegfaktura-backend. */
     public static final String BUILTIN_LOGO_ID = "eegfaktura-logo";
 
-    private static final Pattern PLACEHOLDER_KEY = Pattern.compile("[A-Za-z][A-Za-z0-9.]{0,63}");
-    private static final Pattern MAILFILE_SRC = Pattern.compile(
-            "mailfile:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})");
+    /** File ids are lower-case UUIDs, compared exactly (an upper-case id is not a file, as in the backend). */
+    private static final Pattern FILE_ID = Pattern.compile(
+            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
 
     private final Map<String, List<String>> elements = new LinkedHashMap<>();
     private final Map<String, List<String>> urlSchemes = new LinkedHashMap<>();
@@ -196,16 +198,37 @@ public class MailHtmlPolicy {
         return null;
     }
 
-    /** The lowercase file id of a {@code mailfile:<uuid>} src, the built-in logo id, or null. */
+    /**
+     * The file id of a {@code mailfile:<id>} src (scheme case-insensitive, id exact): a lower-case
+     * UUID or the built-in logo id; otherwise null.
+     */
     public static String mailfileId(String src) {
         if (src == null) {
             return null;
         }
-        if ((MAILFILE_SCHEME + ":" + BUILTIN_LOGO_ID).equalsIgnoreCase(src.trim())) {
-            return BUILTIN_LOGO_ID;
+        String trimmed = src.trim();
+        int colon = trimmed.indexOf(':');
+        if (colon <= 0 || !MAILFILE_SCHEME.equals(trimmed.substring(0, colon).toLowerCase(Locale.ROOT))) {
+            return null;
         }
-        var matcher = MAILFILE_SRC.matcher(src.trim());
-        return matcher.matches() ? matcher.group(1).toLowerCase(Locale.ROOT) : null;
+        String id = trimmed.substring(colon + 1);
+        return BUILTIN_LOGO_ID.equals(id) || FILE_ID.matcher(id).matches() ? id : null;
+    }
+
+    /**
+     * Attributes an element cannot do without: {@code required} of the rule file plus its URL
+     * attributes ({@code a.href}, {@code img.src}), as in the backend. Without them a span/div/a
+     * is unwrapped (its content stays) and an img is removed.
+     */
+    private List<String> requiredAttributes(String element) {
+        List<String> attributes = new ArrayList<>(required.getOrDefault(element, List.of()));
+        for (String key : urlSchemes.keySet()) {
+            int dot = key.indexOf('.');
+            if (dot > 0 && key.substring(0, dot).equals(element)) {
+                attributes.add(key.substring(dot + 1));
+            }
+        }
+        return attributes;
     }
 
     private HtmlPolicyBuilder builder(Set<String> allowedFileIds) {
@@ -217,14 +240,20 @@ public class MailHtmlPolicy {
         }
         for (Map.Entry<String, List<String>> element : elements.entrySet()) {
             String name = element.getKey();
-            builder.allowElements(name);
+            List<String> requiredAttributes = requiredAttributes(name);
+            if (requiredAttributes.isEmpty()) {
+                builder.allowElements(name);
+            } else {
+                // runs after the attribute policies: a removed src/href/data-ph counts as missing
+                builder.allowElements((elementName, attrs) -> requiredAttributes.stream()
+                        .allMatch(a -> attribute(attrs, a) != null) ? elementName : null, name);
+            }
             for (String attribute : element.getValue()) {
                 builder.allowAttributes(attribute)
                         .matching(attributePolicy(name, attribute, allowedFileIds))
                         .onElements(name);
             }
         }
-        required.keySet().forEach(builder::disallowWithoutAttributes);
         if (!linkRel.isEmpty()) {
             builder.requireRelsOnLinks(linkRel.toArray(String[]::new));
         }
@@ -235,9 +264,7 @@ public class MailHtmlPolicy {
         if ("style".equals(attribute)) {
             return (e, a, value) -> style(value);
         }
-        if (PLACEHOLDER_ATTRIBUTE.equals(attribute)) {
-            return (e, a, value) -> PLACEHOLDER_KEY.matcher(value).matches() ? value : null;
-        }
+        // data-ph is kept as written; an unknown key is a 400 of the service (as in the backend)
         List<String> schemes = urlSchemes.get(element + "." + attribute);
         if (schemes != null) {
             return (e, a, value) -> url(value, schemes, allowedFileIds);
@@ -260,6 +287,17 @@ public class MailHtmlPolicy {
             return id != null && (BUILTIN_LOGO_ID.equals(id) || allowedFileIds != null && allowedFileIds.contains(id))
                     ? MAILFILE_SCHEME + ":" + id : null;
         }
+        if ("https".equals(scheme)) {
+            // an https link needs a host (as in the backend), e.g. not "https:/path"
+            try {
+                String host = new URI(trimmed).getHost();
+                if (host == null || host.isEmpty()) {
+                    return null;
+                }
+            } catch (URISyntaxException e) {
+                return null;
+            }
+        }
         return trimmed;
     }
 
@@ -274,9 +312,10 @@ public class MailHtmlPolicy {
             String propertyValue = declaration.substring(colon + 1).trim().toLowerCase(Locale.ROOT);
             List<String> allowedValues = styles.get(property);
             if (allowedValues != null && allowedValues.contains(propertyValue)) {
-                kept.add(property + ":" + propertyValue);
+                kept.add(property + ": " + propertyValue);
             }
         }
-        return kept.isEmpty() ? null : String.join(";", kept);
+        // same output as the backend: "text-align: center"; empty declarations (";;") are skipped
+        return kept.isEmpty() ? null : String.join("; ", kept);
     }
 }

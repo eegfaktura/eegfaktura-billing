@@ -55,6 +55,9 @@ class MailHtmlPolicyTest {
         String https = clean("<p><a href=\"https://example.com/a?b=1\">x</a></p>");
         assertTrue(https.contains("href=\"https://example.com/a?b&#61;1\"") || https.contains("href=\"https://example.com/a?b=1\""), https);
         assertTrue(https.contains("rel=\"noopener noreferrer\""), https);
+        // https needs a host
+        assertEquals("<p>x</p>", clean("<p><a href=\"https:/path\">x</a></p>"));
+        assertEquals("<p>x</p>", clean("<p><a href=\"https://\">x</a></p>"));
         String mailto = clean("<p><a href=\"mailto:office@example.com\">x</a></p>");
         assertTrue(mailto.contains("href=\"mailto:office&#64;example.com\"") || mailto.contains("href=\"mailto:office@example.com\""), mailto);
         assertTrue(mailto.contains("rel=\"noopener noreferrer\""), mailto);
@@ -71,15 +74,19 @@ class MailHtmlPolicyTest {
         // the built-in logo is allowed for every tenant
         assertEquals("<p>a<img src=\"mailfile:eegfaktura-logo\" /></p>", clean("<p>a<img src=\"mailfile:eegfaktura-logo\"></p>"));
         assertEquals("<p>a<img src=\"mailfile:" + OWN_FILE + "\" alt=\"Logo\" width=\"200\" /></p>",
-                clean("<p>a<img src=\"mailfile:" + OWN_FILE.toUpperCase() + "\" alt=\"Logo\" width=\"200\" onerror=\"x()\" /></p>"));
+                clean("<p>a<img src=\"MAILFILE:" + OWN_FILE + "\" alt=\"Logo\" width=\"200\" onerror=\"x()\" /></p>"));
+        // ids are exact: an upper-case id is not a file of this mail (as in the backend)
+        assertEquals("<p>a</p>", clean("<p>a<img src=\"mailfile:" + OWN_FILE.toUpperCase() + "\" /></p>"));
+        // an image without (allowed) src is removed, also with alt
+        assertEquals("<p>a</p>", clean("<p>a<img alt=\"x\" /><img src=\"javascript:x\" alt=\"y\" /></p>"));
     }
 
     @Test
     @DisplayName("style: only text-align left/center/right on p, h1-h3, li")
     void styles() {
-        assertEquals("<p style=\"text-align:center\">a</p>", clean("<p style=\"text-align: center;\">a</p>"));
-        assertEquals("<h2 style=\"text-align:right\">a</h2>", clean("<h2 style=\"TEXT-ALIGN:RIGHT\">a</h2>"));
-        assertEquals("<li style=\"text-align:left\">a</li>", clean("<li style=\"color:red;text-align:left\">a</li>").replace("<ul>", "").replace("</ul>", ""));
+        assertEquals("<p style=\"text-align: center\">a</p>", clean("<p style=\"text-align: center;;\">a</p>"));
+        assertEquals("<h2 style=\"text-align: right\">a</h2>", clean("<h2 style=\"TEXT-ALIGN:RIGHT\">a</h2>"));
+        assertEquals("<li style=\"text-align: left\">a</li>", clean("<li style=\"color:red;text-align:left\">a</li>").replace("<ul>", "").replace("</ul>", ""));
         assertEquals("<p>a</p>", clean("<p style=\"color:red\">a</p>"));
         assertEquals("<p>a</p>", clean("<p style=\"text-align:justify\">a</p>"));
         assertEquals("<p>a</p>", clean("<p style=\"background:url(javascript:alert(1))\">a</p>"));
@@ -96,7 +103,9 @@ class MailHtmlPolicyTest {
         assertEquals("<p>Hallo Name</p>", clean("<p>Hallo <span class=\"x\">Name</span></p>"));
         assertEquals("<p>Text</p>", clean("<div><p>Text</p></div>"));
         // an invalid key is dropped, the span then has no attribute left and is unwrapped
-        assertEquals("<p>Name</p>", clean("<p><span data-ph=\"x&quot;><script>\">Name</span></p>"));
+        // any data-ph value is kept for the 400 check of the service (unknown key), as in the backend
+        assertEquals(Set.of("x\"><script>"),
+                policy.inspect(clean("<p><span data-ph=\"x&quot;><script>\">Name</span></p>")).placeholderKeys());
     }
 
     @Test

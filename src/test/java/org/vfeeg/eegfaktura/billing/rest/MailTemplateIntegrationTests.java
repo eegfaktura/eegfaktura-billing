@@ -201,7 +201,7 @@ class MailTemplateIntegrationTests {
                 .andExpect(jsonPath("$.customized").value(true))
                 .andExpect(jsonPath("$.version").value(1))
                 .andExpect(jsonPath("$.updatedBy").value("admin"))
-                .andExpect(jsonPath("$.bodyHtml").value("<p>Hallo <span data-ph=\"recipient.name\">N</span></p>"));
+                .andExpect(jsonPath("$.bodyHtml").value("<p>Hallo <span data-ph=\"recipient.name\">Empfängername</span></p>"));
 
         putTemplate(TENANT_B, "Neu", "<p>neu</p>", 0)
                 .andExpect(status().isConflict())

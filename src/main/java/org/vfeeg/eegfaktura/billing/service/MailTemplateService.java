@@ -585,6 +585,11 @@ public class MailTemplateService {
                     errors.add(new ValidationError("bodyHtml", "Unbekannter Platzhalter: " + key));
                 }
             }
+            if (errors.isEmpty()) {
+                sanitized = renderer.relabel(sanitized, entry.placeholders().stream()
+                        .collect(Collectors.toMap(MailTemplateCatalog.Placeholder::key,
+                                MailTemplateCatalog.Placeholder::label)));
+            }
             if (inspection.isEmpty()) {
                 errors.add(new ValidationError("bodyHtml", "Text ist nach der Bereinigung leer."));
             } else if (sanitized.getBytes(StandardCharsets.UTF_8).length > MailTemplateCatalog.MAX_BODY_BYTES) {
