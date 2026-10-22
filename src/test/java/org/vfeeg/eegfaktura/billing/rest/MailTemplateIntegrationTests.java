@@ -175,6 +175,8 @@ class MailTemplateIntegrationTests {
                 .andExpect(jsonPath("$.version").value(0))
                 .andExpect(jsonPath("$.subject").value("{document.type} {document.period} - {eeg.name}"))
                 .andExpect(jsonPath("$.bodyHtml").value(containsString("data-ph=\"recipient.name\"")))
+                .andExpect(jsonPath("$.bodyHtml").value(containsString("src=\"mailfile:eegfaktura-logo\"")))
+                .andExpect(jsonPath("$.files.length()").value(0))
                 .andExpect(jsonPath("$.limits.maxImages").value(3))
                 .andExpect(jsonPath("$.limits.maxAttachments").value(0))
                 .andExpect(jsonPath("$.placeholders[?(@.key=='eeg.contactBlock')].block").value(true));
@@ -280,6 +282,11 @@ class MailTemplateIntegrationTests {
         mvc.perform(as(delete(BASE + KEY + "/files/" + id), "admin", TENANT_B)).andExpect(status().isNoContent());
         mvc.perform(as(get(BASE + KEY + "/files/" + id), "admin", TENANT_B)).andExpect(status().isNotFound());
         mvc.perform(as(get(BASE + KEY + "/files/not-a-uuid"), "admin", TENANT_B)).andExpect(status().isBadRequest());
+        // built-in eegfaktura logo: served, not in files, not deletable
+        mvc.perform(as(get(BASE + KEY + "/files/eegfaktura-logo"), "admin", TENANT_B))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
+        mvc.perform(as(delete(BASE + KEY + "/files/eegfaktura-logo"), "admin", TENANT_B)).andExpect(status().isNotFound());
         cleanup(TENANT_B);
         assertEquals(0, read(mvc.perform(as(get(BASE + KEY), "admin", TENANT_B))).get("files").size());
     }
@@ -370,6 +377,16 @@ class MailTemplateIntegrationTests {
                 .andExpect(jsonPath("$.sentTo").value("eeg-holy-grail@gmx.at"));
         Address[] to = sentMessage().getAllRecipients();
         assertEquals("eeg-holy-grail@gmx.at", to[0].toString());
+
+        // the mail server refuses: 502 with a message
+        reset(javaMailSender);
+        when(javaMailSender.createMimeMessage()).thenAnswer(inv -> new MimeMessage(Session.getInstance(new Properties())));
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("down"))
+                .when(javaMailSender).send(any(MimeMessage.class));
+        mvc.perform(as(post(BASE + KEY + "/test"), "admin", TENANT_A).contentType(MediaType.APPLICATION_JSON)
+                        .content(body("recipient", "me", "subject", "x", "bodyHtml", "<p>a</p>")))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.message").exists());
 
         reset(javaMailSender);
         // no e-mail claim; tenant B has no master data; free recipients are not possible

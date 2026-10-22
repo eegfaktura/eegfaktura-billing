@@ -66,7 +66,8 @@ import java.util.stream.Stream;
 @Slf4j
 public class MailTemplateService {
 
-    public static final String LOGO_CONTENT_ID = "attachment-logo.png";
+    /** Content-ID of the built-in logo, as in eegfaktura-backend. */
+    public static final String LOGO_CONTENT_ID = "eegfaktura-logo-1";
     public static final String RECIPIENT_ME = "me";
     public static final String RECIPIENT_EEG = "eeg";
 
@@ -85,6 +86,13 @@ public class MailTemplateService {
 
         public List<ValidationError> getErrors() {
             return errors;
+        }
+    }
+
+    /** 502: the test mail could not be handed to the mail server. */
+    public static class TestMailFailedException extends RuntimeException {
+        public TestMailFailedException(Throwable cause) {
+            super("Die Testmail konnte nicht verschickt werden.", cause);
         }
     }
 
@@ -189,6 +197,11 @@ public class MailTemplateService {
                 .filter(f -> BillingMailTemplateFile.KIND_IMAGE.equals(f.getKind()))
                 .map(f -> f.getId().toString())
                 .collect(Collectors.toSet());
+    }
+
+    /** The built-in logo, usable by every tenant; not stored, not counted against the limits. */
+    private StoredImage builtinLogo() {
+        return new StoredImage(FileTypeDetector.PNG, defaultLogo);
     }
 
     // ---------------------------------------------------------------- API
@@ -369,20 +382,34 @@ public class MailTemplateService {
         return file;
     }
 
-    public FileContent file(String requestTenant, String key, UUID id) {
+    public FileContent file(String requestTenant, String key, String fileId) {
         String tenant = normalizeTenant(requestTenant);
         entry(key);
-        BillingMailTemplateFile file = loadFile(tenant, key, id);
+        if (MailHtmlPolicy.BUILTIN_LOGO_ID.equals(fileId)) {
+            return new FileContent(FileTypeDetector.PNG, defaultLogo);
+        }
+        BillingMailTemplateFile file = loadFile(tenant, key, parseFileId(fileId));
         FileData fileData = fileDataRepository.findById(file.getFileDataId()).orElseThrow(NotFoundException::new);
         TenantContext.validateTenant(fileData.getTenantId());
         return new FileContent(fileData.getMimeType(), fileData.getData());
     }
 
     @Transactional
-    public void deleteFile(String requestTenant, String key, UUID id) {
+    public void deleteFile(String requestTenant, String key, String fileId) {
         String tenant = normalizeTenant(requestTenant);
         entry(key);
-        deleteFile(loadFile(tenant, key, id));
+        if (MailHtmlPolicy.BUILTIN_LOGO_ID.equals(fileId)) {
+            throw new NotFoundException(); // built in, not deletable
+        }
+        deleteFile(loadFile(tenant, key, parseFileId(fileId)));
+    }
+
+    private static UUID parseFileId(String fileId) {
+        try {
+            return UUID.fromString(fileId);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new ValidationException("id", "Ungültige Datei-ID.");
+        }
     }
 
     private void deleteFile(BillingMailTemplateFile file) {
@@ -427,8 +454,9 @@ public class MailTemplateService {
             // no cc to the EEG, no invoice PDF: only the text with sample member data
             emailService.sendEmail(appProperties.getNoReplyTo(), to, null, "[Test] " + mail.subject(),
                     mail.html(), mail.inlineImages(), Map.of());
-        } catch (MessagingException e) {
-            throw new IllegalStateException("Testmail konnte nicht versendet werden.", e);
+        } catch (MessagingException | org.springframework.mail.MailException e) {
+            log.warn("Test mail for {} not sent: {}", tenant, e.getMessage());
+            throw new TestMailFailedException(e);
         }
         return new TestResult(to);
     }
@@ -447,6 +475,7 @@ public class MailTemplateService {
 
     private Map<String, StoredImage> loadImages(List<BillingMailTemplateFile> files, Set<String> referenced) {
         Map<String, StoredImage> images = new LinkedHashMap<>();
+        images.put(MailHtmlPolicy.BUILTIN_LOGO_ID, builtinLogo());
         for (BillingMailTemplateFile file : files) {
             String id = file.getId().toString();
             if (BillingMailTemplateFile.KIND_IMAGE.equals(file.getKind()) && referenced.contains(id)) {
@@ -536,7 +565,8 @@ public class MailTemplateService {
 
     private Prepared defaultPrepared(String failure) {
         MailTemplateCatalog.Entry entry = entry(MailTemplateCatalog.BILLING_DOCUMENT);
-        return new Prepared(false, entry, entry.defaultSubject(), entry.defaultBodyHtml(), Map.of(), failure);
+        return new Prepared(false, entry, entry.defaultSubject(), entry.defaultBodyHtml(),
+                Map.of(MailHtmlPolicy.BUILTIN_LOGO_ID, builtinLogo()), failure);
     }
 
     /**
@@ -578,8 +608,7 @@ public class MailTemplateService {
 
     /**
      * Renders a prepared text. Images become {@code cid:} references with the bytes in
-     * {@link RenderedMail#inlineImages()} ({@code inline}) or {@code data:} URIs (preview). The
-     * eegfaktura logo is on top only for the unchanged default text, as before.
+     * {@link RenderedMail#inlineImages()} ({@code inline}) or {@code data:} URIs (preview).
      */
     public RenderedMail render(Prepared prepared, Map<String, String> values, boolean inline) {
         MailTemplateCatalog.Entry entry = prepared.entry();
@@ -592,7 +621,7 @@ public class MailTemplateService {
             if (!inline) {
                 return "data:" + image.mimeType() + ";base64," + Base64.getEncoder().encodeToString(image.data());
             }
-            String contentId = "mailfile-" + id;
+            String contentId = MailHtmlPolicy.BUILTIN_LOGO_ID.equals(id) ? LOGO_CONTENT_ID : "mailfile-" + id;
             if (inlineImages.stream().noneMatch(i -> i.contentId().equals(contentId))) {
                 inlineImages.add(new EmailService.InlineImage(contentId, image.data(), image.mimeType()));
             }
@@ -601,17 +630,7 @@ public class MailTemplateService {
         String subject = renderer.renderSubject(prepared.subject(), values, entry.placeholderKeys());
         String body = renderer.renderBody(prepared.bodyHtml(), prepared.images().keySet(), values,
                 entry.placeholderKeys(), entry.blockKeys(), imageSrc);
-
-        String logoSrc = null;
-        if (prepared.bodyHtml().equals(entry.defaultBodyHtml())) {
-            if (inline) {
-                inlineImages.add(new EmailService.InlineImage(LOGO_CONTENT_ID, defaultLogo, FileTypeDetector.PNG));
-                logoSrc = "cid:" + LOGO_CONTENT_ID;
-            } else {
-                logoSrc = "data:image/png;base64," + Base64.getEncoder().encodeToString(defaultLogo);
-            }
-        }
-        return new RenderedMail(subject, renderer.frame(body, logoSrc), inlineImages);
+        return new RenderedMail(subject, renderer.frame(body), inlineImages);
     }
 
     /** The placeholder values of a billing document (issuer data of the document). */

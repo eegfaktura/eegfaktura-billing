@@ -42,7 +42,7 @@ public class MailTemplateRenderer {
             <table width="100%" height="80%" cellpadding="10" cellspacing="0" border="0" style="background-color:#eee;">
               <tr><td width="50%">&nbsp;</td><td align="center">
                   <table id="MAILSTYLE" cellpadding="0" cellspacing="0" border="0" style="empty-cells: show; width: 595px; border-collapse: collapse; background-color: white;">
-            {{LOGO}}        <tr valign="top">
+                    <tr valign="top">
                       <td style="padding: 10px 25px 20px 30px; text-align: left;">
             {{BODY}}
                       </td>
@@ -52,12 +52,6 @@ public class MailTemplateRenderer {
             </table>
             </body>
             </html>
-            """;
-
-    private static final String LOGO_ROW = """
-                    <tr valign="top" style="height:205px">
-                      <td align="center"><p><img src="{{SRC}}" alt="Logo"/></p></td>
-                    </tr>
             """;
 
     private final MailHtmlPolicy mailHtmlPolicy;
@@ -110,11 +104,9 @@ public class MailTemplateRenderer {
                 out -> new Substitution(out, values, knownKeys, blockKeys, imageSrc));
     }
 
-    /** The complete mail HTML: frame, optional logo on top (src as given), and the rendered body. */
-    public String frame(String renderedBody, String logoSrc) {
-        String logo = logoSrc == null ? "" : LOGO_ROW.replace("{{SRC}}", logoSrc);
-        // the body last, so text in it is never taken for a frame marker
-        return FRAME.replace("{{LOGO}}", logo).replace("{{BODY}}", renderedBody);
+    /** The complete mail HTML: the fixed frame around the rendered body. */
+    public String frame(String renderedBody) {
+        return FRAME.replace("{{BODY}}", renderedBody);
     }
 
     /** Replaces placeholder elements and image sources on the way to the renderer. */

@@ -43,11 +43,14 @@ public class MailTemplateCatalog {
     public static final int MAX_BODY_BYTES = 100 * 1024;
 
     /**
-     * Today's text of BillingEmailDefaultTemplate.ftl in the stored format; the subject is today's
+     * Today's text of BillingEmailDefaultTemplate.ftl in the stored format (the eegfaktura logo on
+     * top is the built-in image {@code mailfile:eegfaktura-logo}); the subject is today's
      * "Belegart Zeitraum - EEG". Raising defaultVersion marks stored texts as "default changed".
      */
     private static final String BILLING_DOCUMENT_BODY =
-            "<p>Liebe/r <span data-ph=\"recipient.name\">Empfängername</span>,</p>"
+            "<p style=\"text-align:center\"><img src=\"mailfile:" + MailHtmlPolicy.BUILTIN_LOGO_ID
+            + "\" alt=\"Logo\" /></p>"
+            + "<p>Liebe/r <span data-ph=\"recipient.name\">Empfängername</span>,</p>"
             + "<p>anbei findest du deine <span data-ph=\"document.type\">Belegart</span> für den "
             + "Abrechnungszeitraum <span data-ph=\"document.period\">Abrechnungszeitraum</span>.</p>"
             + "<p>Mit lieben Grüßen,</p>"

@@ -68,6 +68,8 @@ class MailHtmlPolicyTest {
         assertEquals("<p>a</p>", clean("<p>a<img src=\"data:image/png;base64,AAAA\" /></p>"));
         assertEquals("<p>a</p>", clean("<p>a<img src=\"mailfile:" + FOREIGN_FILE + "\" /></p>"));
         assertEquals("<p>a</p>", clean("<p>a<img src=\"mailfile:not-a-uuid\" /></p>"));
+        // the built-in logo is allowed for every tenant
+        assertEquals("<p>a<img src=\"mailfile:eegfaktura-logo\" /></p>", clean("<p>a<img src=\"mailfile:eegfaktura-logo\"></p>"));
         assertEquals("<p>a<img src=\"mailfile:" + OWN_FILE + "\" alt=\"Logo\" width=\"200\" /></p>",
                 clean("<p>a<img src=\"mailfile:" + OWN_FILE.toUpperCase() + "\" alt=\"Logo\" width=\"200\" onerror=\"x()\" /></p>"));
     }

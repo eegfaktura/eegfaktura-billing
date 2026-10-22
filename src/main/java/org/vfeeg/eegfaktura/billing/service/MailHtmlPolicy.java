@@ -43,6 +43,8 @@ public class MailHtmlPolicy {
 
     public static final String MAILFILE_SCHEME = "mailfile";
     public static final String PLACEHOLDER_ATTRIBUTE = "data-ph";
+    /** Built-in image every tenant may use ({@code mailfile:eegfaktura-logo}), as in eegfaktura-backend. */
+    public static final String BUILTIN_LOGO_ID = "eegfaktura-logo";
 
     private static final Pattern PLACEHOLDER_KEY = Pattern.compile("[A-Za-z][A-Za-z0-9.]{0,63}");
     private static final Pattern MAILFILE_SRC = Pattern.compile(
@@ -141,10 +143,13 @@ public class MailHtmlPolicy {
         return null;
     }
 
-    /** The lowercase file id of a {@code mailfile:<uuid>} src, or null. */
+    /** The lowercase file id of a {@code mailfile:<uuid>} src, the built-in logo id, or null. */
     public static String mailfileId(String src) {
         if (src == null) {
             return null;
+        }
+        if ((MAILFILE_SCHEME + ":" + BUILTIN_LOGO_ID).equalsIgnoreCase(src.trim())) {
+            return BUILTIN_LOGO_ID;
         }
         var matcher = MAILFILE_SRC.matcher(src.trim());
         return matcher.matches() ? matcher.group(1).toLowerCase(Locale.ROOT) : null;
@@ -199,7 +204,7 @@ public class MailHtmlPolicy {
         }
         if (MAILFILE_SCHEME.equals(scheme)) {
             String id = mailfileId(trimmed);
-            return id != null && allowedFileIds != null && allowedFileIds.contains(id)
+            return id != null && (BUILTIN_LOGO_ID.equals(id) || allowedFileIds != null && allowedFileIds.contains(id))
                     ? MAILFILE_SCHEME + ":" + id : null;
         }
         return trimmed;

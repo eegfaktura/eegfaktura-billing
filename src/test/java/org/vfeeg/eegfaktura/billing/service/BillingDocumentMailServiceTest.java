@@ -135,8 +135,8 @@ class BillingDocumentMailServiceTest {
         assertTrue(text.contains("Mit lieben Grüßen,"), text);
         assertTrue(text.contains("EEG Sonnenschein"), text);
         assertTrue(text.contains("Sitz: Musterdorf\nZVR 123"), text);
-        assertTrue(sent.html().contains("src=\"cid:attachment-logo.png\""), sent.html());
-        assertEquals("attachment-logo.png", sent.inline().get(0).contentId());
+        assertTrue(sent.html().contains("src=\"cid:eegfaktura-logo-1\""), sent.html());
+        assertEquals("eegfaktura-logo-1", sent.inline().get(0).contentId());
         assertTrue(sent.attachments().containsKey("Rechnung-1.pdf"));
         assertFalse(protocol.contains("HINWEIS"), protocol);
     }
@@ -187,7 +187,7 @@ class BillingDocumentMailServiceTest {
         assertTrue(sent.html().contains("Hauptplatz 1<br />1234 Musterdorf<br />E-Mail: office&#64;sonnenschein.example")
                 || sent.html().contains("Hauptplatz 1<br />1234 Musterdorf<br />E-Mail: office@sonnenschein.example"), sent.html());
         assertTrue(sent.html().contains("src=\"cid:mailfile-" + imageId + "\""), sent.html());
-        assertFalse(sent.html().contains("attachment-logo.png"), "no eegfaktura logo on a custom text");
+        assertFalse(sent.html().contains("eegfaktura-logo"), "no eegfaktura logo unless the text uses it");
         assertEquals(1, sent.inline().size());
         assertEquals("image/png", sent.inline().get(0).mimeType());
         assertTrue(sent.attachments().containsKey("Rechnung-1.pdf"));

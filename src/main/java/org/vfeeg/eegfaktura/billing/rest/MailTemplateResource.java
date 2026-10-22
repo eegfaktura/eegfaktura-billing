@@ -28,7 +28,7 @@ import org.vfeeg.eegfaktura.billing.security.TenantContext;
 import org.vfeeg.eegfaktura.billing.service.MailTemplateService;
 
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 
 /**
  * EEG-editable mail texts of billing (konzept-mail-texte-editierbar.md, section H; same schema as
@@ -91,7 +91,7 @@ public class MailTemplateResource {
 
     @GetMapping(value = "/{key}/files/{id}", produces = MediaType.ALL_VALUE)
     public ResponseEntity<byte[]> file(@PathVariable(name = "key") final String key,
-                                       @PathVariable(name = "id") final UUID id) {
+                                       @PathVariable(name = "id") final String id) {
         MailTemplateService.FileContent content = mailTemplateService.file(requestTenant(), key, id);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(content.mimeType()))
@@ -102,7 +102,7 @@ public class MailTemplateResource {
     @DeleteMapping("/{key}/files/{id}")
     @ApiResponse(responseCode = "204")
     public ResponseEntity<Void> deleteFile(@PathVariable(name = "key") final String key,
-                                           @PathVariable(name = "id") final UUID id) {
+                                           @PathVariable(name = "id") final String id) {
         mailTemplateService.deleteFile(requestTenant(), key, id);
         return ResponseEntity.noContent().build();
     }
@@ -133,6 +133,11 @@ public class MailTemplateResource {
         String field = e instanceof MethodArgumentTypeMismatchException mismatch ? mismatch.getName() : "body";
         return ResponseEntity.badRequest().body(new ValidationErrors(
                 List.of(new ValidationError(field, "Ungültige Anfrage."))));
+    }
+
+    @ExceptionHandler(MailTemplateService.TestMailFailedException.class)
+    public ResponseEntity<Map<String, String>> handleTestMailFailed(final MailTemplateService.TestMailFailedException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("message", e.getMessage()));
     }
 
     @ExceptionHandler(MailTemplateService.ConflictException.class)

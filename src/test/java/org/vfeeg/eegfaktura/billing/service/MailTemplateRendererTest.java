@@ -48,6 +48,6 @@ class MailTemplateRendererTest {
         String html = renderer.renderBody("<p>A<span data-ph=\"eeg.name\">Name</span>B</p>",
                 Set.of(), Map.of(), keys, Set.of(), id -> null);
         assertEquals("<p>AB</p>", html);
-        assertTrue(renderer.frame(html, null).contains("<p>AB</p>"));
+        assertTrue(renderer.frame(html).contains("<p>AB</p>"));
     }
 }
