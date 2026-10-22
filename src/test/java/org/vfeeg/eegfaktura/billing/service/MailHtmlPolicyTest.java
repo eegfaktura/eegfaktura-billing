@@ -113,6 +113,19 @@ class MailHtmlPolicyTest {
     }
 
     @Test
+    @DisplayName("{{ is broken up in text and attribute values, as OWASP's renderer does")
+    void doubleBracesBrokenUp() {
+        assertEquals("<p>{<!-- -->{x}}</p>", clean("<p>{{x}}</p>"));
+        assertEquals("<p>{<!-- -->{<!-- -->{</p>", clean("<p>{{{</p>"));
+        String link = clean("<p><a href=\"https://x.example/?t={{1}}\">x</a></p>");
+        // OWASP's URL policy already percent-encodes braces in a link
+        assertTrue(link.contains("href=\"https://x.example/?t=%7b%7b1%7d%7d\""), link);
+        assertTrue(clean("<p><img src=\"mailfile:eegfaktura-logo\" alt=\"{{x}}\" /></p>").contains("alt=\"{&#123;x}}\""));
+        // re-rendering stored text keeps it broken up
+        assertEquals("<p>{<!-- -->{x}}</p>", policy.walk("<p>{<!-- -->{x}}</p>", out -> out));
+    }
+
+    @Test
     @DisplayName("inspect finds placeholders and images; unknown keys are kept for the 400 check")
     void inspect() {
         String html = clean("<p><span data-ph=\"member.unknown\">x</span><img src=\"mailfile:" + OWN_FILE + "\" /></p>");

@@ -282,6 +282,8 @@ public class MailHtmlPolicy {
     private static final class Writer implements HtmlStreamEventReceiver {
         private static final Set<String> VOID = Set.of("br", "img");
         private final StringBuilder out;
+        /** The text written last ended with "{" (text can arrive in several chunks). */
+        private boolean textEndsWithBrace;
 
         Writer(StringBuilder out) {
             this.out = out;
@@ -292,6 +294,7 @@ public class MailHtmlPolicy {
 
         @Override
         public void openTag(String name, List<String> attrs) {
+            textEndsWithBrace = false;
             out.append('<').append(name);
             for (int i = 0; i + 1 < attrs.size(); i += 2) {
                 out.append(' ').append(attrs.get(i)).append("=\"");
@@ -304,13 +307,20 @@ public class MailHtmlPolicy {
         @Override
         public void closeTag(String name) {
             if (!VOID.contains(name)) {
+                textEndsWithBrace = false;
                 out.append("</").append(name).append('>');
             }
         }
 
         @Override
         public void text(String text) {
+            if (textEndsWithBrace && text.startsWith("{")) {
+                out.append("<!-- -->");
+            }
             escape(text, false);
+            if (!text.isEmpty()) {
+                textEndsWithBrace = text.endsWith("{");
+            }
         }
 
         private void escape(String s, boolean attribute) {
@@ -322,6 +332,20 @@ public class MailHtmlPolicy {
                     case '>' -> out.append("&gt;");
                     case '"' -> out.append(attribute ? "&#34;" : "\"");
                     case '\'' -> out.append(attribute ? "&#39;" : "'");
+                    // "{{" is broken up, as OWASP's renderer does (defence in depth against
+                    // template engines further down the line): in text by an empty comment,
+                    // in an attribute value by an entity for the second brace
+                    case '{' -> {
+                        boolean second = i > 0 && s.charAt(i - 1) == '{';
+                        if (second && attribute) {
+                            out.append("&#123;");
+                        } else {
+                            out.append('{');
+                            if (!attribute && i + 1 < s.length() && s.charAt(i + 1) == '{') {
+                                out.append("<!-- -->");
+                            }
+                        }
+                    }
                     default -> out.append(c);
                 }
             }
