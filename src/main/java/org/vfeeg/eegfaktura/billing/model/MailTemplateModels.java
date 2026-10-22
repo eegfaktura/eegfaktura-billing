@@ -32,13 +32,13 @@ public final class MailTemplateModels {
     public record SaveRequest(String subject, String bodyHtml, Integer version, String attachmentFileId) {
     }
 
-    public record PreviewRequest(String subject, String bodyHtml) {
+    public record PreviewRequest(String subject, String bodyHtml, String attachmentFileId) {
     }
 
     public record Preview(String subject, String html) {
     }
 
-    public record TestRequest(String recipient, String subject, String bodyHtml) {
+    public record TestRequest(String recipient, String subject, String bodyHtml, String attachmentFileId) {
     }
 
     public record TestResult(String sentTo) {

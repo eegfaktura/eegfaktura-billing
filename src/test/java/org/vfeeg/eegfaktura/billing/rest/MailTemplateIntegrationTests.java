@@ -384,6 +384,14 @@ class MailTemplateIntegrationTests {
                                 "attachmentFileId", UUID.randomUUID().toString())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("attachmentFileId"));
+        mvc.perform(as(post(BASE + KEY + "/preview"), "admin", TENANT_B).contentType(MediaType.APPLICATION_JSON)
+                        .content(body("subject", "x", "bodyHtml", "<p>a</p>", "attachmentFileId", null)))
+                .andExpect(status().isOk());
+        mvc.perform(as(post(BASE + KEY + "/preview"), "admin", TENANT_B).contentType(MediaType.APPLICATION_JSON)
+                        .content(body("subject", "x", "bodyHtml", "<p>a</p>",
+                                "attachmentFileId", UUID.randomUUID().toString())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("attachmentFileId"));
 
         // preview: own image as data: URI, sample member
         mvc.perform(as(post(BASE + KEY + "/preview"), "admin", TENANT_B).contentType(MediaType.APPLICATION_JSON)

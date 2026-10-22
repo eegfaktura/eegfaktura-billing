@@ -278,9 +278,7 @@ public class MailTemplateService {
         if (request.version() == null || request.version() < 0) {
             throw new ValidationException("version", "Version fehlt.");
         }
-        if (request.attachmentFileId() != null && entry.limits().maxAttachments() == 0) {
-            throw new ValidationException("attachmentFileId", "Für diese E-Mail ist kein Anhang möglich.");
-        }
+        noAttachment(entry, request.attachmentFileId());
 
         Optional<BillingMailTemplate> existing = templateRepository.lockByTenantIdAndMailKey(tenant, key);
         existing.ifPresent(t -> TenantContext.validateTenant(t.getTenantId()));
@@ -480,10 +478,18 @@ public class MailTemplateService {
     public Preview preview(String requestTenant, String key, PreviewRequest request) {
         String tenant = normalizeTenant(requestTenant);
         MailTemplateCatalog.Entry entry = entry(key);
+        noAttachment(entry, request == null ? null : request.attachmentFileId());
         Prepared prepared = prepareUnsaved(tenant, entry,
                 request == null ? null : request.subject(), request == null ? null : request.bodyHtml());
         RenderedMail mail = render(prepared, sampleValues(tenant), false);
         return new Preview(mail.subject(), mail.html());
+    }
+
+    /** billing-document has no extra PDF: attachmentFileId (section H) may only be absent/null. */
+    private static void noAttachment(MailTemplateCatalog.Entry entry, String attachmentFileId) {
+        if (attachmentFileId != null && entry.limits().maxAttachments() == 0) {
+            throw new ValidationException("attachmentFileId", "Für diese E-Mail ist kein Anhang möglich.");
+        }
     }
 
     public TestResult sendTest(String requestTenant, String key, TestRequest request, String loginEmail) {
@@ -492,6 +498,7 @@ public class MailTemplateService {
         if (request == null) {
             throw new ValidationException("recipient", "Empfänger fehlt.");
         }
+        noAttachment(entry, request.attachmentFileId());
         Prepared prepared = prepareUnsaved(tenant, entry, request.subject(), request.bodyHtml());
         String to;
         if (RECIPIENT_ME.equals(request.recipient())) {
