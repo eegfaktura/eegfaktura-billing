@@ -33,11 +33,19 @@ public class MailTemplateCatalog {
             return placeholders.stream().map(Placeholder::key).collect(Collectors.toSet());
         }
 
+        /** Placeholders whose value is HTML (sanitized when rendered, not escaped). */
+        public Set<String> htmlKeys() {
+            return HTML_VALUES;
+        }
+
         public Set<String> blockKeys() {
             return placeholders.stream().filter(Placeholder::block).map(Placeholder::key)
                     .collect(Collectors.toSet());
         }
     }
+
+    /** billing.footerText is HTML in the PDF (markup="html"), so it is HTML in the mail too. */
+    private static final Set<String> HTML_VALUES = Set.of("billing.footerText");
 
     public static final int MAX_SUBJECT_LENGTH = 200;
     public static final int MAX_BODY_BYTES = 100 * 1024;

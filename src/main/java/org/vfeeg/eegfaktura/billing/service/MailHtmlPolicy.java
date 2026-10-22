@@ -7,6 +7,7 @@ import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.HtmlSanitizer;
 import org.owasp.html.HtmlStreamEventReceiver;
 import org.owasp.html.HtmlStreamRenderer;
+import org.owasp.html.PolicyFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -74,6 +75,39 @@ public class MailHtmlPolicy {
         if (elements.isEmpty()) {
             throw new IllegalStateException("mail-html-policy.json has no elements");
         }
+        fragmentPolicy = builder(Set.of()).toFactory();
+    }
+
+    /** Policy for HTML values without own images (e.g. the footer text), built once. */
+    private final PolicyFactory fragmentPolicy;
+
+    /** Sanitizes an HTML value (no mailfile images except the built-in logo). */
+    public String sanitizeFragment(String html) {
+        return fragmentPolicy.sanitize(html == null ? "" : html);
+    }
+
+    /**
+     * Passes the elements and text of already sanitized HTML to {@code out}, without document
+     * events; images are left out (a value has no images of its own).
+     */
+    public void forward(String sanitizedHtml, HtmlStreamEventReceiver out) {
+        HtmlSanitizer.sanitize(sanitizedHtml == null ? "" : sanitizedHtml, new HtmlSanitizer.Policy() {
+            @Override public void openDocument() { }
+            @Override public void closeDocument() { }
+            @Override public void openTag(String name, List<String> attrs) {
+                if (!"img".equals(name)) {
+                    out.openTag(name, attrs);
+                }
+            }
+            @Override public void closeTag(String name) {
+                if (!"img".equals(name)) {
+                    out.closeTag(name);
+                }
+            }
+            @Override public void text(String text) {
+                out.text(text);
+            }
+        });
     }
 
     private static void readListMap(JsonNode node, Map<String, List<String>> target) {

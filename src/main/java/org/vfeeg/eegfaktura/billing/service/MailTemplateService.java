@@ -629,9 +629,9 @@ public class MailTemplateService {
             }
             return "cid:" + contentId;
         };
-        String subject = renderer.renderSubject(prepared.subject(), values, entry.placeholderKeys());
+        String subject = renderer.renderSubject(prepared.subject(), values, entry.placeholderKeys(), entry.htmlKeys());
         String body = renderer.renderBody(prepared.bodyHtml(), values,
-                entry.placeholderKeys(), entry.blockKeys(), imageSrc);
+                entry.placeholderKeys(), entry.blockKeys(), entry.htmlKeys(), imageSrc);
         return new RenderedMail(subject, renderer.frame(body), inlineImages);
     }
 

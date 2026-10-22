@@ -76,7 +76,8 @@ public class MailTemplateRenderer {
      *
      * @throws IllegalStateException for a placeholder that is not in {@code knownKeys}
      */
-    public String renderSubject(String subject, Map<String, String> values, Set<String> knownKeys) {
+    public String renderSubject(String subject, Map<String, String> values, Set<String> knownKeys,
+                                Set<String> htmlKeys) {
         Matcher matcher = SUBJECT_PLACEHOLDER.matcher(subject == null ? "" : subject);
         StringBuilder sb = new StringBuilder();
         while (matcher.find()) {
@@ -85,6 +86,9 @@ public class MailTemplateRenderer {
                 throw new IllegalStateException("unknown placeholder in subject: " + key);
             }
             String value = values.get(key);
+            if (value != null && htmlKeys.contains(key)) {
+                value = EmailService.htmlToPlainText(mailHtmlPolicy.sanitizeFragment(value));
+            }
             matcher.appendReplacement(sb, Matcher.quoteReplacement(value == null ? "" : value));
         }
         matcher.appendTail(sb);
@@ -100,10 +104,10 @@ public class MailTemplateRenderer {
      * @param imageSrc maps a mailfile id to the src to use; null drops the image
      * @throws IllegalStateException for a placeholder that is not in {@code knownKeys}
      */
-    public String renderBody(String sanitizedBody, Map<String, String> values,
-                             Set<String> knownKeys, Set<String> blockKeys, Function<String, String> imageSrc) {
+    public String renderBody(String sanitizedBody, Map<String, String> values, Set<String> knownKeys,
+                             Set<String> blockKeys, Set<String> htmlKeys, Function<String, String> imageSrc) {
         return mailHtmlPolicy.walk(sanitizedBody,
-                out -> new Substitution(out, values, knownKeys, blockKeys, imageSrc));
+                out -> new Substitution(mailHtmlPolicy, out, values, knownKeys, blockKeys, htmlKeys, imageSrc));
     }
 
     /** The complete mail HTML: the fixed frame around the rendered body. */
@@ -113,7 +117,9 @@ public class MailTemplateRenderer {
 
     /** Replaces placeholder elements and image sources on the way to the renderer. */
     private static final class Substitution implements HtmlStreamEventReceiver {
+        private final MailHtmlPolicy policy;
         private final HtmlStreamEventReceiver out;
+        private final Set<String> htmlKeys;
         private final Map<String, String> values;
         private final Set<String> knownKeys;
         private final Set<String> blockKeys;
@@ -121,8 +127,11 @@ public class MailTemplateRenderer {
         /** > 0 while inside a placeholder element whose content is replaced. */
         private int skipDepth;
 
-        Substitution(HtmlStreamEventReceiver out, Map<String, String> values, Set<String> knownKeys,
-                     Set<String> blockKeys, Function<String, String> imageSrc) {
+        Substitution(MailHtmlPolicy policy, HtmlStreamEventReceiver out, Map<String, String> values,
+                     Set<String> knownKeys, Set<String> blockKeys, Set<String> htmlKeys,
+                     Function<String, String> imageSrc) {
+            this.policy = policy;
+            this.htmlKeys = htmlKeys;
             this.out = out;
             this.values = values;
             this.knownKeys = knownKeys;
@@ -180,7 +189,13 @@ public class MailTemplateRenderer {
             if (value == null || value.isEmpty()) {
                 return; // a placeholder without value renders as empty text, never as the raw key
             }
-            // line breaks in a value (e.g. the footer text) become <br>; block placeholders
+            if (htmlKeys.contains(key)) {
+                // an HTML value (the footer text, HTML in the PDF as well): through the same
+                // allowlist, not escaped; line breaks become <br>
+                policy.forward(policy.sanitizeFragment(value.replace("\r\n", "\n").replace("\n", "<br>")), out);
+                return;
+            }
+            // line breaks in a value become <br>; block placeholders
             // written as <div> stay a block
             boolean div = "div".equals(element) && blockKeys.contains(key);
             if (div) {
