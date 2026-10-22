@@ -441,10 +441,12 @@ public class MailTemplateService {
                 throw new ValidationException("recipient", "Für dein Login ist keine E-Mail-Adresse hinterlegt.");
             }
         } else if (RECIPIENT_EEG.equals(request.recipient())) {
+            // the EEG address comes from base.billing_masterdata, as in the billing run; that view
+            // has rows only for an EEG with participants, otherwise the address is not known here
             to = singleAddress(billingMasterdataRepository.findFirstByTenantIdIgnoreCase(tenant)
                     .map(BillingMasterdata::getEecEmail).orElse(null));
             if (to == null) {
-                throw new ValidationException("recipient", "Für die Gemeinschaft ist keine E-Mail-Adresse hinterlegt.");
+                throw new ValidationException("recipient", "Für die Gemeinschaft ist keine E-Mail-Adresse bekannt.");
             }
         } else {
             throw new ValidationException("recipient", "Empfänger muss me oder eeg sein.");

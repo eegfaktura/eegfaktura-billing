@@ -403,9 +403,11 @@ class MailTemplateIntegrationTests {
                         .content(body("recipient", "me", "subject", "x", "bodyHtml", "<p>a</p>")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("recipient"));
+        // tenant B has no participants, so no row in base.billing_masterdata
         mvc.perform(as(post(BASE + KEY + "/test"), "admin", TENANT_B).contentType(MediaType.APPLICATION_JSON)
                         .content(body("recipient", "eeg", "subject", "x", "bodyHtml", "<p>a</p>")))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].message").value("Für die Gemeinschaft ist keine E-Mail-Adresse bekannt."));
         mvc.perform(as(post(BASE + KEY + "/test"), "admin", TENANT_A).contentType(MediaType.APPLICATION_JSON)
                         .content(body("recipient", "attacker@example.com", "subject", "x", "bodyHtml", "<p>a</p>")))
                 .andExpect(status().isBadRequest());
