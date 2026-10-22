@@ -13,8 +13,6 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -332,6 +330,9 @@ public class MailHtmlPolicy {
         }
     }
 
+    /** https://host[/path|?query|#fragment] with a non-empty host and no whitespace anywhere. */
+    private static final Pattern HTTPS_WITH_HOST = Pattern.compile("(?i)https://[^/?#\\s]+([/?#]\\S*)?");
+
     /** img width: a number of pixels or a percentage, as in the backend. */
     private static final Pattern WIDTH = Pattern.compile("[0-9]{1,4}%?");
 
@@ -372,16 +373,10 @@ public class MailHtmlPolicy {
         if ("mailto".equals(scheme) && trimmed.substring(colon + 1).isBlank()) {
             return null; // mailto without address
         }
-        if ("https".equals(scheme)) {
-            // an https link needs a host (as in the backend), e.g. not "https:/path"
-            try {
-                String host = new URI(trimmed).getHost();
-                if (host == null || host.isEmpty()) {
-                    return null;
-                }
-            } catch (URISyntaxException e) {
-                return null;
-            }
+        if ("https".equals(scheme) && !HTTPS_WITH_HOST.matcher(trimmed).matches()) {
+            // an https link needs a host and no spaces (as in the backend), e.g. not "https:/path";
+            // java.net.URI is stricter than Go and would drop umlaut domains, "|" or "{" in a URL
+            return null;
         }
         return trimmed;
     }
