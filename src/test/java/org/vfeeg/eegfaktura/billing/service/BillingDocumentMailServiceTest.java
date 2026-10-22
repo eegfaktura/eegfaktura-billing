@@ -68,7 +68,7 @@ class BillingDocumentMailServiceTest {
         MailTemplateService mailTemplateService = new MailTemplateService(catalog, policy,
                 new MailTemplateRenderer(policy), templateRepository, templateFileRepository, fileDataRepository,
                 mock(BillingMasterdataRepository.class), mock(BillingConfigRepository.class), emailService,
-                new AppProperties());
+                new AppProperties(), mock(jakarta.persistence.EntityManager.class));
         service = new BillingDocumentMailService(emailService, documentFileRepository, fileDataRepository,
                 new AppProperties(), runRepository, documentRepository, mailTemplateService);
 

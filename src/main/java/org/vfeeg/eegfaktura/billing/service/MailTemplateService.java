@@ -1,6 +1,7 @@
 package org.vfeeg.eegfaktura.billing.service;
 
 import jakarta.mail.MessagingException;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -143,6 +144,7 @@ public class MailTemplateService {
     private final BillingConfigRepository billingConfigRepository;
     private final EmailService emailService;
     private final AppProperties appProperties;
+    private final EntityManager entityManager;
     private final byte[] defaultLogo;
 
     public MailTemplateService(MailTemplateCatalog catalog, MailHtmlPolicy mailHtmlPolicy,
@@ -151,7 +153,7 @@ public class MailTemplateService {
                                FileDataRepository fileDataRepository,
                                BillingMasterdataRepository billingMasterdataRepository,
                                BillingConfigRepository billingConfigRepository, EmailService emailService,
-                               AppProperties appProperties) {
+                               AppProperties appProperties, EntityManager entityManager) {
         this.catalog = catalog;
         this.mailHtmlPolicy = mailHtmlPolicy;
         this.renderer = renderer;
@@ -162,6 +164,7 @@ public class MailTemplateService {
         this.billingConfigRepository = billingConfigRepository;
         this.emailService = emailService;
         this.appProperties = appProperties;
+        this.entityManager = entityManager;
         try {
             this.defaultLogo = new ClassPathResource("eeg-faktura-logo.png").getContentAsByteArray();
         } catch (IOException e) {
@@ -174,6 +177,16 @@ public class MailTemplateService {
             throw new org.springframework.security.access.AccessDeniedException("No tenant");
         }
         return tenant.strip().toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Serializes uploads, saves and deletes of one mail (tenant + key) until the end of the
+     * transaction, so the file limits hold for parallel uploads (like the backend).
+     */
+    private void lockMail(String tenant, String key) {
+        entityManager.createNativeQuery("select 1 from (select pg_advisory_xact_lock(hashtext(?1))) l")
+                .setParameter(1, "billing_mail_template/" + tenant + "/" + key)
+                .getSingleResult();
     }
 
     private MailTemplateCatalog.Entry entry(String key) {
@@ -239,6 +252,7 @@ public class MailTemplateService {
         if (request == null) {
             throw new ValidationException("bodyHtml", "Kein Inhalt übergeben.");
         }
+        lockMail(tenant, key);
         List<BillingMailTemplateFile> files = loadFiles(tenant, key);
         Validated validated = validate(entry, request.subject(), request.bodyHtml(), imageIds(files));
         if (request.version() == null || request.version() < 0) {
@@ -287,6 +301,7 @@ public class MailTemplateService {
     public void reset(String requestTenant, String key) {
         String tenant = normalizeTenant(requestTenant);
         entry(key);
+        lockMail(tenant, key);
         loadTemplate(tenant, key).ifPresent(templateRepository::delete);
         loadFiles(tenant, key).forEach(this::deleteFile);
     }
@@ -320,6 +335,7 @@ public class MailTemplateService {
                         ? "Nur Bilder im Format PNG oder JPEG sind erlaubt."
                         : "Nur PDF-Dateien sind als Anhang erlaubt."));
 
+        lockMail(tenant, key);
         List<BillingMailTemplateFile> files = loadFiles(tenant, key);
         long sameKind = files.stream().filter(f -> kind.equals(f.getKind())).count();
         long total = files.stream().mapToLong(BillingMailTemplateFile::getSize).sum();
@@ -401,7 +417,9 @@ public class MailTemplateService {
         if (MailHtmlPolicy.BUILTIN_LOGO_ID.equals(fileId)) {
             throw new NotFoundException(); // built in, not deletable
         }
-        deleteFile(loadFile(tenant, key, parseFileId(fileId)));
+        UUID id = parseFileId(fileId);
+        lockMail(tenant, key);
+        deleteFile(loadFile(tenant, key, id));
     }
 
     private static UUID parseFileId(String fileId) {

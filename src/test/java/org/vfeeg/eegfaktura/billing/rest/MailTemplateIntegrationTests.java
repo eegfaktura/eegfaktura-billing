@@ -301,6 +301,38 @@ class MailTemplateIntegrationTests {
     }
 
     @Test
+    @DisplayName("Parallel uploads are serialized: the 500 KB limit holds")
+    void parallelUploadsKeepTheLimit() throws Exception {
+        String tenant = "TE500500";
+        when(jwtTokenService.validateTokenAndGetAuthentication("admin-p")).thenReturn(new JwtAuthentication("admin-p",
+                List.of(new Authority(tenant), new Authority("ROLE_EEG_ADMIN"))));
+        mvc.perform(as(delete(BASE + KEY), "admin-p", tenant)).andExpect(status().isNoContent());
+        byte[] image = Arrays.copyOf(PNG, 200 * 1024);
+        int parallel = 6;
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(parallel);
+        List<java.util.concurrent.Future<Integer>> results = new java.util.ArrayList<>();
+        for (int i = 0; i < parallel; i++) {
+            results.add(pool.submit(() -> {
+                start.await();
+                return mvc.perform(as(multipart(BASE + KEY + "/files")
+                                .file(new MockMultipartFile("file", "p.png", "image/png", image))
+                                .param("kind", "image"), "admin-p", tenant))
+                        .andReturn().getResponse().getStatus();
+            }));
+        }
+        start.countDown();
+        int created = 0;
+        for (var result : results) {
+            created += result.get() == 201 ? 1 : 0;
+        }
+        pool.shutdown();
+        assertEquals(2, created, "2 x 200 KB fit into 500 KB, a third does not");
+        assertEquals(2, read(mvc.perform(as(get(BASE + KEY), "admin-p", tenant))).get("files").size());
+        mvc.perform(as(delete(BASE + KEY), "admin-p", tenant)).andExpect(status().isNoContent());
+    }
+
+    @Test
     @DisplayName("PUT keeps referenced own images, drops foreign/unknown ones and deletes unreferenced files")
     void imagesInText() throws Exception {
         cleanup(TENANT_A);

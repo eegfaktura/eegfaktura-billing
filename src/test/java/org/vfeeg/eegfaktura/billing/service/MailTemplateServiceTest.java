@@ -41,7 +41,8 @@ class MailTemplateServiceTest {
         MailHtmlPolicy policy = new MailHtmlPolicy();
         service = new MailTemplateService(new MailTemplateCatalog(policy), policy, new MailTemplateRenderer(policy),
                 templateRepository, fileRepository, fileDataRepository, mock(BillingMasterdataRepository.class),
-                mock(BillingConfigRepository.class), mock(EmailService.class), new AppProperties());
+                mock(BillingConfigRepository.class), mock(EmailService.class), new AppProperties(),
+                mock(jakarta.persistence.EntityManager.class));
         TenantContext.setCurrentTenant(new Authority(TENANT));
         when(templateRepository.findByTenantIdAndMailKey(anyString(), anyString())).thenReturn(Optional.empty());
     }
