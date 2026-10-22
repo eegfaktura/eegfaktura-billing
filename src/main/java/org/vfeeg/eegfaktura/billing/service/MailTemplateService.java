@@ -443,8 +443,11 @@ public class MailTemplateService {
         } else if (RECIPIENT_EEG.equals(request.recipient())) {
             // the EEG address comes from base.billing_masterdata, as in the billing run; that view
             // has rows only for an EEG with participants, otherwise the address is not known here
-            to = singleAddress(billingMasterdataRepository.findFirstByTenantIdIgnoreCase(tenant)
-                    .map(BillingMasterdata::getEecEmail).orElse(null));
+            // a ';' list: every valid address, like the backend (sentTo = "a; b")
+            List<String> addresses = EmailAddressUtil.normalize(billingMasterdataRepository
+                            .findFirstByTenantIdIgnoreCase(tenant).map(BillingMasterdata::getEecEmail).orElse(null))
+                    .stream().filter(EmailAddressUtil::isValid).toList();
+            to = addresses.isEmpty() ? null : String.join("; ", addresses);
             if (to == null) {
                 throw new ValidationException("recipient", "Für die Gemeinschaft ist keine E-Mail-Adresse bekannt.");
             }

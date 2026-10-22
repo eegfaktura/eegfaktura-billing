@@ -420,7 +420,7 @@ class MailTemplateIntegrationTests {
         String tenant = "TE400400";
         if (billingConfigRepository.findFirstByTenantIdIgnoreCase(tenant).isEmpty()) {
             jdbcTemplate.update("insert into base.billing_masterdata (tenant_id, eec_name, eec_email) values (?, ?, ?)",
-                    "te400400", "EEG Kleinschreibung", "klein@example.com");
+                    "te400400", "EEG Kleinschreibung", "klein@example.com; kein-gueltiger ;obmann@example.com");
             BillingConfig config = new BillingConfig();
             config.setTenantId("te400400");
             config.setFooterText("Fuss <b>fett</b> &amp; mehr");
@@ -438,7 +438,8 @@ class MailTemplateIntegrationTests {
         mvc.perform(as(post(BASE + KEY + "/test"), "admin-c", tenant).contentType(MediaType.APPLICATION_JSON)
                         .content(body("recipient", "eeg", "subject", "x", "bodyHtml", "<p>a</p>")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sentTo").value("klein@example.com"));
+                .andExpect(jsonPath("$.sentTo").value("klein@example.com; obmann@example.com"));
+        assertEquals(2, sentMessage().getAllRecipients().length);
     }
 
     @Test
