@@ -95,12 +95,14 @@ public class MailTemplateRenderer {
      * The body HTML with placeholders replaced by their escaped values. Line breaks in a value
      * become {@code <br>}; a block placeholder written as {@code <div>} stays a {@code <div>}.
      *
-     * @param imageSrc maps a mailfile id (lowercase UUID) to the src to use; null drops the image
+     * @param sanitizedBody the body as {@link MailHtmlPolicy#sanitize} returned it (sanitized once,
+     *                      e.g. per send run; this method builds no policy)
+     * @param imageSrc maps a mailfile id to the src to use; null drops the image
      * @throws IllegalStateException for a placeholder that is not in {@code knownKeys}
      */
-    public String renderBody(String bodyHtml, Set<String> fileIds, Map<String, String> values,
+    public String renderBody(String sanitizedBody, Map<String, String> values,
                              Set<String> knownKeys, Set<String> blockKeys, Function<String, String> imageSrc) {
-        return mailHtmlPolicy.process(bodyHtml, fileIds,
+        return mailHtmlPolicy.walk(sanitizedBody,
                 out -> new Substitution(out, values, knownKeys, blockKeys, imageSrc));
     }
 

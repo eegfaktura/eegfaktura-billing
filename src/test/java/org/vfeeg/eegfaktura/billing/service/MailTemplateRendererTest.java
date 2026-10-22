@@ -29,7 +29,7 @@ class MailTemplateRendererTest {
     void unknownPlaceholderThrows() {
         assertThrows(IllegalStateException.class, () -> renderer.renderSubject("{member.iban}", Map.of(), keys));
         assertThrows(IllegalStateException.class, () -> renderer.renderBody(
-                "<p><span data-ph=\"member.iban\">x</span></p>", Set.of(), Map.of(), keys, Set.of(), id -> null));
+                "<p><span data-ph=\"member.iban\">x</span></p>", Map.of(), keys, Set.of(), id -> null));
     }
 
     @Test
@@ -37,7 +37,7 @@ class MailTemplateRendererTest {
         String html = renderer.renderBody(
                 "<p>Hallo <span data-ph=\"recipient.name\">Label <strong>fett</strong><br />x</span>!</p>"
                         + "<div data-ph=\"eeg.contactBlock\">Kontakt</div>",
-                Set.of(), Map.of("recipient.name", "<script>alert(1)</script>", "eeg.contactBlock", "Weg 1\n1234 Ort"),
+                Map.of("recipient.name", "<script>alert(1)</script>", "eeg.contactBlock", "Weg 1\n1234 Ort"),
                 keys, Set.of("eeg.contactBlock"), id -> null);
         assertEquals("<p>Hallo &lt;script&gt;alert(1)&lt;/script&gt;!</p><div>Weg 1<br />1234 Ort</div>", html);
         assertFalse(html.contains("Label"));
@@ -46,7 +46,7 @@ class MailTemplateRendererTest {
     @Test
     void missingValueIsEmptyNeverTheRawKey() {
         String html = renderer.renderBody("<p>A<span data-ph=\"eeg.name\">Name</span>B</p>",
-                Set.of(), Map.of(), keys, Set.of(), id -> null);
+                Map.of(), keys, Set.of(), id -> null);
         assertEquals("<p>AB</p>", html);
         assertTrue(renderer.frame(html).contains("<p>AB</p>"));
     }

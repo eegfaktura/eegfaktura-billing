@@ -86,18 +86,37 @@ public class MailHtmlPolicy {
 
     /** Sanitizes {@code html}; images are kept only for the given mailfile ids (lowercase UUIDs). */
     public String sanitize(String html, Set<String> allowedFileIds) {
-        return process(html, allowedFileIds, UnaryOperator.identity());
+        StringBuilder out = new StringBuilder(html == null ? 0 : html.length());
+        HtmlStreamRenderer renderer = HtmlStreamRenderer.create(out, badHtml -> { });
+        HtmlSanitizer.sanitize(html == null ? "" : html, builder(allowedFileIds).build(renderer));
+        return out.toString();
     }
 
     /**
-     * Sanitizes {@code html} and passes the filtered events through {@code wrap} before they are
-     * rendered — used to collect placeholders and images, or to replace them when sending.
+     * Re-renders already sanitized HTML, passing its events through {@code wrap} (to replace
+     * placeholders and image sources). No policy is built: callers sanitize once (e.g. once per
+     * send run) and walk the clean HTML per mail.
      */
-    public String process(String html, Set<String> allowedFileIds,
-                          UnaryOperator<HtmlStreamEventReceiver> wrap) {
-        StringBuilder out = new StringBuilder(html == null ? 0 : html.length());
-        HtmlStreamRenderer renderer = HtmlStreamRenderer.create(out, badHtml -> { });
-        HtmlSanitizer.sanitize(html == null ? "" : html, builder(allowedFileIds).build(wrap.apply(renderer)));
+    public String walk(String sanitizedHtml, UnaryOperator<HtmlStreamEventReceiver> wrap) {
+        StringBuilder out = new StringBuilder(sanitizedHtml == null ? 0 : sanitizedHtml.length());
+        HtmlStreamEventReceiver receiver = wrap.apply(HtmlStreamRenderer.create(out, badHtml -> { }));
+        HtmlSanitizer.sanitize(sanitizedHtml == null ? "" : sanitizedHtml, new HtmlSanitizer.Policy() {
+            @Override public void openDocument() {
+                receiver.openDocument();
+            }
+            @Override public void closeDocument() {
+                receiver.closeDocument();
+            }
+            @Override public void openTag(String name, List<String> attrs) {
+                receiver.openTag(name, attrs);
+            }
+            @Override public void closeTag(String name) {
+                receiver.closeTag(name);
+            }
+            @Override public void text(String text) {
+                receiver.text(text);
+            }
+        });
         return out.toString();
     }
 

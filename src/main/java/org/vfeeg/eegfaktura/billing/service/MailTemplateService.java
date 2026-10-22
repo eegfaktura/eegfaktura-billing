@@ -592,7 +592,9 @@ public class MailTemplateService {
             List<BillingMailTemplateFile> files =
                     fileRepository.findByTenantIdAndMailKeyOrderByDateCreated(tenant, MailTemplateCatalog.BILLING_DOCUMENT);
             Map<String, StoredImage> images = loadImages(files, imageIds(files));
-            Prepared prepared = new Prepared(true, entry, template.getSubject(), template.getBodyHtml(), images, null);
+            // sanitized once per run (defence in depth for stored rows); per mail only a re-render
+            String body = mailHtmlPolicy.sanitize(template.getBodyHtml(), images.keySet());
+            Prepared prepared = new Prepared(true, entry, template.getSubject(), body, images, null);
             render(prepared, Map.of(), true); // dry run: fails here instead of per mail
             return prepared;
         } catch (RuntimeException e) {
@@ -628,7 +630,7 @@ public class MailTemplateService {
             return "cid:" + contentId;
         };
         String subject = renderer.renderSubject(prepared.subject(), values, entry.placeholderKeys());
-        String body = renderer.renderBody(prepared.bodyHtml(), prepared.images().keySet(), values,
+        String body = renderer.renderBody(prepared.bodyHtml(), values,
                 entry.placeholderKeys(), entry.blockKeys(), imageSrc);
         return new RenderedMail(subject, renderer.frame(body), inlineImages);
     }

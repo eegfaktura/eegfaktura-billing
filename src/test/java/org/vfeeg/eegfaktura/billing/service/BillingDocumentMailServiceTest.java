@@ -33,6 +33,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,13 +56,16 @@ class BillingDocumentMailServiceTest {
     private final BillingMailTemplateFileRepository templateFileRepository = mock(BillingMailTemplateFileRepository.class);
 
     private BillingDocumentMailService service;
+    private MailHtmlPolicy policy;
     private BillingRun run;
     private BillingDocument document;
 
     @BeforeEach
     void setUp() throws Exception {
-        MailHtmlPolicy policy = new MailHtmlPolicy();
-        MailTemplateService mailTemplateService = new MailTemplateService(new MailTemplateCatalog(policy), policy,
+        MailHtmlPolicy realPolicy = new MailHtmlPolicy();
+        MailTemplateCatalog catalog = new MailTemplateCatalog(realPolicy);
+        policy = spy(realPolicy);
+        MailTemplateService mailTemplateService = new MailTemplateService(catalog, policy,
                 new MailTemplateRenderer(policy), templateRepository, templateFileRepository, fileDataRepository,
                 mock(BillingMasterdataRepository.class), mock(BillingConfigRepository.class), emailService,
                 new AppProperties());
@@ -191,6 +196,26 @@ class BillingDocumentMailServiceTest {
         assertEquals(1, sent.inline().size());
         assertEquals("image/png", sent.inline().get(0).mimeType());
         assertTrue(sent.attachments().containsKey("Rechnung-1.pdf"));
+    }
+
+    @Test
+    @DisplayName("The stored text is sanitized once per run, not per mail")
+    void sanitizedOncePerRun() throws Exception {
+        stored("Hallo", "<p>Hallo <span data-ph=\"recipient.name\">x</span></p>");
+        BillingDocument second = new BillingDocument();
+        second.setId(UUID.randomUUID());
+        second.setRecipientEmail("erika@example.com");
+        second.setIssuerMail("office@sonnenschein.example");
+        second.setBillingDocumentType(BillingDocumentType.INVOICE);
+        when(documentRepository.findByBillingRunId(run.getId())).thenReturn(List.of(document, second));
+        List<BillingDocumentFile> pdf = documentFileRepository.findByBillingDocumentId(document.getId());
+        when(documentFileRepository.findByBillingDocumentId(second.getId())).thenReturn(pdf);
+
+        service.sendAllBillingDocuments(run.getId());
+
+        verify(emailService, times(2)).sendEmail(anyString(), anyString(), any(), anyString(), anyString(),
+                any(List.class), any(Map.class));
+        verify(policy, times(1)).sanitize(any(), any());
     }
 
     @Test
