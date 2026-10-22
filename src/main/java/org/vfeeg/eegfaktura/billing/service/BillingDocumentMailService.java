@@ -1,15 +1,8 @@
 package org.vfeeg.eegfaktura.billing.service;
 
-import freemarker.cache.ClassTemplateLoader;
-import freemarker.cache.TemplateLoader;
-import freemarker.template.Configuration;
-import freemarker.template.Template;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
-import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
-import org.springframework.web.servlet.view.freemarker.FreeMarkerConfigurer;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
@@ -19,10 +12,10 @@ import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
 import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
 import org.vfeeg.eegfaktura.billing.util.AppProperties;
-import org.vfeeg.eegfaktura.billing.util.ClearingPeriodIdentifierTool;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,60 +26,41 @@ import java.util.UUID;
 @Slf4j
 public class BillingDocumentMailService {
 
-    public static final String ATTACHMENT_LOGO_NAME = "attachment-logo.png";
-    private Template defaultTemplate;
+    /** Run protocol note when the EEG's mail text could not be used (concept: default + notice). */
+    static final String TEMPLATE_FALLBACK_NOTE = "HINWEIS: Die angepasste E-Mail-Vorlage konnte nicht verwendet "
+            + "werden, es wurde der Standardtext versendet. ";
 
-    private byte[] defaultLogo;
     private final EmailService emailService;
     private final BillingDocumentFileRepository billingDocumentFileRepository;
     private final FileDataRepository fileDataRepository;
     private final AppProperties appProperties;
     private final BillingRunRepository billingRunRepository;
     private final BillingDocumentRepository billingDocumentRepository;
+    private final MailTemplateService mailTemplateService;
 
     public BillingDocumentMailService(final EmailService emailservice,
                                       final BillingDocumentFileRepository billingDocumentFileRepository,
                                       final FileDataRepository fileDataRepository,
                                       final AppProperties appProperties,
                                       BillingRunRepository billingRunRepository,
-                                      BillingDocumentRepository billingDocumentRepository) {
+                                      BillingDocumentRepository billingDocumentRepository,
+                                      MailTemplateService mailTemplateService) {
         this.emailService = emailservice;
         this.billingDocumentFileRepository = billingDocumentFileRepository;
         this.fileDataRepository = fileDataRepository;
         this.appProperties = appProperties;
         this.billingRunRepository = billingRunRepository;
         this.billingDocumentRepository = billingDocumentRepository;
+        this.mailTemplateService = mailTemplateService;
     }
 
-    private byte[] getDefaultLogo()  {
-        if (defaultLogo==null) {
-            try {
-                defaultLogo = new ClassPathResource("eeg-faktura-logo.png").getContentAsByteArray();
-            } catch (Exception e) {
-                defaultLogo = null;
-            }
-        }
-        return defaultLogo;
-    }
-
-    private Template getDefaultTemplate() {
-        if (defaultTemplate == null) {
-            try {
-                Configuration configuration = new Configuration(Configuration.VERSION_2_3_27);
-                TemplateLoader templateLoader = new ClassTemplateLoader(this.getClass(), "/");
-                configuration.setTemplateLoader(templateLoader);
-                FreeMarkerConfigurer freeMarkerConfigurer = new FreeMarkerConfigurer();
-                freeMarkerConfigurer.setConfiguration(configuration);
-                defaultTemplate = freeMarkerConfigurer.getConfiguration()
-                        .getTemplate("BillingEmailDefaultTemplate.ftl");
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to create and save PDF for BillingDocument due to "+e.getMessage(), e);
-            }
-        }
-        return defaultTemplate;
-    }
-
-    private List<String> createAndSendMail(BillingDocument billingDocument) {
+    /**
+     * Sends one document. Subject and text come from the EEG's mail text (or the default), with the
+     * placeholder values escaped; the document PDF is always attached. Returns true if the stored
+     * text could not be rendered for this document and the default was sent instead.
+     */
+    private boolean createAndSendMail(BillingDocument billingDocument, MailTemplateService.Prepared prepared,
+                                      List<String> rejected) {
 
         try {
             List<BillingDocumentFile> billingDocumentFiles = billingDocumentFileRepository.findByBillingDocumentId(
@@ -104,36 +78,33 @@ public class BillingDocumentMailService {
             Map<String, byte[]> attachments = new HashMap<>();
             attachments.put(fileData.getName(), fileData.getData());
 
-            Template freemarkerTemplate = getDefaultTemplate();
-            Map<String, Object> templateModel = new HashMap<>();
-            templateModel.put("recipientName", billingDocument.getRecipientName());
-            templateModel.put("billingDocumentType", BillingDocument.getDocumentTypeName(
-                    billingDocument.getBillingDocumentType()));
-            templateModel.put("clearingPeriodIdentifier", ClearingPeriodIdentifierTool.asText(billingDocument.getClearingPeriodIdentifier()));
-            templateModel.put("issuerName", billingDocument.getIssuerName());
-            templateModel.put("footerText", billingDocument.getFooterText());
-
-            byte[] logo = getDefaultLogo();
-            if (logo !=null) {
-                attachments.put(ATTACHMENT_LOGO_NAME, getDefaultLogo());
-                templateModel.put("logoName", ATTACHMENT_LOGO_NAME);
+            Map<String, String> values = MailTemplateService.values(billingDocument);
+            MailTemplateService.RenderedMail mail;
+            boolean fellBack = false;
+            try {
+                mail = mailTemplateService.render(prepared, values, true);
+            } catch (RuntimeException e) {
+                if (!prepared.customized()) {
+                    throw e;
+                }
+                // a member never gets a broken or no mail because of an EEG text
+                log.warn("Stored mail text not renderable for document {}, sending the default: {}",
+                        billingDocument.getId(), e.getMessage());
+                mail = mailTemplateService.renderDefault(values);
+                fellBack = true;
             }
 
             String to = billingDocument.getRecipientEmail();
             String cc = billingDocument.getIssuerMail();
             String from = appProperties.getNoReplyTo();
-            String issuer = billingDocument.getIssuerName();
-            String subject = BillingDocument.getDocumentTypeName(
-                    billingDocument.getBillingDocumentType()) + " " + billingDocument.getClearingPeriodIdentifier()
-                    + (issuer != null && !issuer.isBlank() ? " - " + issuer : "");
-            String htmlBody = FreeMarkerTemplateUtils.processTemplateIntoString(freemarkerTemplate, templateModel);
 
             // Rejected parts are NOT a failed send — the mail went out to
             // the valid recipients. Reporting them as FEHLER would trigger
             // manual re-sends (duplicate invoices); they surface as a
             // warning in the run protocol instead.
-            return emailService.sendEmail(
-                    from,to, cc, subject, htmlBody, attachments);
+            rejected.addAll(emailService.sendEmail(
+                    from, to, cc, mail.subject(), mail.html(), mail.inlineImages(), attachments));
+            return fellBack;
         } catch (Exception e) {
             throw new RuntimeException("Mailversand ("+billingDocument.getRecipientEmail()+") fehlgeschlagen aufgrund: "+e.getMessage(), e);
         }
@@ -155,15 +126,25 @@ public class BillingDocumentMailService {
             billingRunRepository.saveAndFlush(billingRun);
         }
 
-        //@TODO: Für EEG passendes Logo holen und verwenden (aus BillingConfig)
         List<BillingDocument> billingDocuments = billingDocumentRepository.findByBillingRunId(billingRunId);
+        // the EEG's mail text is loaded once per run (also: a change during the run does not apply)
+        MailTemplateService.Prepared prepared = mailTemplateService.prepareForSend(billingRun.getTenantId());
+        boolean templateFallbackNoted = false;
         StringBuilder sendProtocolStringBuilder = new StringBuilder();
         sendProtocolStringBuilder.append("Send mail start at ")
                 .append(OffsetDateTime.now())
                 .append(": ");
+        if (prepared.failure() != null) {
+            sendProtocolStringBuilder.append(TEMPLATE_FALLBACK_NOTE);
+            templateFallbackNoted = true;
+        }
         for(BillingDocument billingDocument : billingDocuments) {
             try {
-                var rejected = createAndSendMail(billingDocument);
+                List<String> rejected = new ArrayList<>();
+                if (createAndSendMail(billingDocument, prepared, rejected) && !templateFallbackNoted) {
+                    sendProtocolStringBuilder.append(TEMPLATE_FALLBACK_NOTE);
+                    templateFallbackNoted = true;
+                }
                 sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" OK");
                 if (!rejected.isEmpty()) {
                     // Delivered, but some address parts (e.g. an invalid cc)
