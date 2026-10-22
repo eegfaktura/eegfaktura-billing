@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
@@ -25,7 +26,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.vfeeg.eegfaktura.billing.domain.BillingConfig;
 import org.vfeeg.eegfaktura.billing.domain.BillingMailTemplate;
+import org.vfeeg.eegfaktura.billing.repos.BillingConfigRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingMailTemplateRepository;
 import org.vfeeg.eegfaktura.billing.security.Authority;
 import org.vfeeg.eegfaktura.billing.security.JwtAuthentication;
@@ -105,6 +108,12 @@ class MailTemplateIntegrationTests {
 
     @Autowired
     MailTemplateService mailTemplateService;
+
+    @Autowired
+    BillingConfigRepository billingConfigRepository;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     JwtTokenService jwtTokenService;
@@ -401,6 +410,33 @@ class MailTemplateIntegrationTests {
                         .content(body("recipient", "attacker@example.com", "subject", "x", "bodyHtml", "<p>a</p>")))
                 .andExpect(status().isBadRequest());
         verify(javaMailSender, never()).send(any(MimeMessage.class));
+    }
+
+    @Test
+    @DisplayName("Master data and billing config are found when their stored tenant case differs from the header")
+    void tenantCaseInsensitiveLookups() throws Exception {
+        String tenant = "TE400400";
+        if (billingConfigRepository.findFirstByTenantIdIgnoreCase(tenant).isEmpty()) {
+            jdbcTemplate.update("insert into base.billing_masterdata (tenant_id, eec_name, eec_email) values (?, ?, ?)",
+                    "te400400", "EEG Kleinschreibung", "klein@example.com");
+            BillingConfig config = new BillingConfig();
+            config.setTenantId("te400400");
+            config.setFooterText("Fuss <b>fett</b> &amp; mehr");
+            billingConfigRepository.save(config);
+        }
+        when(jwtTokenService.validateTokenAndGetAuthentication("admin-c")).thenReturn(new JwtAuthentication("admin-c",
+                List.of(new Authority(tenant), new Authority("ROLE_EEG_ADMIN")), false, "c@example.com"));
+
+        mvc.perform(as(post(BASE + KEY + "/preview"), "admin-c", tenant).contentType(MediaType.APPLICATION_JSON)
+                        .content(body("subject", "{eeg.name}", "bodyHtml",
+                                "<p><span data-ph=\"billing.footerText\">F</span></p>")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.subject").value("EEG Kleinschreibung"))
+                .andExpect(jsonPath("$.html").value(containsString("Fuss <b>fett</b> &amp; mehr")));
+        mvc.perform(as(post(BASE + KEY + "/test"), "admin-c", tenant).contentType(MediaType.APPLICATION_JSON)
+                        .content(body("recipient", "eeg", "subject", "x", "bodyHtml", "<p>a</p>")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sentTo").value("klein@example.com"));
     }
 
     @Test

@@ -441,7 +441,7 @@ public class MailTemplateService {
                 throw new ValidationException("recipient", "Für dein Login ist keine E-Mail-Adresse hinterlegt.");
             }
         } else if (RECIPIENT_EEG.equals(request.recipient())) {
-            to = singleAddress(billingMasterdataRepository.findFirstByTenantId(tenant)
+            to = singleAddress(billingMasterdataRepository.findFirstByTenantIdIgnoreCase(tenant)
                     .map(BillingMasterdata::getEecEmail).orElse(null));
             if (to == null) {
                 throw new ValidationException("recipient", "Für die Gemeinschaft ist keine E-Mail-Adresse hinterlegt.");
@@ -675,7 +675,7 @@ public class MailTemplateService {
         sample.setRecipientName("Max Mustermann");
         sample.setBillingDocumentType(BillingDocumentType.INVOICE);
         sample.setClearingPeriodIdentifier("Abr_YQ-2026-3");
-        Optional<BillingMasterdata> masterdata = billingMasterdataRepository.findFirstByTenantId(tenant);
+        Optional<BillingMasterdata> masterdata = billingMasterdataRepository.findFirstByTenantIdIgnoreCase(tenant);
         if (masterdata.isPresent()) {
             BillingMasterdata eeg = masterdata.get();
             sample.setIssuerName(eeg.getEecName());
@@ -690,7 +690,7 @@ public class MailTemplateService {
             sample.setIssuerAddressLine1("Hauptplatz 1");
             sample.setIssuerAddressLine2("1234 Musterdorf");
         }
-        sample.setFooterText(billingConfigRepository.findFirstByTenantId(tenant)
+        sample.setFooterText(billingConfigRepository.findFirstByTenantIdIgnoreCase(tenant)
                 .map(BillingConfig::getFooterText)
                 .map(text -> text.replace("##", "\n"))
                 .orElse(null));
