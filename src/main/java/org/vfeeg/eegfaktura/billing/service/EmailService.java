@@ -37,6 +37,17 @@ public class EmailService {
     public List<String> sendEmail(
             String from , String to, String cc, String subject, String htmlBody,
             Map<String, byte[]> attachments) throws MessagingException {
+        return sendEmail(from, to, cc, subject, htmlBody, List.of(), attachments);
+    }
+
+    /** An image embedded in the HTML part, referenced there as {@code cid:<contentId>}. */
+    public record InlineImage(String contentId, byte[] data, String mimeType) {
+    }
+
+    /** As above, plus inline images of any type (e.g. the images of an EEG mail text). */
+    public List<String> sendEmail(
+            String from , String to, String cc, String subject, String htmlBody,
+            List<InlineImage> inlineImages, Map<String, byte[]> attachments) throws MessagingException {
 
         List<String> rejected = new ArrayList<>();
 
@@ -66,6 +77,9 @@ public class EmailService {
         // text/html body is a notable spam signal; the text is derived from
         // the rendered HTML (no separate template to maintain).
         helper.setText(htmlToPlainText(htmlBody), htmlBody);
+        for (InlineImage image : inlineImages) {
+            helper.addInline(image.contentId(), new ByteArrayDataSource(image.data(), image.mimeType()));
+        }
         for (Map.Entry<String, byte[]> attachment : attachments.entrySet()) {
             if (attachment.getKey().contains(".png")) {
                 helper.addInline(attachment.getKey(), new ByteArrayDataSource(attachment.getValue(),
