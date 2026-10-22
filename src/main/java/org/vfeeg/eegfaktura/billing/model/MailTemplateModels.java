@@ -22,13 +22,14 @@ public final class MailTemplateModels {
                                boolean customized, int version, int defaultVersion, boolean defaultChanged,
                                String defaultSubject, String defaultBodyHtml, OffsetDateTime updatedAt,
                                String updatedBy, List<MailTemplateCatalog.Placeholder> placeholders,
-                               List<MailFile> files, MailTemplateCatalog.Limits limits) {
+                               List<MailFile> files, MailTemplateCatalog.Limits limits, String attachmentFileId,
+                               boolean legacyTemplateActive) {
     }
 
-    public record MailFile(String id, String kind, String filename, String mimeType, long size) {
+    public record MailFile(String id, String kind, String filename, String mimeType, long size, boolean committed) {
     }
 
-    public record SaveRequest(String subject, String bodyHtml, Integer version) {
+    public record SaveRequest(String subject, String bodyHtml, Integer version, String attachmentFileId) {
     }
 
     public record PreviewRequest(String subject, String bodyHtml) {

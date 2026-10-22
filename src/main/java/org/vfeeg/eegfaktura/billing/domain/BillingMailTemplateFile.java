@@ -42,6 +42,10 @@ public class BillingMailTemplateFile {
     @Column(nullable = false)
     private int size;
 
+    /** False for an upload (draft, never sent); true once a saved version uses the file. */
+    @Column(nullable = false)
+    private boolean committed;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private OffsetDateTime dateCreated;

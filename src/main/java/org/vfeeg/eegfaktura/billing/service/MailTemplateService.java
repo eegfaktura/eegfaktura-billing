@@ -39,6 +39,8 @@ import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
@@ -102,7 +104,11 @@ public class MailTemplateService {
         private final int currentVersion;
 
         public ConflictException(int currentVersion) {
-            super("Die E-Mail-Vorlage wurde inzwischen geändert.");
+            this("Die E-Mail-Vorlage wurde inzwischen geändert.", currentVersion);
+        }
+
+        public ConflictException(String message, int currentVersion) {
+            super(message);
             this.currentVersion = currentVersion;
         }
 
@@ -199,10 +205,24 @@ public class MailTemplateService {
         return template;
     }
 
-    private List<BillingMailTemplateFile> loadFiles(String tenant, String key) {
+    /** Drafts older than this are not listed, not counted and removed by the next save. */
+    static final Duration DRAFT_MAX_AGE = Duration.ofHours(24);
+
+    private static boolean stale(BillingMailTemplateFile file) {
+        return !file.isCommitted() && file.getDateCreated() != null
+                && file.getDateCreated().isBefore(OffsetDateTime.now().minus(DRAFT_MAX_AGE));
+    }
+
+    /** All files of the mail, stale drafts included. */
+    private List<BillingMailTemplateFile> loadAllFiles(String tenant, String key) {
         List<BillingMailTemplateFile> files = fileRepository.findByTenantIdAndMailKeyOrderByDateCreated(tenant, key);
         files.forEach(f -> TenantContext.validateTenant(f.getTenantId()));
         return files;
+    }
+
+    /** The files of the saved version and the drafts of the last 24 h. */
+    private List<BillingMailTemplateFile> loadFiles(String tenant, String key) {
+        return loadAllFiles(tenant, key).stream().filter(f -> !stale(f)).toList();
     }
 
     private static Set<String> imageIds(List<BillingMailTemplateFile> files) {
@@ -258,6 +278,9 @@ public class MailTemplateService {
         if (request.version() == null || request.version() < 0) {
             throw new ValidationException("version", "Version fehlt.");
         }
+        if (request.attachmentFileId() != null && entry.limits().maxAttachments() == 0) {
+            throw new ValidationException("attachmentFileId", "Für diese E-Mail ist kein Anhang möglich.");
+        }
 
         Optional<BillingMailTemplate> existing = templateRepository.lockByTenantIdAndMailKey(tenant, key);
         existing.ifPresent(t -> TenantContext.validateTenant(t.getTenantId()));
@@ -284,11 +307,18 @@ public class MailTemplateService {
             throw new ConflictException(1);
         }
 
-        // images no longer referenced by the text are deleted (section H)
+        // section H: the referenced files become part of the version; files of the previous version
+        // it no longer uses and drafts older than 24 h are deleted; fresh drafts (other editors) stay
         List<BillingMailTemplateFile> kept = new ArrayList<>();
-        for (BillingMailTemplateFile file : files) {
-            if (BillingMailTemplateFile.KIND_IMAGE.equals(file.getKind())
-                    && !validated.fileIds().contains(file.getId().toString())) {
+        for (BillingMailTemplateFile file : loadAllFiles(tenant, key)) {
+            boolean used = validated.fileIds().contains(file.getId().toString());
+            if (used) {
+                if (!file.isCommitted()) {
+                    file.setCommitted(true);
+                    fileRepository.save(file);
+                }
+                kept.add(file);
+            } else if (file.isCommitted() || stale(file)) {
                 deleteFile(file);
             } else {
                 kept.add(file);
@@ -303,7 +333,7 @@ public class MailTemplateService {
         entry(key);
         lockMail(tenant, key);
         loadTemplate(tenant, key).ifPresent(templateRepository::delete);
-        loadFiles(tenant, key).forEach(this::deleteFile);
+        loadAllFiles(tenant, key).forEach(this::deleteFile);
     }
 
     @Transactional
@@ -367,8 +397,9 @@ public class MailTemplateService {
         file.setFileDataId(fileData.getId());
         file.setKind(kind);
         file.setSize(data.length);
+        file.setCommitted(false); // a draft until a saved version uses it; never sent
         file = fileRepository.save(file);
-        return new MailFile(file.getId().toString(), kind, fileData.getName(), mimeType, data.length);
+        return new MailFile(file.getId().toString(), kind, fileData.getName(), mimeType, data.length, false);
     }
 
     /** Only the last path segment, no control characters, at most 200 characters. */
@@ -419,7 +450,17 @@ public class MailTemplateService {
         }
         UUID id = parseFileId(fileId);
         lockMail(tenant, key);
-        deleteFile(loadFile(tenant, key, id));
+        BillingMailTemplateFile file = loadFile(tenant, key, id);
+        if (file.isCommitted()) {
+            Optional<BillingMailTemplate> stored = loadTemplate(tenant, key);
+            if (stored.isPresent() && mailHtmlPolicy.inspect(stored.get().getBodyHtml()).fileIds()
+                    .contains(file.getId().toString())) {
+                // section H: save the text without it first
+                throw new ConflictException("Die Datei wird von der gespeicherten Fassung verwendet.",
+                        stored.get().getVersion());
+            }
+        }
+        deleteFile(file);
     }
 
     private static UUID parseFileId(String fileId) {
@@ -567,7 +608,7 @@ public class MailTemplateService {
                 .map(f -> {
                     FileDataRepository.FileMeta m = meta.get(f.getFileDataId());
                     return new MailFile(f.getId().toString(), f.getKind(), m == null ? null : m.getName(),
-                            m == null ? null : m.getMimeType(), f.getSize());
+                            m == null ? null : m.getMimeType(), f.getSize(), f.isCommitted());
                 })
                 .toList();
         boolean customized = template != null;
@@ -581,7 +622,8 @@ public class MailTemplateService {
                 entry.defaultSubject(), entry.defaultBodyHtml(),
                 customized ? template.getLastUpdated() : null,
                 customized ? template.getUpdatedBy() : null,
-                entry.placeholders(), mailFiles, entry.limits());
+                // billing-document has no extra PDF and no hand-made volume template
+                entry.placeholders(), mailFiles, entry.limits(), null, false);
     }
 
     // ---------------------------------------------------------------- sending
@@ -612,8 +654,10 @@ public class MailTemplateService {
         try {
             BillingMailTemplate template = stored.get();
             MailTemplateCatalog.Entry entry = entry(MailTemplateCatalog.BILLING_DOCUMENT);
+            // only files of the saved version; drafts are never sent
             List<BillingMailTemplateFile> files =
-                    fileRepository.findByTenantIdAndMailKeyOrderByDateCreated(tenant, MailTemplateCatalog.BILLING_DOCUMENT);
+                    fileRepository.findByTenantIdAndMailKeyOrderByDateCreated(tenant, MailTemplateCatalog.BILLING_DOCUMENT)
+                            .stream().filter(BillingMailTemplateFile::isCommitted).toList();
             Map<String, StoredImage> images = loadImages(files, imageIds(files));
             // sanitized once per run (defence in depth for stored rows); per mail only a re-render
             String body = mailHtmlPolicy.sanitize(template.getBodyHtml(), images.keySet());

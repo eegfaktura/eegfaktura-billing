@@ -170,6 +170,7 @@ class BillingDocumentMailServiceTest {
         image.setMailKey(MailTemplateCatalog.BILLING_DOCUMENT);
         image.setKind(BillingMailTemplateFile.KIND_IMAGE);
         image.setFileDataId(UUID.randomUUID());
+        image.setCommitted(true);
         FileData imageData = new FileData();
         imageData.setMimeType("image/png");
         imageData.setData(PNG);
@@ -196,6 +197,28 @@ class BillingDocumentMailServiceTest {
         assertEquals(1, sent.inline().size());
         assertEquals("image/png", sent.inline().get(0).mimeType());
         assertTrue(sent.attachments().containsKey("Rechnung-1.pdf"));
+    }
+
+    @Test
+    @DisplayName("A draft (upload not yet part of a saved version) is never sent")
+    void draftsAreNeverSent() throws Exception {
+        BillingMailTemplateFile draft = new BillingMailTemplateFile();
+        draft.setId(UUID.randomUUID());
+        draft.setTenantId(TENANT);
+        draft.setMailKey(MailTemplateCatalog.BILLING_DOCUMENT);
+        draft.setKind(BillingMailTemplateFile.KIND_IMAGE);
+        draft.setFileDataId(UUID.randomUUID());
+        draft.setCommitted(false);
+        when(templateFileRepository.findByTenantIdAndMailKeyOrderByDateCreated(TENANT, MailTemplateCatalog.BILLING_DOCUMENT))
+                .thenReturn(List.of(draft));
+        stored("x", "<p>Text<img src=\"mailfile:" + draft.getId() + "\" /></p>");
+
+        service.sendAllBillingDocuments(run.getId());
+
+        Sent sent = sent();
+        assertFalse(sent.html().contains("mailfile"), sent.html());
+        assertTrue(sent.inline().isEmpty());
+        verify(fileDataRepository, org.mockito.Mockito.never()).findById(draft.getFileDataId());
     }
 
     @Test

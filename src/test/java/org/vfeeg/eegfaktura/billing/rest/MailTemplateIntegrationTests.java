@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -333,7 +334,7 @@ class MailTemplateIntegrationTests {
     }
 
     @Test
-    @DisplayName("PUT keeps referenced own images, drops foreign/unknown ones and deletes unreferenced files")
+    @DisplayName("Drafts: PUT commits referenced own images, drops foreign/unknown ones, keeps fresh drafts")
     void imagesInText() throws Exception {
         cleanup(TENANT_A);
         cleanup(TENANT_B);
@@ -346,14 +347,42 @@ class MailTemplateIntegrationTests {
                         + "<img src=\"https://tracker.example/x.png\" />Text</p>", 0)
                 .andExpect(status().isOk()));
         assertEquals("<p><img src=\"mailfile:" + own + "\" alt=\"Logo\" />Text</p>", saved.get("bodyHtml").asText());
-        assertEquals(1, saved.get("files").size());
+        assertEquals(2, saved.get("files").size());
         assertEquals(own, saved.get("files").get(0).get("id").asText());
-        mvc.perform(as(get(BASE + KEY + "/files/" + unused), "admin", TENANT_B)).andExpect(status().isNotFound());
+        assertTrue(saved.get("files").get(0).get("committed").asBoolean());
+        // a fresh draft (e.g. of another editor) stays a draft
+        assertEquals(unused, saved.get("files").get(1).get("id").asText());
+        assertFalse(saved.get("files").get(1).get("committed").asBoolean());
+        assertTrue(saved.get("attachmentFileId").isNull());
+        assertFalse(saved.get("legacyTemplateActive").asBoolean());
+
+        // the saved version uses "own": DELETE is 409; a draft may be deleted
+        mvc.perform(as(delete(BASE + KEY + "/files/" + own), "admin", TENANT_B))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.currentVersion").value(1));
+        String draft = uploadImage(TENANT_B, PNG);
+        mvc.perform(as(delete(BASE + KEY + "/files/" + draft), "admin", TENANT_B)).andExpect(status().isNoContent());
+
+        // a draft older than 24 h is no longer listed and is removed by the next save
+        jdbcTemplate.update("update billing_mail_template_file set date_created = now() - interval '48 hours' where id = ?",
+                UUID.fromString(unused));
+        assertEquals(1, read(mvc.perform(as(get(BASE + KEY), "admin", TENANT_B))).get("files").size());
+        // the next save without "own": the committed file goes, the stale draft too
+        JsonNode second = read(putTemplate(TENANT_B, "x", "<p>ohne Bild</p>", 1).andExpect(status().isOk()));
+        assertEquals(0, second.get("files").size());
+        assertEquals(0, jdbcTemplate.queryForObject(
+                "select count(*) from billing_mail_template_file where tenant_id = ?", Integer.class, TENANT_B));
+        // no extra PDF for the billing mail
+        mvc.perform(as(put(BASE + KEY), "admin", TENANT_B).contentType(MediaType.APPLICATION_JSON)
+                        .content(body("subject", "x", "bodyHtml", "<p>a</p>", "version", 2,
+                                "attachmentFileId", UUID.randomUUID().toString())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("attachmentFileId"));
 
         // preview: own image as data: URI, sample member
         mvc.perform(as(post(BASE + KEY + "/preview"), "admin", TENANT_B).contentType(MediaType.APPLICATION_JSON)
                         .content(body("subject", "{document.type} für {recipient.name}",
-                                "bodyHtml", saved.get("bodyHtml").asText()
+                                "bodyHtml", "<p><img src=\"mailfile:" + uploadImage(TENANT_B, PNG) + "\" /></p>"
                                         + "<p><span data-ph=\"recipient.name\">x</span></p>")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.subject").value("Rechnung für Max Mustermann"))
