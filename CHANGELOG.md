@@ -8,6 +8,33 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Added
+- **Editable member mail text (`billing-document`)** (konzept-mail-texte-editierbar.md): an EEG admin edits
+  subject and text of the invoice/credit note mail under `/api/mailtemplates` (same schema as the backend:
+  list, get, PUT with version stamp → 409 on a stale version, DELETE = back to the default, image upload,
+  preview, test mail). Text is sanitized server-side with OWASP java-html-sanitizer driven by the shared
+  `mail-html-policy.json`; placeholders (`{key}` in the subject, `span/div[data-ph]` in the text) are replaced
+  as escaped values only. Images: PNG/JPEG checked by content, at most 3, together ≤ 500 KB; no extra PDF
+  (the document PDF is always attached). Test mail goes only to the login's e-mail claim or the EEG address
+  from `base.billing_masterdata`, without cc, subject prefixed `[Test] `.
+- Flyway `V1_16`: tables `billing_mail_template` and `billing_mail_template_file` (additive; files in
+  `file_data`).
+
+### Changed
+- **Billing run mail** uses the EEG's stored text, else the default. The default reproduces the former mail
+  (logo, greeting, text, signature, footer); differences: the period in the subject is now the readable date
+  range (e.g. `01.07.2026 - 30.09.2026` instead of `Abr_YQ-2026-3`), the footer text is no longer
+  extra-small, and with an empty EEG name the subject ends in ` -`. If a stored text cannot be rendered, the
+  default is sent and the run's send protocol says so.
+- `spring.servlet.multipart.max-file-size` 256KB → 512KB (image limit of the mail text; also applies to
+  logo/footer uploads).
+
+### Fixed
+- Recipient and EEG name were inserted into the billing mail without HTML escaping (FreeMarker without
+  output format); the FreeMarker template and dependency are removed.
+- Logo/footer upload: `file_data.tenant_id` is set, and the type is checked from the content (PNG/JPEG/GIF);
+  an upload without Content-Type or with other content is rejected.
+
 ## [1.1.0] – 2026-10-21
 
 ### Added
