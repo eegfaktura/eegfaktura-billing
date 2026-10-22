@@ -20,7 +20,8 @@ this changelog highlights the changes relevant for overview and operations.
   eegfaktura logo is the built-in image `mailfile:eegfaktura-logo` (as in the backend; served under
   `/files/eegfaktura-logo`, not counted against the limits, not deletable).
   Uploads are drafts (`committed=false`, never sent) until a saved version uses them; PUT removes files the
-  version no longer uses and drafts older than 24 h, DELETE of a file the saved version uses answers 409.
+  version no longer uses and drafts older than 24 h (a referenced older draft is committed; an image in the
+  text whose file no longer exists is a 400), DELETE of a file the saved version uses answers 409.
   Uploads, saves and deletes of one mail are serialized (advisory lock), so the limits hold. A block
   placeholder is allowed only as a top-level `div`; in the subject only `{key}` with the catalog syntax is a
   placeholder (`{EEG}` stays text). `billing.footerText` is HTML (as in the PDF) and goes through the same

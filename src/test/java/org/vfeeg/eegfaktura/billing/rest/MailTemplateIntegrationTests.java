@@ -340,7 +340,7 @@ class MailTemplateIntegrationTests {
     }
 
     @Test
-    @DisplayName("Drafts: PUT commits referenced own images, drops foreign/unknown ones, keeps fresh drafts")
+    @DisplayName("Drafts: PUT commits referenced images (also older drafts), refuses missing ones, keeps fresh drafts")
     void imagesInText() throws Exception {
         cleanup(TENANT_A);
         cleanup(TENANT_B);
@@ -349,7 +349,7 @@ class MailTemplateIntegrationTests {
         String foreign = uploadImage(TENANT_A, PNG);
 
         JsonNode saved = read(putTemplate(TENANT_B, "x",
-                "<p><img src=\"mailfile:" + own + "\" alt=\"Logo\" /><img src=\"mailfile:" + foreign + "\" />"
+                "<p><img src=\"mailfile:" + own + "\" alt=\"Logo\" />"
                         + "<img src=\"https://tracker.example/x.png\" />Text</p>", 0)
                 .andExpect(status().isOk()));
         assertEquals("<p><img src=\"mailfile:" + own + "\" alt=\"Logo\" />Text</p>", saved.get("bodyHtml").asText());
@@ -373,14 +373,31 @@ class MailTemplateIntegrationTests {
         jdbcTemplate.update("update billing_mail_template_file set date_created = now() - interval '48 hours' where id = ?",
                 UUID.fromString(unused));
         assertEquals(1, read(mvc.perform(as(get(BASE + KEY), "admin", TENANT_B))).get("files").size());
+        // an image in the text whose file is gone: 400, never dropped silently
+        putTemplate(TENANT_B, "x", "<p>a<img src=\"mailfile:" + UUID.randomUUID() + "\" /></p>", 1)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].message").value("Ein Bild im Text gibt es nicht (mehr); bitte erneut einfügen."));
+        // an image of another tenant is not a file of this mail either
+        putTemplate(TENANT_B, "x", "<p>a<img src=\"mailfile:" + foreign + "\" /></p>", 1)
+                .andExpect(status().isBadRequest());
+        // a referenced draft older than 24 h is still there: the save commits it
+        String old = uploadImage(TENANT_B, PNG);
+        jdbcTemplate.update("update billing_mail_template_file set date_created = now() - interval '48 hours' where id = ?",
+                UUID.fromString(old));
+        JsonNode withOld = read(putTemplate(TENANT_B, "x",
+                "<p><img src=\"mailfile:" + own + "\" /><img src=\"mailfile:" + old + "\" /></p>", 1)
+                .andExpect(status().isOk()));
+        assertTrue(withOld.get("bodyHtml").asText().contains("mailfile:" + old));
+        assertEquals(Boolean.TRUE, jdbcTemplate.queryForObject(
+                "select committed from billing_mail_template_file where id = ?", Boolean.class, UUID.fromString(old)));
         // the next save without "own": the committed file goes, the stale draft too
-        JsonNode second = read(putTemplate(TENANT_B, "x", "<p>ohne Bild</p>", 1).andExpect(status().isOk()));
+        JsonNode second = read(putTemplate(TENANT_B, "x", "<p>ohne Bild</p>", 2).andExpect(status().isOk()));
         assertEquals(0, second.get("files").size());
         assertEquals(0, jdbcTemplate.queryForObject(
                 "select count(*) from billing_mail_template_file where tenant_id = ?", Integer.class, TENANT_B));
         // no extra PDF for the billing mail
         mvc.perform(as(put(BASE + KEY), "admin", TENANT_B).contentType(MediaType.APPLICATION_JSON)
-                        .content(body("subject", "x", "bodyHtml", "<p>a</p>", "version", 2,
+                        .content(body("subject", "x", "bodyHtml", "<p>a</p>", "version", 3,
                                 "attachmentFileId", UUID.randomUUID().toString())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("attachmentFileId"));

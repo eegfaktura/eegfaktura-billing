@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 
@@ -74,7 +75,7 @@ public class MailHtmlPolicy {
         if (elements.isEmpty()) {
             throw new IllegalStateException("mail-html-policy.json has no elements");
         }
-        fragmentPolicy = builder(Set.of()).toFactory();
+        fragmentPolicy = builder(id -> false).toFactory();
     }
 
     /** Policy for HTML values without own images (e.g. the footer text), built once. */
@@ -119,8 +120,13 @@ public class MailHtmlPolicy {
 
     /** Sanitizes {@code html}; images are kept only for the given mailfile ids (lowercase UUIDs). */
     public String sanitize(String html, Set<String> allowedFileIds) {
+        return sanitize(html, allowedFileIds::contains);
+    }
+
+    /** Sanitizes {@code html}; images are kept for the mailfile ids {@code fileOk} accepts. */
+    public String sanitize(String html, Predicate<String> fileOk) {
         StringBuilder out = new StringBuilder(html == null ? 0 : html.length());
-        HtmlSanitizer.sanitize(html == null ? "" : html, builder(allowedFileIds).build(new Writer(out)));
+        HtmlSanitizer.sanitize(html == null ? "" : html, builder(fileOk).build(new Writer(out)));
         return out.toString();
     }
 
@@ -244,7 +250,7 @@ public class MailHtmlPolicy {
         return attributes;
     }
 
-    private HtmlPolicyBuilder builder(Set<String> allowedFileIds) {
+    private HtmlPolicyBuilder builder(Predicate<String> allowedFileIds) {
         HtmlPolicyBuilder builder = new HtmlPolicyBuilder();
         Set<String> allSchemes = new LinkedHashSet<>();
         urlSchemes.values().forEach(allSchemes::addAll);
@@ -358,7 +364,7 @@ public class MailHtmlPolicy {
     /** img width: a number of pixels or a percentage, as in the backend. */
     private static final Pattern WIDTH = Pattern.compile("[0-9]{1,4}%?");
 
-    private AttributePolicy attributePolicy(String element, String attribute, Set<String> allowedFileIds) {
+    private AttributePolicy attributePolicy(String element, String attribute, Predicate<String> allowedFileIds) {
         if ("style".equals(attribute)) {
             return (e, a, value) -> style(value);
         }
@@ -377,7 +383,7 @@ public class MailHtmlPolicy {
         return AttributePolicy.IDENTITY_ATTRIBUTE_POLICY;
     }
 
-    private static String url(String value, List<String> schemes, Set<String> allowedFileIds) {
+    private static String url(String value, List<String> schemes, Predicate<String> allowedFileIds) {
         String trimmed = value.trim();
         int colon = trimmed.indexOf(':');
         if (colon <= 0) {
@@ -389,7 +395,7 @@ public class MailHtmlPolicy {
         }
         if (MAILFILE_SCHEME.equals(scheme)) {
             String id = mailfileId(trimmed);
-            return id != null && (BUILTIN_LOGO_ID.equals(id) || allowedFileIds != null && allowedFileIds.contains(id))
+            return id != null && (BUILTIN_LOGO_ID.equals(id) || allowedFileIds.test(id))
                     ? MAILFILE_SCHEME + ":" + id : null;
         }
         if ("mailto".equals(scheme) && trimmed.substring(colon + 1).isBlank()) {

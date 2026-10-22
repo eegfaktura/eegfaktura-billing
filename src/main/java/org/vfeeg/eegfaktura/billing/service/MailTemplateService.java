@@ -54,6 +54,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -273,12 +274,19 @@ public class MailTemplateService {
             throw new ValidationException("bodyHtml", "Kein Inhalt übergeben.");
         }
         lockMail(tenant, key);
-        List<BillingMailTemplateFile> files = loadFiles(tenant, key);
-        Validated validated = validate(entry, request.subject(), request.bodyHtml(), imageIds(files));
+        // every well-formed image id stays in the text; whether the file exists (also as an older
+        // draft) is checked here under the lock, so a vanished image is a 400, never dropped silently
+        Validated validated = validate(entry, request.subject(), request.bodyHtml(), id -> true);
         if (request.version() == null || request.version() < 0) {
             throw new ValidationException("version", "Version fehlt.");
         }
         noAttachment(entry, request.attachmentFileId());
+        Set<String> existingImages = imageIds(loadAllFiles(tenant, key));
+        for (String id : validated.fileIds()) {
+            if (!MailHtmlPolicy.BUILTIN_LOGO_ID.equals(id) && !existingImages.contains(id)) {
+                throw new ValidationException("bodyHtml", "Ein Bild im Text gibt es nicht (mehr); bitte erneut einfügen.");
+            }
+        }
 
         Optional<BillingMailTemplate> existing = templateRepository.lockByTenantIdAndMailKey(tenant, key);
         existing.ifPresent(t -> TenantContext.validateTenant(t.getTenantId()));
@@ -560,6 +568,10 @@ public class MailTemplateService {
 
     // package-private for the shared case test (mail-html-policy-cases.json)
     Validated validate(MailTemplateCatalog.Entry entry, String subject, String bodyHtml, Set<String> imageIds) {
+        return validate(entry, subject, bodyHtml, (Predicate<String>) imageIds::contains);
+    }
+
+    Validated validate(MailTemplateCatalog.Entry entry, String subject, String bodyHtml, Predicate<String> imageIds) {
         List<ValidationError> errors = new ArrayList<>();
         Set<String> known = entry.placeholderKeys();
 

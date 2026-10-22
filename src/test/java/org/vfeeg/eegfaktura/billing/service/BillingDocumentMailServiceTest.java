@@ -238,7 +238,7 @@ class BillingDocumentMailServiceTest {
 
         verify(emailService, times(2)).sendEmail(anyString(), anyString(), any(), anyString(), anyString(),
                 any(List.class), any(Map.class));
-        verify(policy, times(1)).sanitize(any(), any());
+        verify(policy, times(1)).sanitize(any(), any(java.util.Set.class));
     }
 
     @Test
