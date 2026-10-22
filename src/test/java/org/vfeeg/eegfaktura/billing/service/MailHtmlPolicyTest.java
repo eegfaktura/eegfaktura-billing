@@ -73,6 +73,7 @@ class MailHtmlPolicyTest {
         assertEquals("<p>a</p>", clean("<p>a<img src=\"mailfile:not-a-uuid\" /></p>"));
         // the built-in logo is allowed for every tenant
         assertEquals("<p>a<img src=\"mailfile:eegfaktura-logo\" /></p>", clean("<p>a<img src=\"mailfile:eegfaktura-logo\"></p>"));
+        assertEquals("<p>a<img src=\"mailfile:eegfaktura-logo\" /></p>", clean("<p>a<img src=\"MailFile:EEGFAKTURA-Logo\"></p>"));
         assertEquals("<p>a<img src=\"mailfile:" + OWN_FILE + "\" alt=\"Logo\" width=\"200\" /></p>",
                 clean("<p>a<img src=\"MAILFILE:" + OWN_FILE + "\" alt=\"Logo\" width=\"200\" onerror=\"x()\" /></p>"));
         // an upper-case id is normalised to lower case (shared case file)

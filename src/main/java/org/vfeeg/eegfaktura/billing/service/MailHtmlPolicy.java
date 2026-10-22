@@ -223,11 +223,9 @@ public class MailHtmlPolicy {
         if (colon <= 0 || !MAILFILE_SCHEME.equals(trimmed.substring(0, colon).toLowerCase(Locale.ROOT))) {
             return null;
         }
-        String id = trimmed.substring(colon + 1);
-        if (BUILTIN_LOGO_ID.equals(id)) {
-            return id;
-        }
-        return FILE_ID.matcher(id).matches() ? id.toLowerCase(Locale.ROOT) : null;
+        // ids in lower case, the built-in logo id too (as in the backend)
+        String id = trimmed.substring(colon + 1).toLowerCase(Locale.ROOT);
+        return BUILTIN_LOGO_ID.equals(id) || FILE_ID.matcher(id).matches() ? id : null;
     }
 
     /**
