@@ -152,6 +152,13 @@
             <artifactId>poi-ooxml</artifactId>
             <version>5.4.1</version>
         </dependency>
+        <!-- Allowlist sanitizer for EEG-edited mail HTML (mail-html-policy.json). 20261011.1 released
+             2026-10-11 (older than 7 days when added). -->
+        <dependency>
+            <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+            <artifactId>owasp-java-html-sanitizer</artifactId>
+            <version>20261011.1</version>
+        </dependency>
         <dependency>
             <groupId>org.freemarker</groupId>
             <artifactId>freemarker</artifactId>
