@@ -90,8 +90,9 @@ public class BillingMasterdata {
     // ZVT (zeitvariabler Tarif): Basispreis bleibt tariffWorkingFeePerConsumedkwh /
     // tariffCreditAmountPerProducedkwh; bis zu zwei Zeitfenster mit eigenem Preis.
     // Quelle: backend-View base.billing_masterdata (from/to als 'HH24:MI'-Text).
-    // Explizite Spaltennamen: Hibernates Naming-Strategie setzt nach Ziffern
-    // keinen Unterstrich (tariffTime1Active -> tariff_time1active).
+    // Explizite Spaltennamen, unabhaengig von der Naming-Strategie: bis Hibernate 6 kam
+    // nach einer Ziffer kein Unterstrich (tariffTime1Active -> tariff_time1active), seit
+    // Hibernate 7 schon (tariff_time1_active, siehe BillingDocument).
     private Boolean tariffUseTimeTariff;
     @Column(name = "tariff_time1_active")
     private Boolean tariffTime1Active;
