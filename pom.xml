@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.8</version>
+        <version>4.0.9</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>org.vfeeg</groupId>
@@ -15,17 +15,6 @@
     <description>eegfaktura-billing</description>
     <properties>
         <java.version>21</java.version>
-        <!-- Boot 4.0.8 manages Tomcat 11.0.24 and Jackson 3.1.5, both with known CVEs (Tomcat fixed in
-             11.0.25, Jackson in 3.1.7). Boot 4.0.9 manages these, but is younger than 7 days (2026-10-22).
-             Remove with the next Boot bump that manages these versions or newer. -->
-        <tomcat.version>11.0.27</tomcat.version>
-        <jackson-bom.version>3.1.7</jackson-bom.version>
-        <!-- Boot 4.0.8 manages Jackson 2 (still a transitive dependency, e.g. of JasperReports) at 2.21.5,
-             which has known CVEs (fixed in 2.21.7). Remove with the next Boot bump that manages
-             2.21.7 or newer. -->
-        <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
-        <!-- Boot 4.0.8 manages the PostgreSQL driver 42.7.13; keep 42.7.14 (no downgrade). -->
-        <postgresql.version>42.7.14</postgresql.version>
     </properties>
     <dependencies>
         <dependency>
