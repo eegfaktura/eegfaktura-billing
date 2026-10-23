@@ -8,6 +8,12 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Changed
+- Dependabot (Docker base images): no more major updates (legacy system, replaced by v3 in the medium term; majors
+  only for security reasons, decision 23.10.2026), patch and minor updates come in one weekly grouped PR, new versions
+  only after a 7-day cooldown. `eclipse-temurin` stays on 21 (LTS); the floating `maven:3-eclipse-temurin-21` build
+  image is excluded. Security updates for the language ecosystems are unaffected.
+
 ## [1.1.0] – 2026-10-21
 
 ### Added
