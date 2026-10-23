@@ -18,12 +18,15 @@ this changelog highlights the changes relevant for overview and operations.
   known CVEs), Jackson 2 (transitive, e.g. JasperReports) 2.21.7, PostgreSQL driver 42.7.14.
 
 ### Changed
-- Upgrade-related changes, no change of behaviour: JSON via Jackson 3 with
-  `spring.jackson.use-jackson2-defaults=true` (same wire format as before), Hibernate 7.2
+- Upgrade-related changes: JSON via Jackson 3 with `spring.jackson.use-jackson2-defaults=true`
+  (same wire format as before, pinned by `JsonWireFormatTests`), Hibernate 7.2
   (the four VAT columns of `billing_document` now carry an explicit name — the new default naming
   strategy would map `vat1Percent` to `vat1_percent`), Flyway 11.14 with the new
   `spring-boot-starter-flyway` (without it Boot 4 would no longer run the migrations), springdoc 3.0.3,
   Testcontainers 2.0. No new migration, the JWT check (RS256, own filter with `java-jwt`) is unchanged.
+- **`/v3/api-docs` works**: with springdoc 3.0.3 it answers 200 for a valid bearer token with the
+  EEG_ADMIN role (on Boot 3.5 with springdoc 2.3.0 it failed with 500). Without a token it stays 403, like
+  `/swagger-ui/**`.
 
 ## [1.1.0] – 2026-10-21
 

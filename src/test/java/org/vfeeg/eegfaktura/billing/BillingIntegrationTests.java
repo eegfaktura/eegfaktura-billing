@@ -14,7 +14,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.util.MimeTypeUtils;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vfeeg.eegfaktura.billing.domain.*;
@@ -81,7 +81,7 @@ class BillingIntegrationTests {
     BillingDocumentXlsxService billingDocumentXlsxService;
 
     @Container
-    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
+    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:15-alpine")
             .withUsername("sa")
             .withPassword("sa")
             .withReuse(true);

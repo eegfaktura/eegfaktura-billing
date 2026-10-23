@@ -19,12 +19,12 @@ In order to run this container you'll need docker installed.
 
 ## Built with
 
-* Spring Boot 3.5.3
+* Spring Boot 4.0.8
 * Java 21
 * Maven
-* Flyway 9.16
+* Flyway 11.14
 * JasperReports 7.0.2
-* springdoc-openapi 2.3.0
+* springdoc-openapi 3.0.3
 * Apache POI 5.4.1
 * PostgreSQL
 
@@ -59,7 +59,8 @@ src/test/resources/application.properties.
 You can deploy the container with docker or docker-compose as you wish.
 
 ## Rest API
-You can inspect and play with this services' API with the help of swagger (only visible when services is started with 'dev' profile!):
+You can inspect and play with this services' API with the help of swagger. With the 'dev' profile it is open; in every other profile
+/swagger-ui/** and /v3/api-docs need a valid bearer token with the EEG_ADMIN role, like every other endpoint:
 http://youserver:8080/swagger-ui/index.html
 
 ## Features
