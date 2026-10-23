@@ -8,6 +8,23 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Security
+- **Spring Boot 4.0.8 / Spring Framework 7.0.9** (from Boot 3.5.16 / Framework 6.2.19): fixes
+  CVE-2026-47884 (critical, `XsltView` path limitation → SSRF/RCE) and CVE-2026-47890 (SSE stream
+  corruption with view fragments) in `spring-webmvc`. Neither has a fix in the 6.2 line. billing
+  uses neither `XsltView` nor SSE, so the vulnerable code paths were not reachable; the upgrade
+  removes the findings.
+- Overrides: Tomcat 11.0.27 and Jackson 3.1.7 (Boot 4.0.8 manages 11.0.24 and 3.1.5, both with
+  known CVEs), Jackson 2 (transitive, e.g. JasperReports) 2.21.7, PostgreSQL driver 42.7.14.
+
+### Changed
+- Upgrade-related changes, no change of behaviour: JSON via Jackson 3 with
+  `spring.jackson.use-jackson2-defaults=true` (same wire format as before), Hibernate 7.2
+  (the four VAT columns of `billing_document` now carry an explicit name — the new default naming
+  strategy would map `vat1Percent` to `vat1_percent`), Flyway 11.14 with the new
+  `spring-boot-starter-flyway` (without it Boot 4 would no longer run the migrations), springdoc 3.0.3,
+  Testcontainers 2.0. No new migration, the JWT check (RS256, own filter with `java-jwt`) is unchanged.
+
 ## [1.1.0] – 2026-10-21
 
 ### Added

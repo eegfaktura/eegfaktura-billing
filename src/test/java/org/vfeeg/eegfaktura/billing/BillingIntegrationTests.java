@@ -2,7 +2,7 @@ package org.vfeeg.eegfaktura.billing;
 
 import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
-import junit.framework.AssertionFailedError;
+import org.opentest4j.AssertionFailedError;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
