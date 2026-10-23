@@ -40,6 +40,12 @@ this changelog highlights the changes relevant for overview and operations.
   Docker API version Testcontainers asks for (it asked for 1.32, Docker 29 refuses below 1.40).
 - `TEST_STORE_DOCUMENTS_PATH` also sets the directory for the generated PDFs and XLSX of the
   integration tests (empty by default, as in 1.1.0).
+- The web-layer tests generate their JWT key pair and self-signed certificate at runtime (`TestTokens`,
+  JDK `keytool`, certificate in a temp file, handed to `WebSliceTest` via `@DynamicPropertySource`); no
+  private key is committed, so the secret scan stays green (known error 261009-ca1). No new dependency.
+- `.gitattributes` keeps `src/test/resources/legacy-base/**` and `src/test/resources/contracts/v3view/**`
+  on LF, so `LegacyMasterdataViewContractTests.copiedFilesAreUnchanged` also passes on Windows checkouts
+  with `core.autocrlf=true`.
 
 ## [1.1.0] – 2026-10-21
 
