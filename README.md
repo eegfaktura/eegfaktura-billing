@@ -59,8 +59,9 @@ src/test/resources/application.properties.
 You can deploy the container with docker or docker-compose as you wish.
 
 ## Rest API
-You can inspect and play with this services' API with the help of swagger. With the 'dev' profile it is open; in every other profile
-/swagger-ui/** and /v3/api-docs need a valid bearer token with the EEG_ADMIN role, like every other endpoint:
+You can inspect and play with this services' API with the help of swagger. The API docs (/v3/api-docs) and the Swagger UI
+are off by default and are switched on with `SPRINGDOC_ENABLED=true` (default on only in the 'dev' profile, which has no
+authentication). Outside the 'dev' profile they then need a valid bearer token with the EEG_ADMIN role, like every other endpoint:
 http://youserver:8080/swagger-ui/index.html
 
 ## Features
@@ -88,6 +89,7 @@ The container is accepting the following environment variables as configuration:
 * `MAIL_SMTP_STARTTLS_ENABLE` (default = false)
 * `MAIL_NO_REPLY_TO` e-mail address to use as sender for automated mails (default = no-reply@eegfaktura.at)
 * `JWT_PUBLICKEYFILE` full path to the JWT public key file, used to decrypt JWT tokens from header (default = /billing/zertifikat-pub.pem)
+* `SPRINGDOC_ENABLED` `true` serves the API docs (/v3/api-docs) and the Swagger UI (default = false; true in the 'dev' profile). Set it to true only in development environments
 
 ## Contributing
 

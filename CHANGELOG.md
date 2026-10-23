@@ -24,9 +24,9 @@ this changelog highlights the changes relevant for overview and operations.
   strategy would map `vat1Percent` to `vat1_percent`), Flyway 11.14 with the new
   `spring-boot-starter-flyway` (without it Boot 4 would no longer run the migrations), springdoc 3.0.3,
   Testcontainers 2.0. No new migration, the JWT check (RS256, own filter with `java-jwt`) is unchanged.
-- **`/v3/api-docs` works**: with springdoc 3.0.3 it answers 200 for a valid bearer token with the
-  EEG_ADMIN role (on Boot 3.5 with springdoc 2.3.0 it failed with 500). Without a token it stays 403, like
-  `/swagger-ui/**`.
+- **springdoc (API docs and Swagger UI) is now off by default**; enable it with `SPRINGDOC_ENABLED=true`
+  (default on only in the local `dev` profile). Before, `/v3/api-docs` failed with 500 on Boot 3.5
+  (springdoc 2.3.0); enabled, it answers 200 for a valid EEG_ADMIN token and stays 403 without one.
 
 ## [1.1.0] – 2026-10-21
 
