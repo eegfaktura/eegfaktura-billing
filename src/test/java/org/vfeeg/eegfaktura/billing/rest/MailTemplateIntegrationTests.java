@@ -166,6 +166,14 @@ class MailTemplateIntegrationTests {
                 .andExpect(status().isCreated())).get("id").asText();
     }
 
+    @Test
+    void withoutTenantHeaderNothingIsAnswered() throws Exception {
+        // the mail texts take the community only from the Tenant header; without it every handler refuses
+        mvc.perform(get("/api/mailtemplates").header("Authorization", "Bearer admin")).andExpect(status().isForbidden());
+        mvc.perform(get(BASE + KEY).header("Authorization", "Bearer admin").header("Tenant", " "))
+                .andExpect(status().isForbidden());
+    }
+
     private void cleanup(String tenant) throws Exception {
         mvc.perform(as(delete(BASE + KEY), "admin", tenant)).andExpect(status().isNoContent());
     }
