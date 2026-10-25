@@ -75,5 +75,17 @@ public class ClearingPeriodIdentifierToolTests {
         assertThat(ClearingPeriodIdentifierTool.asText("Abr_YM_2100-2"), is("01.02.2100 - 28.02.2100"));
     }
 
+    /** The form production stores and prints: only "-" after the type, e.g. "Abr_YQ-2023-3". */
+    @Test
+    public void testProductionForm() {
+        assertThat(ClearingPeriodIdentifierTool.asText("Abr_YQ-2023-3"), is("01.07.2023 - 30.09.2023"));
+        assertThat(ClearingPeriodIdentifierTool.asText("Abr_Y-2024"), is("01.01.2024 - 31.12.2024"));
+        assertThat(ClearingPeriodIdentifierTool.asText("Abr_YH-2024-2"), is("01.07.2024 - 31.12.2024"));
+        assertThat(ClearingPeriodIdentifierTool.asText("Abr_YM-2024-11"), is("01.11.2024 - 30.11.2024"));
+        assertThat(ClearingPeriodIdentifierTool.asText("Abr_YQ-2023-3",
+                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")), is("2023-07-01 - 2023-09-30"));
+        assertThat(ClearingPeriodIdentifierTool.asText("Abr_YQ-2023-3", null), is("Abr_YQ-2023-3"));
+    }
+
 
 }

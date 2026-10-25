@@ -1,0 +1,35 @@
+{
+  "caller": "eegfaktura-v3",
+  "source": {
+    "repository": "eegfaktura-v3",
+    "file": "backend/src/main/kotlin/at/eegfaktura/integration/billing/BillingClient.kt",
+    "commit": "0b785d2aaefafb4d34a91a7111fa249119b47af9",
+    "branch": "bugfixes-poc",
+    "date": "2026-10-01",
+    "fileLastChanged": "b9972c3 2026-09-28"
+  },
+  "refresh": "src/test/resources/contracts/README.md",
+  "headers": {"Tenant": "RC100001", "Accept": "application/json"},
+  "calls": [
+    {"method": "POST", "path": "/api/billing", "source": "BillingClient.kt doBilling (B1)", "body": "v3/post-billing.json"},
+    {"method": "GET", "path": "/api/billingRuns/RC100001/YQ/Abr_YQ-2024-2", "source": "BillingClient.kt runsOfPeriod (B2)"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001", "source": "BillingClient.kt run"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001/participantAmounts", "source": "BillingClient.kt participantAmounts"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001/billingDocuments", "source": "BillingClient.kt runDocuments"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001/billingDocuments/xlsx", "source": "BillingClient.kt runXlsx"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001/billingDocuments/archive", "source": "BillingClient.kt runArchive"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001/billingDocuments/sendmail", "source": "BillingClient.kt sendMails (B8)"},
+    {"method": "GET", "path": "/api/billingDocuments/tenant/RC100001/2024", "source": "BillingClient.kt documentsOfYear"},
+    {"method": "GET", "path": "/api/billingDocuments/00000000-0000-0000-0000-00000000a001", "source": "BillingClient.kt document"},
+    {"method": "GET", "path": "/api/fileData/00000000-0000-0000-0000-00000000a001", "source": "BillingClient.kt fileData"},
+    {"method": "GET", "path": "/api/billingConfigs/tenant/RC100001", "source": "BillingClient.kt configOfTenant (B12)"},
+    {"method": "GET", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001", "source": "BillingClient.kt config"},
+    {"method": "POST", "path": "/api/billingConfigs", "source": "BillingClient.kt createConfig (B14)", "body": "v3/post-billing-configs.json"},
+    {"method": "PUT", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001", "source": "BillingClient.kt updateConfig (B15)", "body": "v3/put-billing-config.json"},
+    {"method": "POST", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/logoImage", "source": "BillingClient.kt uploadImage(LOGO) (B16)", "multipart": "file"},
+    {"method": "POST", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/footerImage", "source": "BillingClient.kt uploadImage(FOOTER) (B16)", "multipart": "file"},
+    {"method": "DELETE", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/logoImage", "source": "BillingClient.kt deleteImage(LOGO)"},
+    {"method": "DELETE", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/footerImage", "source": "BillingClient.kt deleteImage(FOOTER)"},
+    {"method": "GET", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/logoImage", "source": "BillingClient.kt logoImage (the footer GET is not used, known-errors #21)"}
+  ]
+}

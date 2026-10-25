@@ -29,6 +29,19 @@ this changelog highlights the changes relevant for overview and operations.
   an EEG without participants has no address in `base.billing_masterdata` (400).
 - Flyway `V1_16`: tables `billing_mail_template` and `billing_mail_template_file` (additive; files in
   `file_data`). `V1_17`: column `billing_mail_template_file.committed` (additive).
+- Coverage gate: JaCoCo reports coverage in `test.yml` (artifact `jacoco-report`) and `verify` fails if a
+  package falls below its floor; as `test.yml` gates the image (1.1.0), **coverage below a floor now blocks
+  the image and every deploy job** too. `./mvnw test` stays without the gate.
+- `lombok.config` (`lombok.addLombokGeneratedAnnotation = true`) so coverage ignores generated code.
+- Test builders under `src/test/.../support` (`PostgresContainerHolder`, `BillingMasterdataBuilder`,
+  `AllocationBuilder`, `BillingRunFixture`); no production code changed.
+- Billing scenario tests S1 – S12 (`src/test/.../scenario`, S11 waits for the rounding decision B-13): amounts,
+  VAT sums, document types and numbers, run status, result text, PDF text and XLSX sums; new test-only
+  dependency PDFBox 3.0.8. Five scenarios that expose known defects (#12, #13, #16, #17, #22) are
+  committed disabled. No production code changed.
+- `EXTERNAL_SOURCES.md` (every source of build, tests and service) and `scripts/dev/loc-check.sh`
+  (lines per file). The working agreement, the tracking files and the migration-concept template are
+  kept outside the repository.
 
 ### Changed
 - **Billing run mail** uses the EEG's stored text, else the default. The default reproduces the former mail
@@ -41,6 +54,16 @@ this changelog highlights the changes relevant for overview and operations.
   default is sent and the run's send protocol says so.
 - `spring.servlet.multipart.max-file-size` 256KB → 512KB (image limit of the mail text; also applies to
   logo/footer uploads).
+- Tests follow release 1.0.8 (asynchronous billing run, ZVT, mail): the concurrency tests exercise the claim
+  (`secondStartOfARunningPeriodIsRefused`, `simultaneousStartsOfOnePeriodAcceptExactlyOne`) instead of the removed
+  per-tenant lock, the two-periods case is disabled as the reproduction of the number race; the scenario tests expect
+  the exceptions the service throws now (the resource answers 400/409); the mail tests expect the issuer in the subject
+  and the plain-text alternative; the M3 masterdata table and the M6 legacy view (`legacy-base/06_…zvt_time_tariff`,
+  copied from eegfaktura-backend) carry the ZVT columns; `responses/BillingRunDTO.json` records `errorSummary`.
+  New: scenario S13 (`BillingScenarioZvtTests`, one position per window share and the ten contract refusals),
+  `BillingRunLauncherTests` (FAILED summaries), the web slice covers 202/409/503 of `POST /api/billing`.
+  `LegacyMasterdataViewContractTests.v3ViewHasEveryLegacyAndEntityColumnByName` is disabled: v3's cutover view
+  lacks the 11 ZVT columns (known error). No production code changed.
 
 ### Fixed
 - The plain-text part of the billing mail decodes all HTML entities (numeric ones such as `&#64;` showed).
@@ -48,6 +71,16 @@ this changelog highlights the changes relevant for overview and operations.
   output format); the FreeMarker template and dependency are removed.
 - Logo/footer upload: `file_data.tenant_id` is set, and the type is checked from the content (PNG/JPEG/GIF);
   an upload without Content-Type or with other content is rejected.
+- The integration tests run on Docker 29: `src/test/resources/docker-java.properties` sets the
+  Docker API version Testcontainers asks for (it asked for 1.32, Docker 29 refuses below 1.40).
+- `TEST_STORE_DOCUMENTS_PATH` also sets the directory for the generated PDFs and XLSX of the
+  integration tests (empty by default, as in 1.1.0).
+- The web-layer tests generate their JWT key pair and self-signed certificate at runtime (`TestTokens`,
+  JDK `keytool`, certificate in a temp file, handed to `WebSliceTest` via `@DynamicPropertySource`); no
+  private key is committed, so the secret scan stays green (known error 261009-ca1). No new dependency.
+- `.gitattributes` keeps `src/test/resources/legacy-base/**` and `src/test/resources/contracts/v3view/**`
+  on LF, so `LegacyMasterdataViewContractTests.copiedFilesAreUnchanged` also passes on Windows checkouts
+  with `core.autocrlf=true`.
 
 ## [1.1.0] – 2026-10-21
 
