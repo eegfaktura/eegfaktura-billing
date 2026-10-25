@@ -19,6 +19,7 @@ import org.vfeeg.eegfaktura.billing.service.BillingRunLauncher;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
 import org.vfeeg.eegfaktura.billing.service.FileDataService;
 import org.vfeeg.eegfaktura.billing.service.ParticipantAmountService;
+import org.vfeeg.eegfaktura.billing.service.MailTemplateService;
 
 import java.util.Collection;
 import java.util.List;
@@ -53,6 +54,7 @@ class EndpointMappingGuardTests extends WebSliceTest {
     @MockitoBean BillingRunLauncher billingRunLauncher;
     @MockitoBean FileDataService fileDataService;
     @MockitoBean ParticipantAmountService participantAmountService;
+    @MockitoBean MailTemplateService mailTemplateService;
 
     @Autowired
     @Qualifier("requestMappingHandlerMapping")
@@ -85,10 +87,10 @@ class EndpointMappingGuardTests extends WebSliceTest {
 
     @Test
     void everyApiHandlerHasExactlyOneRow() {
-        assertThat(EndpointTable.ALL, hasSize(31));
-        assertThat(keys(EndpointTable.ALL), hasSize(31));
+        assertThat(EndpointTable.ALL, hasSize(40));
+        assertThat(keys(EndpointTable.ALL), hasSize(40));
         assertThat(difference(liveApiMappings(), keys(EndpointTable.ALL)), is(empty()));
-        assertThat(liveApiMappings(), hasSize(31));
+        assertThat(liveApiMappings(), hasSize(40));
     }
 
     @Test

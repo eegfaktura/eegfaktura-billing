@@ -59,7 +59,10 @@ public class JwtTokenService {
 
             String username = payload.getString("preferred_username");
 
-            jwtAuthentication = new JwtAuthentication(username, authorities, hasRealmRole(payload, "superuser"));
+            // email: Empfaenger der Testmail "an mich" (Mail-Texte); fehlt der Claim, bleibt er leer.
+            String email = payload.optString("email", null);
+
+            jwtAuthentication = new JwtAuthentication(username, authorities, hasRealmRole(payload, "superuser"), email);
         } catch (Exception e) {
             log.warn("Failed to validate JWT token: {}", e.getMessage(), e);
         }

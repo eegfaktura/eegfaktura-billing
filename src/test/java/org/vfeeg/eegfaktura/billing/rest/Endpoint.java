@@ -36,7 +36,9 @@ public record Endpoint(Class<?> resource, HttpMethod method, String pattern, Kin
         /** the tenant is a path variable */
         PATH_TENANT,
         /** the tenant is a field of the JSON body */
-        BODY_TENANT
+        BODY_TENANT,
+        /** the tenant comes only from the {@code Tenant} header (mail texts, since 2026-10) */
+        HEADER_TENANT
     }
 
     public String key() {

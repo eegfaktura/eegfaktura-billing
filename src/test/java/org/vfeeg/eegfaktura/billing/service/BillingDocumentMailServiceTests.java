@@ -30,6 +30,7 @@ import java.util.UUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -37,6 +38,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -57,6 +59,11 @@ class BillingDocumentMailServiceTests {
     @Mock private FileDataRepository fileDataRepository;
     @Mock private BillingRunRepository billingRunRepository;
     @Mock private BillingDocumentRepository billingDocumentRepository;
+    // subject and text come from the EEG's mail text or the default (MailTemplateService, own tests); here the
+    // service hands back a mail built from the values it gets, so the test sees what BillingDocumentMailService passes
+    @Mock private MailTemplateService mailTemplateService;
+    private static final EmailService.InlineImage LOGO =
+            new EmailService.InlineImage(MailTemplateService.LOGO_CONTENT_ID, new byte[]{1}, "image/png");
 
     private BillingDocumentMailService service;
     private BillingRun run;
@@ -66,7 +73,17 @@ class BillingDocumentMailServiceTests {
     @BeforeEach
     void setUp() {
         service = new BillingDocumentMailService(emailService, billingDocumentFileRepository, fileDataRepository,
-                new AppProperties(), billingRunRepository, billingDocumentRepository);
+                new AppProperties(), billingRunRepository, billingDocumentRepository, mailTemplateService);
+        lenient().when(mailTemplateService.prepareForSend(anyString()))
+                .thenReturn(new MailTemplateService.Prepared(false, null, null, null, Map.of(), null));
+        lenient().when(mailTemplateService.render(any(), anyMap(), eq(true))).thenAnswer(invocation -> {
+            Map<String, String> v = invocation.getArgument(1);
+            return new MailTemplateService.RenderedMail(
+                    v.get("document.type") + " " + v.get("document.period") + " - " + v.get("eeg.name"),
+                    "<p>" + v.get("recipient.name") + ", " + v.get("document.period") + "</p>"
+                            + "<img src=\"cid:" + MailTemplateService.LOGO_CONTENT_ID + "\">",
+                    List.of(LOGO));
+        });
         run = BillingRun.builder().id(RUN_ID).tenantId("TE100100").clearingPeriodIdentifier("Abr_YQ-2024-3")
                 .build();
         lenient().when(billingRunRepository.findById(RUN_ID)).thenReturn(Optional.of(run));
@@ -84,7 +101,7 @@ class BillingDocumentMailServiceTests {
     void statusGoesInProgressThenSentAndProtocolListsTheRecipient() throws Exception {
         BillingDocument anna = document("anna@example.at", "Anna Muster", "001");
         when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of(anna));
-        when(emailService.sendEmail(anyString(), anyString(), anyString(), anyString(), anyString(), anyMap()))
+        when(emailService.sendEmail(anyString(), anyString(), anyString(), anyString(), anyString(), anyList(), anyMap()))
                 .thenReturn(List.of());
 
         String protocol = service.sendAllBillingDocuments(RUN_ID);
@@ -105,23 +122,35 @@ class BillingDocumentMailServiceTests {
 
         service.sendAllBillingDocuments(RUN_ID);
 
+        // the values for the mail text come from the document (period as readable date range since the mail texts)
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, String>> values = ArgumentCaptor.forClass(Map.class);
+        verify(mailTemplateService).render(any(), values.capture(), eq(true));
+        assertThat(values.getValue(), hasEntry("recipient.name", "Anna Muster"));
+        assertThat(values.getValue(), hasEntry("document.period", "01.07.2024 - 30.09.2024"));
+        assertThat(values.getValue(), hasEntry("eeg.name", "EEG Sonnenstrom"));
+
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, byte[]>> attachments = ArgumentCaptor.forClass(Map.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<EmailService.InlineImage>> inline = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendEmail(eq("no-reply@eegfaktura.at"), eq("anna@example.at"), eq("office@eeg.at"),
-                eq("Rechnung Abr_YQ-2024-3 - EEG Sonnenstrom"), body.capture(), attachments.capture());
+                eq("Rechnung 01.07.2024 - 30.09.2024 - EEG Sonnenstrom"), body.capture(), inline.capture(),
+                attachments.capture());
+        // the PDF is an attachment, the logo an inline image (no longer a second attachment)
         assertThat(attachments.getValue(), hasKey("R202400001.pdf"));
-        assertThat(attachments.getValue(), hasKey(BillingDocumentMailService.ATTACHMENT_LOGO_NAME));
+        assertThat(attachments.getValue().size(), is(1));
+        assertThat(inline.getValue(), contains(LOGO));
         assertThat(body.getValue(), containsString("Anna Muster"));
-        assertThat(body.getValue(), containsString("01.07.2024 - 30.09.2024"));
-        assertThat(body.getValue(), containsString("cid:" + BillingDocumentMailService.ATTACHMENT_LOGO_NAME));
+        assertThat(body.getValue(), containsString("cid:" + MailTemplateService.LOGO_CONTENT_ID));
     }
 
     @Test
     void rejectedAddressPartsAreAWarningNotAFailure() throws Exception {
         BillingDocument anna = document("anna@example.at;kaputt", "Anna Muster", "001");
         when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of(anna));
-        when(emailService.sendEmail(anyString(), anyString(), anyString(), anyString(), anyString(), anyMap()))
+        when(emailService.sendEmail(anyString(), anyString(), anyString(), anyString(), anyString(), anyList(), anyMap()))
                 .thenReturn(List.of("kaputt"));
 
         String protocol = service.sendAllBillingDocuments(RUN_ID);
@@ -136,9 +165,9 @@ class BillingDocumentMailServiceTests {
         BillingDocument bert = document("bert@example.at", "Bert Beispiel", "002");
         when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of(anna, bert));
         when(emailService.sendEmail(anyString(), eq("anna@example.at"), anyString(), anyString(), anyString(),
-                anyMap())).thenThrow(new MessagingException("smtp down"));
+                anyList(), anyMap())).thenThrow(new MessagingException("smtp down"));
         when(emailService.sendEmail(anyString(), eq("bert@example.at"), anyString(), anyString(), anyString(),
-                anyMap())).thenReturn(List.of());
+                anyList(), anyMap())).thenReturn(List.of());
 
         String protocol = service.sendAllBillingDocuments(RUN_ID);
 
@@ -157,7 +186,7 @@ class BillingDocumentMailServiceTests {
         String protocol = service.sendAllBillingDocuments(RUN_ID);
 
         assertThat(protocol, containsString("  (MitgliedsNr -, -) FEHLER,"));
-        verify(emailService, never()).sendEmail(any(), any(), any(), any(), any(), any());
+        verify(emailService, never()).sendEmail(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -167,7 +196,7 @@ class BillingDocumentMailServiceTests {
         when(fileDataRepository.findById(fileDataIdByDocument.get(anna.getId()))).thenReturn(Optional.empty());
 
         assertThat(service.sendAllBillingDocuments(RUN_ID), containsString("(MitgliedsNr 001, Anna Muster) FEHLER,"));
-        verify(emailService, never()).sendEmail(any(), any(), any(), any(), any(), any());
+        verify(emailService, never()).sendEmail(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -209,7 +238,7 @@ class BillingDocumentMailServiceTests {
         BillingDocument anna = document("anna@example.at", "Anna Muster", "001");
         BillingDocument bert = document("bert@example.at", "Bert Beispiel", "002");
         when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of(anna, bert));
-        when(emailService.sendEmail(anyString(), anyString(), anyString(), anyString(), anyString(), anyMap()))
+        when(emailService.sendEmail(anyString(), anyString(), anyString(), anyString(), anyString(), anyList(), anyMap()))
                 .thenThrow(new MessagingException("smtp down"));
 
         service.sendAllBillingDocuments(RUN_ID);

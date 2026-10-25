@@ -8,19 +8,27 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
-### Changed
-- Tests follow release 1.0.8 (asynchronous billing run, ZVT, mail): the concurrency tests exercise the claim
-  (`secondStartOfARunningPeriodIsRefused`, `simultaneousStartsOfOnePeriodAcceptExactlyOne`) instead of the removed
-  per-tenant lock, the two-periods case is disabled as the reproduction of the number race; the scenario tests expect
-  the exceptions the service throws now (the resource answers 400/409); the mail tests expect the issuer in the subject
-  and the plain-text alternative; the M3 masterdata table and the M6 legacy view (`legacy-base/06_…zvt_time_tariff`,
-  copied from eegfaktura-backend) carry the ZVT columns; `responses/BillingRunDTO.json` records `errorSummary`.
-  New: scenario S13 (`BillingScenarioZvtTests`, one position per window share and the ten contract refusals),
-  `BillingRunLauncherTests` (FAILED summaries), the web slice covers 202/409/503 of `POST /api/billing`.
-  `LegacyMasterdataViewContractTests.v3ViewHasEveryLegacyAndEntityColumnByName` is disabled: v3's cutover view
-  lacks the 11 ZVT columns (known error). No production code changed.
-
 ### Added
+- **Editable member mail text (`billing-document`)** (konzept-mail-texte-editierbar.md): an EEG admin edits
+  subject and text of the invoice/credit note mail under `/api/mailtemplates` (same schema as the backend:
+  list, get, PUT with version stamp → 409 on a stale version, DELETE = back to the default, image upload,
+  preview, test mail). Text is sanitized server-side with OWASP java-html-sanitizer driven by the shared
+  `mail-html-policy.json`; placeholders (`{key}` in the subject, `span/div[data-ph]` in the text) are replaced
+  as escaped values only. Images: PNG/JPEG checked by content, at most 3, together ≤ 500 KB; no extra PDF
+  (the document PDF is always attached). Test mail goes only to the login's e-mail claim or the EEG address
+  from `base.billing_masterdata`, without cc, subject prefixed `[Test] ` (send failure: 502). The
+  eegfaktura logo is the built-in image `mailfile:eegfaktura-logo` (as in the backend; served under
+  `/files/eegfaktura-logo`, not counted against the limits, not deletable).
+  Uploads are drafts (`committed=false`, never sent) until a saved version uses them; PUT removes files the
+  version no longer uses and drafts older than 24 h (a referenced older draft is committed; an image in the
+  text whose file no longer exists is a 400), DELETE of a file the saved version uses answers 409.
+  Uploads, saves and deletes of one mail are serialized (advisory lock), so the limits hold. A block
+  placeholder is allowed only as a top-level `div`; in the subject only `{key}` with the catalog syntax is a
+  placeholder (`{EEG}` stays text). `billing.footerText` is HTML (as in the PDF) and goes through the same
+  sanitizer instead of being escaped. The test mail to the EEG goes to every valid address of a `;` list;
+  an EEG without participants has no address in `base.billing_masterdata` (400).
+- Flyway `V1_16`: tables `billing_mail_template` and `billing_mail_template_file` (additive; files in
+  `file_data`). `V1_17`: column `billing_mail_template_file.committed` (additive).
 - Coverage gate: JaCoCo reports coverage in `test.yml` (artifact `jacoco-report`) and `verify` fails if a
   package falls below its floor; as `test.yml` gates the image (1.1.0), **coverage below a floor now blocks
   the image and every deploy job** too. `./mvnw test` stays without the gate.
@@ -35,7 +43,40 @@ this changelog highlights the changes relevant for overview and operations.
   (lines per file). The working agreement, the tracking files and the migration-concept template are
   kept outside the repository.
 
+### Changed
+- **Billing run mail** uses the EEG's stored text, else the default. The default reproduces the former mail
+  (logo, greeting, text, signature, footer) in the same frame (grey background, white 595 px box);
+  layout differences inside the box: one column with even padding instead of the former table columns
+  (greeting and text were indented differently), the logo is a centered paragraph instead of a 205 px
+  header row, and the footer text is a normal paragraph instead of extra-small text at the bottom. **Subject:** same pattern
+  `<Belegart> <Zeitraum> - <EEG>`, but the period is now the readable date range (e.g.
+  `01.07.2026 - 30.09.2026` instead of `Abr_YQ-2026-3`), and with an empty EEG name the subject ends in ` -`. If a stored text cannot be rendered, the
+  default is sent and the run's send protocol says so.
+- `spring.servlet.multipart.max-file-size` 256KB → 512KB (image limit of the mail text; also applies to
+  logo/footer uploads).
+- Tests follow release 1.0.8 (asynchronous billing run, ZVT, mail): the concurrency tests exercise the claim
+  (`secondStartOfARunningPeriodIsRefused`, `simultaneousStartsOfOnePeriodAcceptExactlyOne`) instead of the removed
+  per-tenant lock, the two-periods case is disabled as the reproduction of the number race; the scenario tests expect
+  the exceptions the service throws now (the resource answers 400/409); the mail tests expect the issuer in the subject
+  and the plain-text alternative; the M3 masterdata table and the M6 legacy view (`legacy-base/06_…zvt_time_tariff`,
+  copied from eegfaktura-backend) carry the ZVT columns; `responses/BillingRunDTO.json` records `errorSummary`.
+  New: scenario S13 (`BillingScenarioZvtTests`, one position per window share and the ten contract refusals),
+  `BillingRunLauncherTests` (FAILED summaries), the web slice covers 202/409/503 of `POST /api/billing`.
+  `LegacyMasterdataViewContractTests.v3ViewHasEveryLegacyAndEntityColumnByName` is disabled: v3's cutover view
+  lacks the 11 ZVT columns (known error). No production code changed.
+- Mail text tests: without a Tenant header every handler of `/api/mailtemplates` is checked to answer 403,
+  the writing ones (PUT, DELETE, file upload and delete, test mail) included, with nothing stored and no mail
+  sent. No production code changed.
+
 ### Fixed
+- Tests: the `rest` coverage gate (100 % lines) failed now and then, because the 409 for two simultaneous first
+  starts of a period was only reached when the race happened in the concurrency tests; a web test covers it
+  deterministically now (pre-existing, found on this PR's CI).
+- The plain-text part of the billing mail decodes all HTML entities (numeric ones such as `&#64;` showed).
+- Recipient and EEG name were inserted into the billing mail without HTML escaping (FreeMarker without
+  output format); the FreeMarker template and dependency are removed.
+- Logo/footer upload: `file_data.tenant_id` is set, and the type is checked from the content (PNG/JPEG/GIF);
+  an upload without Content-Type or with other content is rejected.
 - The integration tests run on Docker 29: `src/test/resources/docker-java.properties` sets the
   Docker API version Testcontainers asks for (it asked for 1.32, Docker 29 refuses below 1.40).
 - `TEST_STORE_DOCUMENTS_PATH` also sets the directory for the generated PDFs and XLSX of the
@@ -46,6 +87,11 @@ this changelog highlights the changes relevant for overview and operations.
 - `.gitattributes` keeps `src/test/resources/legacy-base/**` and `src/test/resources/contracts/v3view/**`
   on LF, so `LegacyMasterdataViewContractTests.copiedFilesAreUnchanged` also passes on Windows checkouts
   with `core.autocrlf=true`.
+- `EXTERNAL_SOURCES.md` lists the OWASP java-html-sanitizer (20261011.1, Apache-2.0 and BSD-2-Clause) of the mail texts
+  instead of FreeMarker, whose dependency this release removes.
+- Mail texts: saving checks the image limits again (at most 3 images, together ≤ 500 KB) over every image the
+  saved version uses. The upload counts the saved files plus drafts of the last 24 h, so with older drafts a text
+  could commit more images than allowed; such a save is now a 400 and stores nothing.
 
 ## [1.1.0] – 2026-10-21
 

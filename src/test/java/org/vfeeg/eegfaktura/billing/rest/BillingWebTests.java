@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.core.task.TaskRejectedException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.service.BillingRunLauncher;
@@ -82,6 +83,20 @@ class BillingWebTests extends EndpointMatrix {
         mvc.perform(endpoint(POST, "/api/billing").request(OWN, OWN, TestTokens.admin()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.billingRunId").value(ID.toString()));
+        verify(billingRunLauncher, never()).launch(any(), any());
+    }
+
+    /**
+     * Two first starts of one period at the same time: the second insert hits the unique index (V1_15) and is
+     * answered as a running run (409), nothing is launched. Covered here deterministically; the concurrency
+     * tests reach this path only when the race happens, which made the rest coverage gate flaky.
+     */
+    @Test
+    void aSimultaneousFirstStartIsAConflict() throws Exception {
+        stubRecordsOf(OWN);
+        when(billingService.acceptBillingRun(any())).thenThrow(new DataIntegrityViolationException("uq_billing_run"));
+        mvc.perform(endpoint(POST, "/api/billing").request(OWN, OWN, TestTokens.admin()))
+                .andExpect(status().isConflict());
         verify(billingRunLauncher, never()).launch(any(), any());
     }
 

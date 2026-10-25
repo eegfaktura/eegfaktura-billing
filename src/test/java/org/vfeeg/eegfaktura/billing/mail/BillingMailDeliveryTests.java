@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentMailService;
+import org.vfeeg.eegfaktura.billing.service.MailTemplateService;
 import org.vfeeg.eegfaktura.billing.support.ConcurrencyAndMailBase;
 import org.vfeeg.eegfaktura.billing.support.GreenMailHolder;
 
@@ -26,6 +27,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
@@ -55,7 +57,8 @@ class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
         assertThat(mail.getRecipients(MimeMessage.RecipientType.TO), arrayContaining(new InternetAddress(MEMBER_1)));
         assertThat(mail.getRecipients(MimeMessage.RecipientType.CC), arrayContaining(new InternetAddress(COMMUNITY)));
         assertThat(receivedBy(COMMUNITY), arrayWithSize(1));
-        assertThat(mail.getSubject(), is("Rechnung " + PERIOD + " - Energiegemeinschaft Holy Grail")); // the issuer since 1.0.8
+        // the issuer since 1.0.8; the period as readable date range since the mail texts
+        assertThat(mail.getSubject(), is("Rechnung 01.04.2024 - 30.06.2024 - Energiegemeinschaft Holy Grail"));
 
         List<Part> parts = leaves(mail);
         Part pdf = parts.stream().filter(p -> isType(p, "application/pdf")).findFirst()
@@ -66,10 +69,10 @@ class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
         Part logo = parts.stream().filter(p -> isType(p, "image/png")).findFirst()
                 .orElseThrow(() -> new AssertionError("no logo part"));
         assertThat(logo.getDisposition(), is(Part.INLINE));
-        assertThat(logo.getHeader("Content-ID"), arrayContaining("<" + BillingDocumentMailService.ATTACHMENT_LOGO_NAME + ">"));
+        assertThat(logo.getHeader("Content-ID"), arrayContaining("<" + MailTemplateService.LOGO_CONTENT_ID + ">"));
         String html = parts.stream().filter(p -> isType(p, "text/html")).findFirst()
                 .map(BillingMailDeliveryTests::text).orElseThrow(() -> new AssertionError("no HTML body"));
-        assertThat(html, containsString("cid:" + BillingDocumentMailService.ATTACHMENT_LOGO_NAME));
+        assertThat(html, containsString("cid:" + MailTemplateService.LOGO_CONTENT_ID));
         assertThat(html, containsString("Nachname1"));
 
         BillingRunDTO run = run(runId);
@@ -110,7 +113,7 @@ class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
                 mailSender.setPort(down);
             }
             return rejected;
-        }).when(emailServiceSpy).sendEmail(anyString(), anyString(), any(), anyString(), anyString(), anyMap());
+        }).when(emailServiceSpy).sendEmail(anyString(), anyString(), any(), anyString(), anyString(), anyList(), anyMap());
 
         String protocol = mailService.sendAllBillingDocuments(runId);
 
