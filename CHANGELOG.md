@@ -87,8 +87,8 @@ this changelog highlights the changes relevant for overview and operations.
 - `EXTERNAL_SOURCES.md` lists the OWASP java-html-sanitizer (20261011.1, Apache-2.0 and BSD-2-Clause) of the mail texts
   instead of FreeMarker, whose dependency this release removes.
 - Mail texts: saving checks the image limits again (at most 3 images, together ≤ 500 KB) over every image the
-  saved version uses. The upload counts only the files of the last 24 h, so with older drafts a text could
-  commit more images than allowed; such a save is now a 400 and stores nothing.
+  saved version uses. The upload counts the saved files plus drafts of the last 24 h, so with older drafts a text
+  could commit more images than allowed; such a save is now a 400 and stores nothing.
 
 ## [1.1.0] – 2026-10-21
 
