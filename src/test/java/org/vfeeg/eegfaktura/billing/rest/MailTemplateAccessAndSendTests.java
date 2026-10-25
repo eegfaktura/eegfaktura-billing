@@ -6,6 +6,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.vfeeg.eegfaktura.billing.domain.BillingConfig;
 import org.vfeeg.eegfaktura.billing.domain.BillingMailTemplate;
@@ -15,6 +16,7 @@ import org.vfeeg.eegfaktura.billing.service.MailTemplateService;
 
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,6 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -46,6 +49,34 @@ class MailTemplateAccessAndSendTests extends MailTemplateIntegrationBase {
         mvc.perform(get("/api/mailtemplates").header("Authorization", "Bearer admin")).andExpect(status().isForbidden());
         mvc.perform(get(BASE + KEY).header("Authorization", "Bearer admin").header("Tenant", " "))
                 .andExpect(status().isForbidden());
+        mvc.perform(get(BASE + KEY + "/files/eegfaktura-logo").header("Authorization", "Bearer admin"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(BASE + KEY + "/preview").header("Authorization", "Bearer admin")
+                        .contentType(MediaType.APPLICATION_JSON).content(body("subject", "x", "bodyHtml", "<p>a</p>")))
+                .andExpect(status().isForbidden());
+        // the writing handlers too, each with a valid request: nothing stored, no mail sent
+        int rowsBefore = mailRows();
+        mvc.perform(put(BASE + KEY).header("Authorization", "Bearer admin").contentType(MediaType.APPLICATION_JSON)
+                        .content(body("subject", "x", "bodyHtml", "<p>a</p>", "version", 0)))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete(BASE + KEY).header("Authorization", "Bearer admin")).andExpect(status().isForbidden());
+        mvc.perform(multipart(BASE + KEY + "/files")
+                        .file(new MockMultipartFile("file", "logo.png", "image/png", PNG))
+                        .param("kind", "image").header("Authorization", "Bearer admin"))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete(BASE + KEY + "/files/" + UUID.randomUUID()).header("Authorization", "Bearer admin"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(BASE + KEY + "/test").header("Authorization", "Bearer admin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("recipient", "me", "subject", "x", "bodyHtml", "<p>a</p>")))
+                .andExpect(status().isForbidden());
+        assertEquals(rowsBefore, mailRows());
+        verify(javaMailSender, never()).send(any(MimeMessage.class));
+    }
+
+    private int mailRows() {
+        return jdbcTemplate.queryForObject("select (select count(*) from billing_mail_template)"
+                + " + (select count(*) from billing_mail_template_file)", Integer.class);
     }
 
     @Test

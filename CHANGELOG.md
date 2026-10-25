@@ -64,6 +64,9 @@ this changelog highlights the changes relevant for overview and operations.
   `BillingRunLauncherTests` (FAILED summaries), the web slice covers 202/409/503 of `POST /api/billing`.
   `LegacyMasterdataViewContractTests.v3ViewHasEveryLegacyAndEntityColumnByName` is disabled: v3's cutover view
   lacks the 11 ZVT columns (known error). No production code changed.
+- Mail text tests: without a Tenant header every handler of `/api/mailtemplates` is checked to answer 403,
+  the writing ones (PUT, DELETE, file upload and delete, test mail) included, with nothing stored and no mail
+  sent. No production code changed.
 
 ### Fixed
 - The plain-text part of the billing mail decodes all HTML entities (numeric ones such as `&#64;` showed).
