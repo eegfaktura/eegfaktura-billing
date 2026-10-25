@@ -287,4 +287,59 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
         cleanup(TENANT_A);
         cleanup(TENANT_B);
     }
+
+    @Test
+    @DisplayName("PUT re-checks the image limits over the images it uses, older drafts included; nothing is saved")
+    void saveKeepsTheImageLimits() throws Exception {
+        cleanup(TENANT_B);
+        // 3 images, older than 24 h: no longer counted at upload, so 3 more fit
+        List<String> ids = new java.util.ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            ids.add(uploadImage(TENANT_B, PNG));
+        }
+        ageDrafts(TENANT_B);
+        for (int i = 0; i < 3; i++) {
+            ids.add(uploadImage(TENANT_B, PNG));
+        }
+        putTemplate(TENANT_B, "x", imagesHtml(ids), 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("bodyHtml"))
+                .andExpect(jsonPath("$.errors[0].message").value("Höchstens 3 Bilder je E-Mail."));
+        assertNothingSaved(6);
+
+        // 2 x 200 KB older than 24 h and 1 x 200 KB: 3 images, but together more than 500 KB
+        cleanup(TENANT_B);
+        byte[] image = Arrays.copyOf(PNG, 200 * 1024);
+        List<String> big = new java.util.ArrayList<>(List.of(uploadImage(TENANT_B, image), uploadImage(TENANT_B, image)));
+        ageDrafts(TENANT_B);
+        big.add(uploadImage(TENANT_B, image));
+        putTemplate(TENANT_B, "x", imagesHtml(big), 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].message").value("Alle Bilder zusammen dürfen höchstens 500 KB groß sein."));
+        assertNothingSaved(3);
+        // within the limits the save goes through
+        putTemplate(TENANT_B, "x", imagesHtml(big.subList(0, 2)), 0).andExpect(status().isOk());
+        cleanup(TENANT_B);
+    }
+
+    private void ageDrafts(String tenant) {
+        jdbcTemplate.update("update billing_mail_template_file set date_created = now() - interval '48 hours' "
+                + "where tenant_id = ?", tenant);
+    }
+
+    private static String imagesHtml(List<String> ids) {
+        StringBuilder html = new StringBuilder("<p>");
+        ids.forEach(id -> html.append("<img src=\"mailfile:").append(id).append("\" />"));
+        return html.append("</p>").toString();
+    }
+
+    private void assertNothingSaved(int drafts) {
+        assertTrue(templateRepository.findByTenantIdAndMailKey(TENANT_B, KEY).isEmpty());
+        assertEquals(drafts, jdbcTemplate.queryForObject(
+                "select count(*) from billing_mail_template_file where tenant_id = ? and not committed",
+                Integer.class, TENANT_B));
+        assertEquals(0, jdbcTemplate.queryForObject(
+                "select count(*) from billing_mail_template_file where tenant_id = ? and committed",
+                Integer.class, TENANT_B));
+    }
 }

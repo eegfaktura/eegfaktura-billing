@@ -88,6 +88,25 @@ class MailTemplateFiles {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * The image limits over the images a saved version uses. The upload counts only the files of
+     * the last 24 h, but a save may also commit older drafts, so the limits are checked again here.
+     */
+    static void checkSavedLimits(MailTemplateCatalog.Limits limits, List<BillingMailTemplateFile> files,
+                                 Set<String> referenced) {
+        List<BillingMailTemplateFile> used = files.stream()
+                .filter(f -> BillingMailTemplateFile.KIND_IMAGE.equals(f.getKind()))
+                .filter(f -> referenced.contains(f.getId().toString()))
+                .toList();
+        if (used.size() > limits.maxImages()) {
+            throw new ValidationException("bodyHtml", "Höchstens " + limits.maxImages() + " Bilder je E-Mail.");
+        }
+        if (used.stream().mapToLong(BillingMailTemplateFile::getSize).sum() > limits.maxTotalBytes()) {
+            throw new ValidationException("bodyHtml",
+                    "Alle Bilder zusammen dürfen höchstens " + (limits.maxTotalBytes() / 1024) + " KB groß sein.");
+        }
+    }
+
     /** The built-in logo, usable by every tenant; not stored, not counted against the limits. */
     StoredImage builtinLogo() {
         return new StoredImage(FileTypeDetector.PNG, defaultLogo);

@@ -215,12 +215,14 @@ public class MailTemplateService {
             throw new ValidationException("version", "Version fehlt.");
         }
         noAttachment(entry, request.attachmentFileId());
-        Set<String> existingImages = MailTemplateFiles.imageIds(files.loadAllFiles(tenant, key));
+        List<BillingMailTemplateFile> allFiles = files.loadAllFiles(tenant, key);
+        Set<String> existingImages = MailTemplateFiles.imageIds(allFiles);
         for (String id : validated.fileIds()) {
             if (!MailHtmlPolicy.BUILTIN_LOGO_ID.equals(id) && !existingImages.contains(id)) {
                 throw new ValidationException("bodyHtml", "Ein Bild im Text gibt es nicht (mehr); bitte erneut einfügen.");
             }
         }
+        MailTemplateFiles.checkSavedLimits(entry.limits(), allFiles, validated.fileIds());
 
         Optional<BillingMailTemplate> existing = templateRepository.lockByTenantIdAndMailKey(tenant, key);
         existing.ifPresent(t -> TenantContext.validateTenant(t.getTenantId()));
