@@ -81,6 +81,8 @@ this changelog highlights the changes relevant for overview and operations.
 - `.gitattributes` keeps `src/test/resources/legacy-base/**` and `src/test/resources/contracts/v3view/**`
   on LF, so `LegacyMasterdataViewContractTests.copiedFilesAreUnchanged` also passes on Windows checkouts
   with `core.autocrlf=true`.
+- `EXTERNAL_SOURCES.md` lists the OWASP java-html-sanitizer (20261011.1, Apache-2.0 and BSD-2-Clause) of the mail texts
+  instead of FreeMarker, whose dependency this release removes.
 
 ## [1.1.0] – 2026-10-21
 

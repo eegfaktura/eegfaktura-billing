@@ -38,7 +38,7 @@ artifact's own POM in the local Maven repository on 2026-10-01.
 | `net.sf.jasperreports:jasperreports` | PDF documents | 7.0.7 | LGPL |
 | `jasperreports-functions`, `-fonts`, `-jdt`, `-pdf` | report functions, fonts, compiler, PDF export | 7.0.2 | LGPL |
 | `org.apache.poi:poi`, `poi-ooxml` | XLSX export | 5.4.1 | Apache-2.0 |
-| `org.freemarker:freemarker` | mail body template | 2.3.34 | Apache-2.0 |
+| `com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer` | allowlist sanitizer for the EEG-edited mail texts (`mail-html-policy.json`) | 20261011.1 (2026-10-11) | Apache-2.0 and BSD-2-Clause (both in its parent POM) |
 | `org.springdoc:springdoc-openapi-starter-webmvc-ui` | OpenAPI / Swagger UI | 2.3.0 | Apache-2.0 |
 | `org.projectlombok:lombok` | accessors at compile time (not in the jar) | from the Spring Boot parent | MIT |
 
