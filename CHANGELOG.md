@@ -69,6 +69,9 @@ this changelog highlights the changes relevant for overview and operations.
   sent. No production code changed.
 
 ### Fixed
+- Tests: the `rest` coverage gate (100 % lines) failed now and then, because the 409 for two simultaneous first
+  starts of a period was only reached when the race happened in the concurrency tests; a web test covers it
+  deterministically now (pre-existing, found on this PR's CI).
 - The plain-text part of the billing mail decodes all HTML entities (numeric ones such as `&#64;` showed).
 - Recipient and EEG name were inserted into the billing mail without HTML escaping (FreeMarker without
   output format); the FreeMarker template and dependency are removed.
