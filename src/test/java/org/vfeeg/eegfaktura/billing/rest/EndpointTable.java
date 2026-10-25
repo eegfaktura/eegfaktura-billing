@@ -10,11 +10,12 @@ import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
 import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.BODY_TENANT;
+import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.HEADER_TENANT;
 import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.ID;
 import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.PATH_TENANT;
 
 /**
- * The 31 mapped handlers under {@code /api/**} (counted 2026-10-01; commented-out mappings do not
+ * The 40 mapped handlers under {@code /api/**} (counted 2026-10-01, 31; plus 9 mail-text handlers 2026-10-25; commented-out mappings do not
  * count, {@code known-errors.md} #29). {@code EndpointMappingGuardTests} compares this table with
  * the live mappings in both directions: a new endpoint without a row fails it.
  */
@@ -29,6 +30,7 @@ public final class EndpointTable {
 
     private static final String RUNS = "/api/billingRuns";
     private static final String CONFIGS = "/api/billingConfigs";
+    private static final String MAIL = "/api/mailtemplates";
 
     public static final List<Endpoint> ALL = List.of(
             // BillingRunResource (8)
@@ -74,7 +76,17 @@ public final class EndpointTable {
             new Endpoint(BillingResource.class, POST, "/api/billing", BODY_TENANT, 202,
                     BILLING_BODY, false, null),
             // FileDataResource (1)
-            row(FileDataResource.class, GET, "/api/fileData/{id}", ID, 200)
+            row(FileDataResource.class, GET, "/api/fileData/{id}", ID, 200),
+            // MailTemplateResource (9): the tenant only from the header; own tests in MailTemplateIntegrationTests
+            row(MailTemplateResource.class, GET, MAIL, HEADER_TENANT, 200),
+            row(MailTemplateResource.class, GET, MAIL + "/{key}", HEADER_TENANT, 200),
+            row(MailTemplateResource.class, PUT, MAIL + "/{key}", HEADER_TENANT, 200),
+            row(MailTemplateResource.class, DELETE, MAIL + "/{key}", HEADER_TENANT, 204),
+            row(MailTemplateResource.class, POST, MAIL + "/{key}/files", HEADER_TENANT, 201),
+            row(MailTemplateResource.class, GET, MAIL + "/{key}/files/{id}", HEADER_TENANT, 200),
+            row(MailTemplateResource.class, DELETE, MAIL + "/{key}/files/{id}", HEADER_TENANT, 204),
+            row(MailTemplateResource.class, POST, MAIL + "/{key}/preview", HEADER_TENANT, 200),
+            row(MailTemplateResource.class, POST, MAIL + "/{key}/test", HEADER_TENANT, 200)
     );
 
     private EndpointTable() {
