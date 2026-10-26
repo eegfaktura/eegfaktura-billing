@@ -15,7 +15,8 @@ public final class MailTemplateModels {
     }
 
     public record MailTemplateSummary(String key, String name, String description, boolean customized,
-                                      OffsetDateTime updatedAt, String updatedBy, boolean defaultChanged) {
+                                      OffsetDateTime updatedAt, String updatedBy, boolean defaultChanged,
+                                      String fixedFooter) {
     }
 
     public record MailTemplate(String key, String name, String description, String subject, String bodyHtml,
@@ -23,7 +24,7 @@ public final class MailTemplateModels {
                                String defaultSubject, String defaultBodyHtml, OffsetDateTime updatedAt,
                                String updatedBy, List<MailTemplateCatalog.Placeholder> placeholders,
                                List<MailFile> files, MailTemplateCatalog.Limits limits, String attachmentFileId,
-                               boolean legacyTemplateActive) {
+                               boolean legacyTemplateActive, String fixedFooter) {
     }
 
     public record MailFile(String id, String kind, String filename, String mimeType, long size, boolean committed) {

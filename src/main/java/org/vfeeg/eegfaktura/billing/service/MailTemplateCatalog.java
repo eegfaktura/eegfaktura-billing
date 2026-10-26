@@ -51,16 +51,27 @@ public class MailTemplateCatalog {
     public static final int MAX_BODY_BYTES = 100 * 1024;
 
     /**
-     * Today's text of BillingEmailDefaultTemplate.ftl in the stored format (the eegfaktura logo on
-     * top is the built-in image {@code mailfile:eegfaktura-logo}). The subject keeps today's pattern
+     * Fixed footer of every billing mail (plain text, also in the API as {@code fixedFooter}); the
+     * same text as in eegfaktura-backend. Not part of the stored text, not editable.
+     */
+    public static final String FIXED_FOOTER =
+            "versandt durch EEG Faktura, ein Service des VFEEG - https://vfeeg.org/";
+
+    /** {@link #FIXED_FOOTER} as HTML, appended by the server after the rendered body. */
+    public static final String FIXED_FOOTER_HTML =
+            "<p style=\"font-size:12px;color:#6b7280\">versandt durch EEG Faktura, ein Service des VFEEG - "
+            + "<a href=\"https://vfeeg.org/\">https://vfeeg.org/</a></p>";
+
+    /**
+     * Today's text of BillingEmailDefaultTemplate.ftl in the stored format, without the eegfaktura
+     * logo on top since defaultVersion 2 (the fixed footer names the sender instead; stored texts
+     * with {@code mailfile:eegfaktura-logo} still show it). The subject keeps today's pattern
      * "Belegart Zeitraum - EEG", but the period is now the readable date range (document.period, e.g.
      * "01.07.2026 - 30.09.2026" instead of "Abr_YQ-2026-3"), and with an empty EEG name it ends in " -".
      * Raising defaultVersion marks stored texts as "default changed".
      */
     private static final String BILLING_DOCUMENT_BODY =
-            "<p style=\"text-align:center\"><img src=\"mailfile:" + MailHtmlPolicy.BUILTIN_LOGO_ID
-            + "\" alt=\"Logo\" /></p>"
-            + "<p>Liebe/r <span data-ph=\"recipient.name\">Empfängername</span>,</p>"
+            "<p>Liebe/r <span data-ph=\"recipient.name\">Empfängername</span>,</p>"
             + "<p>anbei findest du deine <span data-ph=\"document.type\">Belegart</span> für den "
             + "Abrechnungszeitraum <span data-ph=\"document.period\">Abrechnungszeitraum</span>.</p>"
             + "<p>Mit lieben Grüßen,</p>"
@@ -75,7 +86,7 @@ public class MailTemplateCatalog {
                 "Rechnung / Gutschrift",
                 "Wird beim Versand eines Abrechnungslaufs an jedes Mitglied mit E-Mail-Adresse verschickt. "
                         + "Der Beleg (PDF) wird immer angehängt.",
-                1,
+                2,
                 "{document.type} {document.period} - {eeg.name}",
                 // stored in the sanitizer's output form, so an unchanged default round-trips 1:1
                 mailHtmlPolicy.sanitize(BILLING_DOCUMENT_BODY, Set.of()),

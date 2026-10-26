@@ -128,7 +128,7 @@ class BillingDocumentMailServiceTest {
     }
 
     @Test
-    @DisplayName("Without a stored text the default goes out: today's subject pattern, text, logo and PDF")
+    @DisplayName("Without a stored text the default goes out: today's subject pattern, text, fixed footer, no logo, PDF")
     void defaultMail() throws Exception {
         String protocol = service.sendAllBillingDocuments(run.getId());
 
@@ -140,8 +140,11 @@ class BillingDocumentMailServiceTest {
         assertTrue(text.contains("Mit lieben Grüßen,"), text);
         assertTrue(text.contains("EEG Sonnenschein"), text);
         assertTrue(text.contains("Sitz: Musterdorf\nZVR 123"), text);
-        assertTrue(sent.html().contains("src=\"cid:eegfaktura-logo-1\""), sent.html());
-        assertEquals("eegfaktura-logo-1", sent.inline().get(0).contentId());
+        // defaultVersion 2: no eegfaktura logo in the default text, the fixed footer names the sender
+        assertFalse(sent.html().contains("eegfaktura-logo"), sent.html());
+        assertTrue(sent.inline().isEmpty());
+        assertTrue(sent.html().contains(MailTemplateCatalog.FIXED_FOOTER_HTML), sent.html());
+        assertTrue(text.endsWith(MailTemplateCatalog.FIXED_FOOTER), text);
         assertTrue(sent.attachments().containsKey("Rechnung-1.pdf"));
         assertFalse(protocol.contains("HINWEIS"), protocol);
     }
@@ -197,6 +200,25 @@ class BillingDocumentMailServiceTest {
         assertEquals(1, sent.inline().size());
         assertEquals("image/png", sent.inline().get(0).mimeType());
         assertTrue(sent.attachments().containsKey("Rechnung-1.pdf"));
+        // the fixed footer follows the stored text, in the HTML and the derived plain text
+        assertTrue(sent.html().contains(MailTemplateCatalog.FIXED_FOOTER_HTML), sent.html());
+        assertTrue(EmailService.htmlToPlainText(sent.html()).endsWith(MailTemplateCatalog.FIXED_FOOTER));
+    }
+
+    @Test
+    @DisplayName("A stored text with the built-in eegfaktura logo (old default) still shows the logo inline")
+    void storedTextWithBuiltinLogo() throws Exception {
+        stored("Hallo", "<p style=\"text-align:center\"><img src=\"mailfile:eegfaktura-logo\" alt=\"Logo\" /></p>"
+                + "<p>Servus <span data-ph=\"recipient.name\">Name</span>!</p>");
+
+        String protocol = service.sendAllBillingDocuments(run.getId());
+
+        Sent sent = sent();
+        assertTrue(sent.html().contains("src=\"cid:" + MailTemplateService.LOGO_CONTENT_ID + "\""), sent.html());
+        assertEquals(1, sent.inline().size());
+        assertEquals(MailTemplateService.LOGO_CONTENT_ID, sent.inline().get(0).contentId());
+        assertTrue(sent.html().contains(MailTemplateCatalog.FIXED_FOOTER_HTML), sent.html());
+        assertFalse(protocol.contains(BillingDocumentMailService.TEMPLATE_FALLBACK_NOTE), protocol);
     }
 
     @Test

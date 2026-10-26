@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.vfeeg.eegfaktura.billing.security.Authority;
 import org.vfeeg.eegfaktura.billing.security.JwtAuthentication;
+import org.vfeeg.eegfaktura.billing.service.MailTemplateCatalog;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,14 +43,20 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].key").value(KEY))
                 .andExpect(jsonPath("$[0].customized").value(false))
-                .andExpect(jsonPath("$[0].defaultChanged").value(false));
+                .andExpect(jsonPath("$[0].defaultChanged").value(false))
+                .andExpect(jsonPath("$[0].fixedFooter").value(MailTemplateCatalog.FIXED_FOOTER));
         mvc.perform(as(get(BASE + KEY), "admin", TENANT_B))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.customized").value(false))
                 .andExpect(jsonPath("$.version").value(0))
                 .andExpect(jsonPath("$.subject").value("{document.type} {document.period} - {eeg.name}"))
                 .andExpect(jsonPath("$.bodyHtml").value(containsString("data-ph=\"recipient.name\"")))
-                .andExpect(jsonPath("$.bodyHtml").value(containsString("src=\"mailfile:eegfaktura-logo\"")))
+                // defaultVersion 2: the logo is gone from the default, the fixed footer is not part of it
+                .andExpect(jsonPath("$.bodyHtml").value(not(containsString("eegfaktura-logo"))))
+                .andExpect(jsonPath("$.bodyHtml").value(not(containsString("versandt"))))
+                .andExpect(jsonPath("$.defaultVersion").value(2))
+                .andExpect(jsonPath("$.fixedFooter").value(
+                        "versandt durch EEG Faktura, ein Service des VFEEG - https://vfeeg.org/"))
                 .andExpect(jsonPath("$.files.length()").value(0))
                 .andExpect(jsonPath("$.limits.maxImages").value(3))
                 .andExpect(jsonPath("$.limits.maxAttachments").value(0))
@@ -283,7 +290,8 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
                 .andExpect(jsonPath("$.subject").value("Rechnung für Max Mustermann"))
                 .andExpect(jsonPath("$.html").value(containsString("src=\"data:image/png;base64,")))
                 .andExpect(jsonPath("$.html").value(containsString("Max Mustermann")))
-                .andExpect(jsonPath("$.html").value(not(containsString("mailfile:"))));
+                .andExpect(jsonPath("$.html").value(not(containsString("mailfile:"))))
+                .andExpect(jsonPath("$.html").value(containsString(MailTemplateCatalog.FIXED_FOOTER_HTML)));
         cleanup(TENANT_A);
         cleanup(TENANT_B);
     }

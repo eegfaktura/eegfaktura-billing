@@ -45,8 +45,7 @@ class MailTemplateSending {
 
     Prepared defaultPrepared(String failure) {
         MailTemplateCatalog.Entry entry = entry(MailTemplateCatalog.BILLING_DOCUMENT);
-        return new Prepared(false, entry, entry.defaultSubject(), entry.defaultBodyHtml(),
-                Map.of(MailHtmlPolicy.BUILTIN_LOGO_ID, files.builtinLogo()), failure);
+        return new Prepared(false, entry, entry.defaultSubject(), entry.defaultBodyHtml(), Map.of(), failure);
     }
 
     /** See {@link MailTemplateService#prepareForSend}. */
@@ -102,6 +101,7 @@ class MailTemplateSending {
         String subject = renderer.renderSubject(prepared.subject(), values, entry.placeholderKeys(), entry.htmlKeys());
         String body = renderer.renderBody(prepared.bodyHtml(), values,
                 entry.placeholderKeys(), entry.blockKeys(), entry.htmlKeys(), imageSrc);
-        return new RenderedMail(subject, renderer.frame(body), inlineImages);
+        // the fixed footer comes after the sanitized, rendered text: never stored, never editable
+        return new RenderedMail(subject, renderer.frame(body + MailTemplateCatalog.FIXED_FOOTER_HTML), inlineImages);
     }
 }
