@@ -460,9 +460,6 @@ public class MailHtmlPolicy {
     private static final Pattern BAD_AUTHORITY_CHAR = Pattern.compile("[\\\\%^`{|}]");
     /** The user info Go's url.Parse accepts (validUserinfo): ASCII letters, digits and these marks. */
     private static final Pattern USERINFO = Pattern.compile("[A-Za-z0-9\\-._:~!$&'()*+,;=%@]*");
-    /** Unicode spaces (also NBSP) and ASCII whitespace at the start or end of a URL, as in the backend. */
-    private static final Pattern EDGE_SPACES =
-            Pattern.compile("^[\\p{Z}\\t\\n\\x0B\\f\\r]+|[\\p{Z}\\t\\n\\x0B\\f\\r]+$");
     /** The port part of an authority: none, or ":" and digits (may be empty, as in Go). */
     private static final Pattern PORT = Pattern.compile("(:[0-9]*)?");
 
@@ -488,9 +485,27 @@ public class MailHtmlPolicy {
         return AttributePolicy.IDENTITY_ATTRIBUTE_POLICY;
     }
 
-    /** {@code s} without Unicode spaces (also NBSP) and ASCII whitespace at both ends, as in the backend. */
+    /**
+     * {@code s} without Unicode spaces (also NBSP) and ASCII whitespace at both ends, as in the backend. An index
+     * loop: an anchored regex backtracks quadratically on a long run of spaces inside the URL.
+     */
     static String trimSpaces(String s) {
-        return EDGE_SPACES.matcher(s).replaceAll("");
+        int start = 0;
+        int end = s.length();
+        while (start < end && isEdgeSpace(s.charAt(start))) {
+            start++;
+        }
+        while (end > start && isEdgeSpace(s.charAt(end - 1))) {
+            end--;
+        }
+        return s.substring(start, end);
+    }
+
+    /** \p{Z} (all of it lies in the BMP) or ASCII whitespace \t \n \x0B \f \r. */
+    private static boolean isEdgeSpace(char c) {
+        int type = Character.getType(c);
+        return type == Character.SPACE_SEPARATOR || type == Character.LINE_SEPARATOR
+                || type == Character.PARAGRAPH_SEPARATOR || (c >= '\t' && c <= '\r');
     }
 
     private static String url(String value, List<String> schemes, Predicate<String> allowedFileIds) {

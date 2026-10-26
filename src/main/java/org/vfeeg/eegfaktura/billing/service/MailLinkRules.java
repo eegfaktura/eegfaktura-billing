@@ -40,8 +40,6 @@ class MailLinkRules {
     /** A word like example.at or example.at/pfad. */
     private static final Pattern BARE_DOMAIN =
             Pattern.compile("[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}([/?#]\\S*)?");
-    /** Punctuation and symbols (quotes, », …, *, →) at both ends of a word; a final "/" stays (eeg.at/). */
-    private static final Pattern WORD_EDGE = Pattern.compile("^[\\p{P}\\p{S}]+|[\\p{P}\\p{S}&&[^/]]+$");
 
     private final MailHtmlPolicy policy;
 
@@ -248,12 +246,39 @@ class MailLinkRules {
     }
 
     /**
+     * The word without punctuation and symbols (quotes, », …, *, →) at both ends; a final "/" stays (eeg.at/).
+     * An index loop as in the backend: an anchored regex backtracks quadratically on a long run of punctuation.
+     */
+    static String stripWord(String w) {
+        int start = 0;
+        while (start < w.length() && isPunctOrSymbol(w.codePointAt(start))) {
+            start += Character.charCount(w.codePointAt(start));
+        }
+        int end = w.length();
+        while (end > start && w.charAt(end - 1) != '/' && isPunctOrSymbol(w.codePointBefore(end))) {
+            end -= Character.charCount(w.codePointBefore(end));
+        }
+        return w.substring(start, end);
+    }
+
+    /** \p{P} or \p{S}. */
+    private static boolean isPunctOrSymbol(int cp) {
+        return switch (Character.getType(cp)) {
+            case Character.CONNECTOR_PUNCTUATION, Character.DASH_PUNCTUATION, Character.START_PUNCTUATION,
+                 Character.END_PUNCTUATION, Character.INITIAL_QUOTE_PUNCTUATION, Character.FINAL_QUOTE_PUNCTUATION,
+                 Character.OTHER_PUNCTUATION, Character.MATH_SYMBOL, Character.CURRENCY_SYMBOL,
+                 Character.MODIFIER_SYMBOL, Character.OTHER_SYMBOL -> true;
+            default -> false;
+        };
+    }
+
+    /**
      * Every address the link text shows is the link's own: a web address the host of an https link,
      * an e-mail address the address of a mailto link. A text without addresses is fine.
      */
     private static boolean textMatches(String text, String mailto, String host, Set<String> fileExtensions) {
         for (String word : words(text)) {
-            String w = WORD_EDGE.matcher(word).replaceAll("");
+            String w = stripWord(word);
             String lower = asciiLower(w);
             String shownHost;
             if (w.isEmpty()) {
