@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.3.0] – 2026-10-26
+
 ### Added
 - **Fixed footer in the `billing-document` mail**: every mail (send run, default and stored text, preview
   and test mail) ends with `versandt durch EEG Faktura, ein Service des VFEEG - https://vfeeg.org/`,
