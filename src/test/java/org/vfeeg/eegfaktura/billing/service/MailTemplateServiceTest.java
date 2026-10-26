@@ -156,6 +156,14 @@ class MailTemplateServiceTest {
     }
 
     @Test
+    void aHostWithOtherCharactersIsA400WithTheHostAsWritten() {
+        String body = "<p><a href=\"https://München.at/x\">x</a></p>";
+        var preview = assertThrows(MailTemplateService.ValidationException.class,
+                () -> service.preview(TENANT, MailTemplateCatalog.BILLING_DOCUMENT, new PreviewRequest("x", body, null)));
+        assertEquals("Die Linkadresse enthält ungültige Zeichen: München.at", preview.getErrors().get(0).message());
+    }
+
+    @Test
     void theDefaultKeepsTheLinkRules() {
         MailHtmlPolicy policy = new MailHtmlPolicy();
         var entry = new MailTemplateCatalog(policy).find(MailTemplateCatalog.BILLING_DOCUMENT).orElseThrow();

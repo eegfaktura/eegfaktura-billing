@@ -225,8 +225,8 @@ public class MailHtmlPolicy {
     }
 
     /**
-     * A link of a sanitized HTML: its href, its visible text (including nested elements, without the
-     * labels of placeholders) and the keys of the placeholders inside it.
+     * A link of a sanitized HTML: its href, its visible text (including nested elements and the alt
+     * text of images, without the labels of placeholders) and the keys of the placeholders inside it.
      */
     public record Link(String href, String text, List<String> placeholders) {
     }
@@ -250,7 +250,15 @@ public class MailHtmlPolicy {
                     placeholders = new ArrayList<>();
                     return;
                 }
-                if (text == null || "br".equals(name) || "img".equals(name)) {
+                if (text == null || "br".equals(name)) {
+                    return;
+                }
+                if ("img".equals(name)) {
+                    // the alt text is shown when images are blocked: link text too (as in the backend)
+                    String alt = attribute(attrs, "alt");
+                    if (alt != null && placeholderDepth == 0) {
+                        text.append(' ').append(alt).append(' ');
+                    }
                     return;
                 }
                 String placeholder = attribute(attrs, PLACEHOLDER_ATTRIBUTE);

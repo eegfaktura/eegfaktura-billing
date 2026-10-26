@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -15,8 +14,9 @@ import java.util.regex.Pattern;
  * eegfaktura-backend, shared cases in {@code mail-link-cases.json}): no IP hosts, no URL shorteners
  * ({@code links.blockedHosts} of {@code mail-html-policy.json}), a link text that shows an address
  * shows the link's own address, no placeholder inside a link, at most {@code maxLinks} links and
- * {@code maxLinkDomains} main domains. Runs over the sanitized body only; the server's fixed footer
- * is not part of it.
+ * {@code maxLinkDomains} main domains, a host of ASCII letters, digits, "-" and "." only (an umlaut
+ * domain in its xn-- form). Runs over the sanitized body only; the server's fixed footer is not part
+ * of it.
  */
 class MailLinkRules {
 
@@ -26,19 +26,22 @@ class MailLinkRules {
 
     /** A host label that is a number to browsers (decimal or 0x hex). */
     private static final Pattern NUMERIC_LABEL = Pattern.compile("[0-9]+|0x[0-9a-f]*");
+    /** The characters of a host name (lower case, dots mapped). */
+    private static final Pattern HOST_CHARS = Pattern.compile("[a-z0-9.-]*");
 
     // The address extraction of a link text is the same algorithm as in eegfaktura-backend
     // (links.go): the text is split into words, and every word that is an address must show the
     // link's own address.
-    private static final Pattern ZERO_WIDTH = Pattern.compile("[​‌‍⁠﻿]");
+    /** Invisible characters: soft hyphen, zero-width characters, BOM, ... */
+    private static final Pattern FORMAT_CHARS = Pattern.compile("[\\p{Cf}\\u034F\\u180E]");
     private static final Pattern TEXT_SPACE = Pattern.compile("[\\p{Z}\\t\\n\\x0B\\f\\r]+");
     /** A word like office@example.at. */
     private static final Pattern EMAIL = Pattern.compile("[^@\\s]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+");
     /** A word like example.at or example.at/pfad. */
     private static final Pattern BARE_DOMAIN =
             Pattern.compile("[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}([/?#]\\S*)?");
-    /** Stripped from both ends of a word, "." only from its end. */
-    private static final String WORD_PUNCT = "()[]<>\"'„“”‚‘,;:!?";
+    /** Punctuation and symbols (quotes, », …, *, →) at both ends of a word; a final "/" stays (eeg.at/). */
+    private static final Pattern WORD_EDGE = Pattern.compile("^[\\p{P}\\p{S}]+|[\\p{P}\\p{S}&&[^/]]+$");
 
     private final MailHtmlPolicy policy;
 
@@ -60,17 +63,24 @@ class MailLinkRules {
         List<MailHtmlPolicy.Link> links = policy.links(sanitizedHtml);
         Set<String> ipHosts = new LinkedHashSet<>();
         Set<String> shortenerHosts = new LinkedHashSet<>();
+        Set<String> badHosts = new LinkedHashSet<>();
         List<String> mismatches = new ArrayList<>();
         Set<String> placeholders = new LinkedHashSet<>();
         Set<String> domains = new LinkedHashSet<>();
         for (MailHtmlPolicy.Link link : links) {
             link.placeholders().forEach(key -> placeholders.add(labels.getOrDefault(key, key)));
-            String href = link.href().trim();
-            String lower = href.toLowerCase(Locale.ROOT);
+            String href = MailHtmlPolicy.trimSpaces(link.href());
+            String lower = asciiLower(href);
             String mailto = lower.startsWith("mailto:") ? mailtoAddress(href) : null;
-            String host = lower.startsWith("https://") ? host(href.substring("https://".length())) : null;
+            String writtenHost = lower.startsWith("https://")
+                    ? hostOfAuthority(href.substring("https://".length()).split("[/?#\\s]", 2)[0]) : null;
+            String host = writtenHost != null ? host(writtenHost) : null;
             if (host != null) {
-                if (isIp(host)) {
+                if (!host.startsWith("[") && !HOST_CHARS.matcher(host).matches()) {
+                    // fullwidth letters, soft hyphens, zero-width characters, umlauts: a browser maps
+                    // them to another host than the one shown
+                    badHosts.add(writtenHost);
+                } else if (isIp(host)) {
                     ipHosts.add(host);
                 } else if (isBlocked(host, limits.blockedHosts())) {
                     shortenerHosts.add(host);
@@ -90,6 +100,10 @@ class MailLinkRules {
         if (!ipHosts.isEmpty()) {
             violations.add(new Violation("ip",
                     "Links zu IP-Adressen sind nicht erlaubt: " + String.join(", ", ipHosts)));
+        }
+        if (!badHosts.isEmpty()) {
+            violations.add(new Violation("bad-host",
+                    "Die Linkadresse enthält ungültige Zeichen: " + String.join(", ", badHosts)));
         }
         if (!mismatches.isEmpty()) {
             violations.add(new Violation("text-mismatch",
@@ -111,12 +125,9 @@ class MailLinkRules {
         return violations;
     }
 
-    /**
-     * The host of what follows "https://": without user info and port, lower case, the dots
-     * browsers accept (。．｡) as ".", no trailing dot.
-     */
-    private static String host(String afterScheme) {
-        String host = mapDots(hostOfAuthority(afterScheme.split("[/?#\\s]", 2)[0]).toLowerCase(Locale.ROOT));
+    /** A host as written in the link: lower case, the dots browsers accept (。．｡) as ".", no trailing dot. */
+    private static String host(String writtenHost) {
+        String host = mapDots(asciiLower(writtenHost));
         return host.endsWith(".") ? host.substring(0, host.length() - 1) : host;
     }
 
@@ -129,6 +140,16 @@ class MailLinkRules {
         }
         int colon = a.indexOf(':');
         return colon < 0 ? a : a.substring(0, colon);
+    }
+
+    /** Lower-cases A-Z only, as eegfaktura-backend does (no Unicode case mapping, e.g. for İ). */
+    private static String asciiLower(String s) {
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            out.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return out.toString();
     }
 
     private static String mapDots(String s) {
@@ -180,15 +201,15 @@ class MailLinkRules {
 
     /** The host a link text is compared with: lower case, dots mapped, no trailing dot, no "www.". */
     private static String domainOf(String host) {
-        String h = mapDots(host.toLowerCase(Locale.ROOT));
+        String h = mapDots(asciiLower(host));
         h = h.endsWith(".") ? h.substring(0, h.length() - 1) : h;
         return h.startsWith("www.") ? h.substring(4) : h;
     }
 
-    /** The address of a mailto href: up to "?" or "#", percent-decoded, lower case. */
+    /** The address of a mailto href: up to "?" or "#", percent-decoded, spaces trimmed, lower case. */
     private static String mailtoAddress(String href) {
         String address = href.substring("mailto:".length()).split("[?#]", 2)[0];
-        return percentDecode(address).strip().toLowerCase(Locale.ROOT);
+        return asciiLower(MailHtmlPolicy.trimSpaces(percentDecode(address)));
     }
 
     /** %XX decoded as UTF-8 ("+" stays); a malformed escape leaves the value as it is (as in Go). */
@@ -211,9 +232,16 @@ class MailLinkRules {
         return out.toString(StandardCharsets.UTF_8);
     }
 
-    /** Zero-width characters removed, dots mapped, every Unicode space one plain space, trimmed. */
+    /**
+     * Invisible characters removed, fullwidth ASCII (ｂａｎｋ) and the dot variants as ASCII,
+     * every Unicode space one plain space, trimmed.
+     */
     private static String normalizeText(String text) {
-        String t = TEXT_SPACE.matcher(mapDots(ZERO_WIDTH.matcher(text).replaceAll(""))).replaceAll(" ");
+        StringBuilder ascii = new StringBuilder(text.length());
+        for (char c : FORMAT_CHARS.matcher(text).replaceAll("").toCharArray()) {
+            ascii.append(c >= '\uff01' && c <= '\uff5e' ? (char) (c - 0xfee0) : c == '\u3000' ? ' ' : c);
+        }
+        String t = TEXT_SPACE.matcher(mapDots(ascii.toString())).replaceAll(" ");
         int start = t.startsWith(" ") ? 1 : 0;
         int end = t.length() > start && t.endsWith(" ") ? t.length() - 1 : t.length();
         return t.substring(start, end);
@@ -224,18 +252,9 @@ class MailLinkRules {
      * an e-mail address the address of a mailto link. A text without addresses is fine.
      */
     private static boolean textMatches(String text, String mailto, String host, Set<String> fileExtensions) {
-        for (String word : text.split(" ")) {
-            int start = 0;
-            int end = word.length();
-            while (start < end && WORD_PUNCT.indexOf(word.charAt(start)) >= 0) {
-                start++;
-            }
-            while (end > start && (WORD_PUNCT.indexOf(word.charAt(end - 1)) >= 0 || word.charAt(end - 1) == '.')) {
-                end--;
-            }
-            String w = word.substring(start, end);
-            String lower = w.toLowerCase(Locale.ROOT);
-            String mail = lower.startsWith("mailto:") ? lower.substring("mailto:".length()) : lower;
+        for (String word : words(text)) {
+            String w = WORD_EDGE.matcher(word).replaceAll("");
+            String lower = asciiLower(w);
             String shownHost;
             if (w.isEmpty()) {
                 continue;
@@ -243,8 +262,8 @@ class MailLinkRules {
                 shownHost = hostOfAuthority(upToPathEnd(w.substring(w.indexOf("://") + 3)));
             } else if (lower.startsWith("www.")) {
                 shownHost = upToPathEnd(w);
-            } else if (EMAIL.matcher(mail).matches()) {
-                if (!mail.equals(mailto)) {
+            } else if (EMAIL.matcher(lower).matches()) {
+                if (!lower.equals(mailto)) {
                     return false;
                 }
                 continue;
@@ -260,12 +279,30 @@ class MailLinkRules {
         return true;
     }
 
+    /**
+     * The words of a normalized link text: split at spaces, and at a ":" that is not followed by "//"
+     * (Website:bank.at, mailto:office@eeg.at).
+     */
+    private static List<String> words(String text) {
+        List<String> words = new ArrayList<>();
+        int start = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == ' ' || c == ':' && !text.startsWith("//", i + 1)) {
+                words.add(text.substring(start, i));
+                start = i + 1;
+            }
+        }
+        words.add(text.substring(start));
+        return words;
+    }
+
     private static String upToPathEnd(String s) {
         return s.split("[/?#]", 2)[0];
     }
 
     /** "anleitung.pdf" is a file name, not an address. */
     private static boolean isFileName(String host, Set<String> fileExtensions) {
-        return fileExtensions.contains(host.substring(host.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT));
+        return fileExtensions.contains(asciiLower(host.substring(host.lastIndexOf('.') + 1)));
     }
 }
