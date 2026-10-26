@@ -33,5 +33,11 @@
     "span": ["data-ph"],
     "div": ["data-ph"]
   },
-  "linkRel": "noopener noreferrer"
+  "linkRel": "noopener noreferrer",
+  "links": {
+    "maxLinks": 3,
+    "maxLinkDomains": 2,
+    "blockedHosts": ["bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "cutt.ly", "rebrand.ly",
+      "shorturl.at", "tiny.cc", "rb.gy", "t.ly", "s.id", "lnkd.in", "bl.ink", "short.io", "v.gd", "tr.im", "shorte.st"]
+  }
 }

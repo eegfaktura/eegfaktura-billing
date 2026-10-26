@@ -1,0 +1,30 @@
+{
+  "_comment": "Link rules of EEG-editable member mails (Variante A, decided 2026-10-26). Identical copy in eegfaktura-backend and eegfaktura-billing; change both together. Each case: the stored body HTML (already sanitised) and either ok=true or the error keys the validation must report (order irrelevant). Keys: ip, shortener, text-mismatch, too-many-links, too-many-domains.",
+  "version": 1,
+  "cases": [
+    {"name": "no link", "html": "<p>Hallo</p>", "ok": true},
+    {"name": "one https link with plain text", "html": "<p><a href=\"https://www.netz-noe.at/portal\">zum Portal</a></p>", "ok": true},
+    {"name": "mailto with plain text", "html": "<p><a href=\"mailto:office@eeg.at\">Schreib uns</a></p>", "ok": true},
+    {"name": "three links two domains ok", "html": "<p><a href=\"https://eeg.at/a\">a</a> <a href=\"https://www.eeg.at/b\">b</a> <a href=\"https://netz.at\">c</a></p>", "ok": true},
+    {"name": "mailto does not count as a domain", "html": "<p><a href=\"https://eeg.at\">a</a> <a href=\"https://netz.at\">b</a> <a href=\"mailto:x@other.at\">c</a></p>", "ok": true},
+    {"name": "four links rejected", "html": "<p><a href=\"https://eeg.at/1\">1</a> <a href=\"https://eeg.at/2\">2</a> <a href=\"https://eeg.at/3\">3</a> <a href=\"https://eeg.at/4\">4</a></p>", "errors": ["too-many-links"]},
+    {"name": "three domains rejected", "html": "<p><a href=\"https://a.at\">a</a> <a href=\"https://b.at\">b</a> <a href=\"https://c.at\">c</a></p>", "errors": ["too-many-domains"]},
+    {"name": "www and case do not make another domain", "html": "<p><a href=\"https://EEG.at\">a</a> <a href=\"https://www.eeg.AT/x\">b</a> <a href=\"https://netz.at\">c</a></p>", "ok": true},
+    {"name": "subdomain is another domain", "html": "<p><a href=\"https://a.eeg.at\">a</a> <a href=\"https://b.eeg.at\">b</a> <a href=\"https://eeg.at\">c</a></p>", "errors": ["too-many-domains"]},
+    {"name": "shortener rejected", "html": "<p><a href=\"https://bit.ly/abc\">Portal</a></p>", "errors": ["shortener"]},
+    {"name": "shortener subdomain rejected", "html": "<p><a href=\"https://go.bit.ly/abc\">Portal</a></p>", "errors": ["shortener"]},
+    {"name": "shortener upper case rejected", "html": "<p><a href=\"https://TinyURL.com/x\">Portal</a></p>", "errors": ["shortener"]},
+    {"name": "lookalike of a shortener allowed", "html": "<p><a href=\"https://notbit.ly.example.at/x\">x</a></p>", "ok": true},
+    {"name": "ipv4 host rejected", "html": "<p><a href=\"https://192.168.1.10/login\">Portal</a></p>", "errors": ["ip"]},
+    {"name": "ipv6 host rejected", "html": "<p><a href=\"https://[2001:db8::1]/x\">Portal</a></p>", "errors": ["ip"]},
+    {"name": "decimal ip host rejected", "html": "<p><a href=\"https://3232235777/x\">Portal</a></p>", "errors": ["ip"]},
+    {"name": "text shows the same address", "html": "<p><a href=\"https://www.netz-noe.at/portal\">https://netz-noe.at/portal</a></p>", "ok": true},
+    {"name": "text shows www address of the same host", "html": "<p><a href=\"https://netz-noe.at\">www.netz-noe.at</a></p>", "ok": true},
+    {"name": "text shows another address rejected", "html": "<p><a href=\"https://evil.example\">https://netz-noe.at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "text shows another bare domain rejected", "html": "<p><a href=\"https://evil.example/x\">netz-noe.at/portal</a></p>", "errors": ["text-mismatch"]},
+    {"name": "mailto text shows another address rejected", "html": "<p><a href=\"mailto:x@evil.example\">office@eeg.at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "mailto text shows the same address", "html": "<p><a href=\"mailto:Office@EEG.at\">office@eeg.at</a></p>", "ok": true},
+    {"name": "text with a dot that is not an address is fine", "html": "<p><a href=\"https://eeg.at/x\">Mehr Infos z.B. hier.</a></p>", "ok": true},
+    {"name": "several problems reported together", "html": "<p><a href=\"https://bit.ly/a\">1</a> <a href=\"https://10.0.0.1\">2</a> <a href=\"https://a.at\">3</a> <a href=\"https://b.at\">https://c.at</a></p>", "errors": ["shortener", "ip", "text-mismatch", "too-many-links", "too-many-domains"]}
+  ]
+}
