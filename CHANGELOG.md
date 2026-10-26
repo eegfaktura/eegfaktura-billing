@@ -23,8 +23,10 @@ this changelog highlights the changes relevant for overview and operations.
   eegfaktura-backend): no links to IP addresses (IPv4, IPv6, numeric hosts), none to URL shorteners (list
   `links.blockedHosts` in the shared `mail-html-policy.json`, also their subdomains), a link text that shows
   an address (`https://…`, `www.…`, a bare domain, an e-mail address) must show the link's own host/address,
-  at most 3 links and links to at most 2 domains per text (mailto links count as links, not as domains; the
-  fixed footer is not counted). Save, preview and test mail answer 400 in the existing error format with a
+  at most 3 links and links to at most 2 main domains per text (the last two labels, or three after a
+  `secondLevelSuffixes` entry such as `co.at`/`gv.at`, so subdomains of one main domain count once; mailto links
+  count as links, not as domains; the fixed footer is not counted). A link text that is a file name
+  (`fileExtensions`, e.g. `anleitung.pdf`) is not an address. Save, preview and test mail answer 400 in the existing error format with a
   German message per broken rule. A stored text that breaks the rules is not changed; at send time it counts
   as not renderable → the default text is sent and the send protocol carries the existing fallback note.
   `limits` of the definition has the new fields `maxLinks` and `maxLinkDomains` (additive). Shared cases:

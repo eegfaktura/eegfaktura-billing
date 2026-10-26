@@ -10,7 +10,10 @@
     {"name": "four links rejected", "html": "<p><a href=\"https://eeg.at/1\">1</a> <a href=\"https://eeg.at/2\">2</a> <a href=\"https://eeg.at/3\">3</a> <a href=\"https://eeg.at/4\">4</a></p>", "errors": ["too-many-links"]},
     {"name": "three domains rejected", "html": "<p><a href=\"https://a.at\">a</a> <a href=\"https://b.at\">b</a> <a href=\"https://c.at\">c</a></p>", "errors": ["too-many-domains"]},
     {"name": "www and case do not make another domain", "html": "<p><a href=\"https://EEG.at\">a</a> <a href=\"https://www.eeg.AT/x\">b</a> <a href=\"https://netz.at\">c</a></p>", "ok": true},
-    {"name": "subdomain is another domain", "html": "<p><a href=\"https://a.eeg.at\">a</a> <a href=\"https://b.eeg.at\">b</a> <a href=\"https://eeg.at\">c</a></p>", "errors": ["too-many-domains"]},
+    {"name": "subdomains of one main domain count once", "html": "<p><a href=\"https://a.eeg.at\">a</a> <a href=\"https://b.eeg.at\">b</a> <a href=\"https://eeg.at\">c</a></p>", "ok": true},
+    {"name": "portal subdomain plus main domain plus one more ok", "html": "<p><a href=\"https://portal.salzburgnetz.at/x\">Portal</a> <a href=\"https://www.salzburgnetz.at\">Netz</a> <a href=\"https://oekostromboerse.at\">Börse</a></p>", "ok": true},
+    {"name": "second level co.at counts three labels", "html": "<p><a href=\"https://a.co.at\">a</a> <a href=\"https://www.b.co.at\">b</a> <a href=\"https://c.at\">c</a></p>", "errors": ["too-many-domains"]},
+    {"name": "second level gv.at subdomains of one office count once", "html": "<p><a href=\"https://www.land.gv.at\">a</a> <a href=\"https://service.land.gv.at\">b</a> <a href=\"https://c.at\">c</a></p>", "ok": true},
     {"name": "shortener rejected", "html": "<p><a href=\"https://bit.ly/abc\">Portal</a></p>", "errors": ["shortener"]},
     {"name": "shortener subdomain rejected", "html": "<p><a href=\"https://go.bit.ly/abc\">Portal</a></p>", "errors": ["shortener"]},
     {"name": "shortener upper case rejected", "html": "<p><a href=\"https://TinyURL.com/x\">Portal</a></p>", "errors": ["shortener"]},
@@ -25,6 +28,9 @@
     {"name": "mailto text shows another address rejected", "html": "<p><a href=\"mailto:x@evil.example\">office@eeg.at</a></p>", "errors": ["text-mismatch"]},
     {"name": "mailto text shows the same address", "html": "<p><a href=\"mailto:Office@EEG.at\">office@eeg.at</a></p>", "ok": true},
     {"name": "text with a dot that is not an address is fine", "html": "<p><a href=\"https://eeg.at/x\">Mehr Infos z.B. hier.</a></p>", "ok": true},
+    {"name": "file name as link text is not an address", "html": "<p><a href=\"https://eeg.at/a.pdf\">anleitung.pdf</a></p>", "ok": true},
+    {"name": "e-mail address as text of an https link rejected", "html": "<p><a href=\"https://evil.example\">office@eeg.at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "web address as text of a mailto link rejected", "html": "<p><a href=\"mailto:office@eeg.at\">www.eeg.at</a></p>", "errors": ["text-mismatch"]},
     {"name": "several problems reported together", "html": "<p><a href=\"https://bit.ly/a\">1</a> <a href=\"https://10.0.0.1\">2</a> <a href=\"https://a.at\">3</a> <a href=\"https://b.at\">https://c.at</a></p>", "errors": ["shortener", "ip", "text-mismatch", "too-many-links", "too-many-domains"]}
   ]
 }

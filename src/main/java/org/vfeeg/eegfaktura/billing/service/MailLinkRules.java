@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
  * Link rules of EEG-editable mails (Variante A, decided 2026-10-26; the same rules as in
  * eegfaktura-backend, shared cases in {@code mail-link-cases.json}): no IP hosts, no URL shorteners
  * ({@code links.blockedHosts} of {@code mail-html-policy.json}), a link text that shows an address
- * shows the link's own address, at most {@code maxLinks} links and {@code maxLinkDomains} domains.
+ * shows the link's own address, at most {@code maxLinks} links and {@code maxLinkDomains} main domains.
  * Runs over the sanitized body only; the server's fixed footer is not part of it.
  */
 class MailLinkRules {
@@ -52,9 +52,9 @@ class MailLinkRules {
                 } else if (isBlocked(host, limits.blockedHosts())) {
                     shortenerHosts.add(host);
                 }
-                domains.add(withoutWww(host));
+                domains.add(isIp(host) ? host : mainDomain(host, limits.secondLevelSuffixes()));
             }
-            String shown = shownAddress(link.text());
+            String shown = shownAddress(link.text(), limits.fileExtensions());
             if (shown != null && !shown.equals(mailto != null ? mailto : host == null ? null : withoutWww(host))) {
                 mismatches.add(link.text().strip() + " → " + (mailto != null ? mailto : host));
             }
@@ -116,7 +116,22 @@ class MailLinkRules {
         }
     }
 
-    private static String withoutWww(String host) {
+    /**
+     * The main (registrable) domain: the last two labels, or the last three when the last two are a
+     * second-level suffix such as co.at ("portal.salzburgnetz.at" → "salzburgnetz.at",
+     * "www.land.gv.at" → "land.gv.at").
+     */
+    private static String mainDomain(String host, Set<String> secondLevelSuffixes) {
+        String[] labels = host.split("\\.");
+        int n = labels.length;
+        if (n <= 2) {
+            return host;
+        }
+        String lastTwo = labels[n - 2] + "." + labels[n - 1];
+        return secondLevelSuffixes.contains(lastTwo) ? labels[n - 3] + "." + lastTwo : lastTwo;
+    }
+
+        private static String withoutWww(String host) {
         return host.startsWith("www.") ? host.substring(4) : host;
     }
 
@@ -129,7 +144,7 @@ class MailLinkRules {
      * The address a link text shows, normalised for comparison (e-mail lower case, host lower case
      * without "www."), or null if the text does not look like an address.
      */
-    private static String shownAddress(String text) {
+    private static String shownAddress(String text, Set<String> fileExtensions) {
         String t = text.strip();
         int scheme = t.indexOf("://");
         if (scheme >= 0) {
@@ -142,7 +157,9 @@ class MailLinkRules {
             return t.toLowerCase(Locale.ROOT);
         }
         if (t.regionMatches(true, 0, "www.", 0, 4) || BARE_DOMAIN.matcher(t).matches()) {
-            return withoutWww(host(t));
+            String host = host(t);
+            // "anleitung.pdf" is a file name, not an address
+            return fileExtensions.contains(host.substring(host.lastIndexOf('.') + 1)) ? null : withoutWww(host);
         }
         return null;
     }

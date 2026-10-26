@@ -74,7 +74,8 @@ public class MailHtmlPolicy {
             List<String> blockedHosts = new ArrayList<>();
             links.path("blockedHosts").forEach(h -> blockedHosts.add(h.asText().toLowerCase(Locale.ROOT)));
             linkLimits = new LinkLimits(links.path("maxLinks").asInt(), links.path("maxLinkDomains").asInt(),
-                    Set.copyOf(blockedHosts));
+                    Set.copyOf(blockedHosts), lowerCaseSet(links.path("secondLevelSuffixes")),
+                    lowerCaseSet(links.path("fileExtensions")));
         } catch (IOException e) {
             throw new UncheckedIOException("mail-html-policy.json not readable", e);
         }
@@ -202,8 +203,19 @@ public class MailHtmlPolicy {
         return inspection;
     }
 
-    /** The {@code links} section of the rule file: link count, domain count, blocked hosts (lower case). */
-    public record LinkLimits(int maxLinks, int maxLinkDomains, Set<String> blockedHosts) {
+    /**
+     * The {@code links} section of the rule file: link count, domain count, blocked hosts, second-level
+     * suffixes (e.g. co.at) for the main domain, file extensions of link texts that are file names
+     * (all lower case).
+     */
+    public record LinkLimits(int maxLinks, int maxLinkDomains, Set<String> blockedHosts,
+                             Set<String> secondLevelSuffixes, Set<String> fileExtensions) {
+    }
+
+    private static Set<String> lowerCaseSet(JsonNode array) {
+        Set<String> values = new LinkedHashSet<>();
+        array.forEach(v -> values.add(v.asText().toLowerCase(Locale.ROOT)));
+        return Set.copyOf(values);
     }
 
     public LinkLimits linkLimits() {
