@@ -138,6 +138,10 @@ class MailTemplateFiles {
                 .orElseThrow(() -> new ValidationException("file", image
                         ? "Nur Bilder im Format PNG oder JPEG sind erlaubt."
                         : "Nur PDF-Dateien sind als Anhang erlaubt."));
+        if (image) {
+            // only the re-encoded pixels are stored (no EXIF/GPS, no appended data); limits below apply to them
+            data = MailImageReencoder.reencode(data, mimeType);
+        }
 
         lockMail(tenant, key);
         List<BillingMailTemplateFile> files = loadFiles(tenant, key);

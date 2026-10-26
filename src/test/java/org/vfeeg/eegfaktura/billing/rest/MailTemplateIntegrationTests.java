@@ -143,7 +143,26 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
         mvc.perform(as(get(BASE + KEY + "/files/" + id), "admin", TENANT_B))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(content().bytes(PNG)); // ImageIO's own output re-encodes to the same bytes
+
+        // re-encoded on upload: data after IEND is not stored; too large dimensions and corrupt files are 400
+        byte[] appended = Arrays.copyOf(PNG, PNG.length + 6);
+        System.arraycopy("hidden".getBytes(), 0, appended, PNG.length, 6);
+        String stripped = uploadImage(TENANT_B, appended);
+        mvc.perform(as(get(BASE + KEY + "/files/" + stripped), "admin", TENANT_B))
                 .andExpect(content().bytes(PNG));
+        mvc.perform(as(delete(BASE + KEY + "/files/" + stripped), "admin", TENANT_B))
+                .andExpect(status().isNoContent());
+        mvc.perform(as(multipart(BASE + KEY + "/files")
+                        .file(new MockMultipartFile("file", "wide.png", "image/png", png(1201, 1)))
+                        .param("kind", "image"), "admin", TENANT_B))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].message").value(containsString("zu groß")));
+        mvc.perform(as(multipart(BASE + KEY + "/files")
+                        .file(new MockMultipartFile("file", "broken.png", "image/png", Arrays.copyOf(PNG, 20)))
+                        .param("kind", "image"), "admin", TENANT_B))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("file"));
 
         // a text file named .png with image/png
         mvc.perform(as(multipart(BASE + KEY + "/files")
@@ -163,10 +182,10 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
                 .andExpect(status().isBadRequest());
 
         // together <= 500 KB
-        byte[] big = Arrays.copyOf(PNG, 400 * 1024);
+        byte[] big = png(370, 370); // about 400 KB
         uploadImage(TENANT_B, big);
         mvc.perform(as(multipart(BASE + KEY + "/files")
-                        .file(new MockMultipartFile("file", "c.png", "image/png", Arrays.copyOf(PNG, 120 * 1024)))
+                        .file(new MockMultipartFile("file", "c.png", "image/png", png(200, 200)))
                         .param("kind", "image"), "admin", TENANT_B))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].message").value(containsString("500 KB")));
@@ -197,7 +216,7 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
         when(jwtTokenService.validateTokenAndGetAuthentication("admin-p")).thenReturn(new JwtAuthentication("admin-p",
                 List.of(new Authority(tenant), new Authority("ROLE_EEG_ADMIN"))));
         mvc.perform(as(delete(BASE + KEY), "admin-p", tenant)).andExpect(status().isNoContent());
-        byte[] image = Arrays.copyOf(PNG, 200 * 1024);
+        byte[] image = png(260, 260); // about 200 KB
         int parallel = 6;
         java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(parallel);
@@ -329,7 +348,7 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
 
         // 2 x 200 KB older than 24 h and 1 x 200 KB: 3 images, but together more than 500 KB
         cleanup(TENANT_B);
-        byte[] image = Arrays.copyOf(PNG, 200 * 1024);
+        byte[] image = png(260, 260); // about 200 KB
         List<String> big = new java.util.ArrayList<>(List.of(uploadImage(TENANT_B, image), uploadImage(TENANT_B, image)));
         ageDrafts(TENANT_B);
         big.add(uploadImage(TENANT_B, image));

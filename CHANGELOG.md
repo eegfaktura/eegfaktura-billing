@@ -30,6 +30,14 @@ this changelog highlights the changes relevant for overview and operations.
   `limits` of the definition has the new fields `maxLinks` and `maxLinkDomains` (additive). Shared cases:
   `mail-link-cases.json` (identical in eegfaktura-backend).
 
+### Security
+- **Uploaded mail images are re-encoded** (`/api/mailtemplates/{key}/files`, kind `image`): after the content
+  type check the dimensions are read without decoding (more than 1200 px wide, 4000 px high or 4.8 million
+  pixels → 400 „Das Bild ist zu groß …“), then the image is decoded and written again with JDK ImageIO in the
+  same format (PNG lossless, JPEG quality 0.8, RGB); only these bytes are stored — EXIF/GPS, comments and data
+  appended to the file are dropped. A file that does not decode → 400 „Das Bild kann nicht gelesen werden.“
+  (also e.g. CMYK JPEGs). The byte limits apply to the re-encoded image. Already stored images are unchanged.
+
 ### Changed
 - Default text of `billing-document` without the eegfaktura logo on top (the fixed footer names the
   sender); `defaultVersion` 1 → 2, so EEGs with an own text see the "default changed" notice. Stored texts

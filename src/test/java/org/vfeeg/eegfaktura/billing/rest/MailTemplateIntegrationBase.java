@@ -58,7 +58,30 @@ abstract class MailTemplateIntegrationBase {
     static final String TENANT_B = "TE200200";
     static final String BASE = "/api/mailtemplates/";
     static final String KEY = MailTemplateCatalog.BILLING_DOCUMENT;
-    static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3};
+    /** A real 2 × 2 PNG: uploaded images are decoded and re-encoded by the server. */
+    static final byte[] PNG = png(2, 2);
+
+    /**
+     * A PNG of random pixels (does not compress): about 3 bytes per pixel, also after the server's
+     * re-encoding, for the byte limits.
+     */
+    static byte[] png(int width, int height) {
+        java.awt.image.BufferedImage image =
+                new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.util.Random random = new java.util.Random(width * 31L + height);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                image.setRGB(x, y, random.nextInt(0x1000000));
+            }
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            javax.imageio.ImageIO.write(image, "png", out);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        return out.toByteArray();
+    }
 
     // started here, not via @Container: the class-level @Sql below runs before the Testcontainers
     // extension would start it
