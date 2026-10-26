@@ -41,7 +41,18 @@ this changelog highlights the changes relevant for overview and operations.
   address than the target. The sanitizer now drops the links the backend drops, so both give the same verdict:
   an https link whose host part has a backslash, `%`, `^`, `{`, `|`, `}` or a backtick, an unclosed IPv6
   bracket or a port that is no number, and any URL with a space (e.g. `mailto: office@…`, before kept as `%20`);
-  the link text stays.
+  the link text stays. Also dropped as in the backend: an https link with more than one port (`bit.ly:80:90`),
+  with user info outside Go's characters (e.g. `ü@`), with a bracket that holds no IPv6 address (`[abc]`,
+  `[1.2.3.4]`) or with a control character; Unicode spaces (also NBSP) around a URL are trimmed.
+  **Host characters:** a link whose host has other characters than ASCII letters, digits, `-` and `.` (fullwidth
+  letters or digits, soft hyphen, zero-width characters, umlauts) is refused (new key `bad-host`, „Die
+  Linkadresse enthält ungültige Zeichen: münchen.at“); an umlaut domain has to be written in its `xn--` form
+  (`xn--mnchen-3ya.at`). Link texts: invisible format characters (Unicode `Cf`, e.g. soft hyphen) are removed,
+  fullwidth ASCII counts as ASCII, a word also ends at a `:` not followed by `//` (`Website:bank.at`),
+  punctuation and symbols at both ends of a word are stripped (`»bank.at«`, `bank.at…`, `→bank.at`; a final `/`
+  stays), the alt text of an image inside a link counts as link text, and `www.eeg.at:443` shows the host
+  `eeg.at`. Hosts and `mailto` addresses are compared with ASCII-only lower-casing (`İnfo@` is not `info@`); a
+  `mailto` address is trimmed of Unicode spaces (also NBSP) after percent-decoding.
 
 ### Security
 - **Uploaded mail images are re-encoded** (`/api/mailtemplates/{key}/files`, kind `image`): after the content
