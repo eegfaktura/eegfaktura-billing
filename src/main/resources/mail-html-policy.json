@@ -1,6 +1,6 @@
 {
   "_comment": "Allowed HTML for EEG-editable member mails (konzept-mail-texte-editierbar.md, section H). Identical copy in eegfaktura-backend and eegfaktura-billing; change both together.",
-  "version": 1,
+  "version": 2,
   "elements": {
     "p": ["style"],
     "br": [],
@@ -26,7 +26,8 @@
     "img.src": ["mailfile"]
   },
   "styles": {
-    "text-align": ["left", "center", "right"]
+    "text-align": ["left", "center", "right"],
+    "font-size": ["13px", "20px"]
   },
   "required": {
     "span": ["data-ph"],
