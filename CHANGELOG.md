@@ -19,6 +19,16 @@ this changelog highlights the changes relevant for overview and operations.
 - **Font size in mail texts**: `mail-html-policy.json` version 2 (identical copy in eegfaktura-backend)
   allows `font-size` `13px` and `20px` in the `style` of `p`, `h1`–`h3` and `li`, also together with
   `text-align`; other sizes and units are dropped. New cases in the shared `mail-html-policy-cases.json`.
+- **Link rules in the `billing-document` mail text** (Variante A, decided 2026-10-26, same rules as in
+  eegfaktura-backend): no links to IP addresses (IPv4, IPv6, numeric hosts), none to URL shorteners (list
+  `links.blockedHosts` in the shared `mail-html-policy.json`, also their subdomains), a link text that shows
+  an address (`https://…`, `www.…`, a bare domain, an e-mail address) must show the link's own host/address,
+  at most 3 links and links to at most 2 domains per text (mailto links count as links, not as domains; the
+  fixed footer is not counted). Save, preview and test mail answer 400 in the existing error format with a
+  German message per broken rule. A stored text that breaks the rules is not changed; at send time it counts
+  as not renderable → the default text is sent and the send protocol carries the existing fallback note.
+  `limits` of the definition has the new fields `maxLinks` and `maxLinkDomains` (additive). Shared cases:
+  `mail-link-cases.json` (identical in eegfaktura-backend).
 
 ### Changed
 - Default text of `billing-document` without the eegfaktura logo on top (the fixed footer names the
