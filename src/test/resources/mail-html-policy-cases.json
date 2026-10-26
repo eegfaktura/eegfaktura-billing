@@ -77,6 +77,14 @@
     {"name": "font-size with other values removed", "input": "<p style=\"font-size:30px\">a</p><p style=\"font-size:1em\">b</p><p style=\"font-size:13pt\">c</p><p style=\"font-size:20\">d</p><p style=\"font-size:20px !important\">e</p>", "contains": ["<p>a</p>", "<p>b</p>", "<p>c</p>", "<p>d</p>", "<p>e</p>"], "notContains": ["font-size", "style", "30px", "1em", "13pt"]},
     {"name": "other font-size removed, text-align kept", "input": "<p style=\"text-align:right;font-size:12px\">a</p>", "contains": ["text-align", "right"], "notContains": ["font-size", "12px"]},
     {"name": "font-size on span and div removed", "input": "<p>a <span style=\"font-size:20px\">b</span> <span data-ph=\"eeg.name\" style=\"font-size:20px\">x</span></p><div style=\"font-size:20px\"><p>c</p></div><div data-ph=\"eeg.contactBlock\" style=\"font-size:13px\">x</div>", "contains": ["b", "c", "data-ph=\"eeg.name\"", "data-ph=\"eeg.contactBlock\""], "notContains": ["font-size", "style"]},
-    {"name": "image widths 200 400 600 kept", "input": "<p>a</p><img src=\"mailfile:3f0c5a52-8f43-4c86-9a5e-3c0f7a1b2c3d\" width=\"200\"><img src=\"mailfile:3f0c5a52-8f43-4c86-9a5e-3c0f7a1b2c3d\" width=\"400\"><img src=\"mailfile:3f0c5a52-8f43-4c86-9a5e-3c0f7a1b2c3d\" width=\"600\">", "contains": ["width=\"200\"", "width=\"400\"", "width=\"600\""]}
+    {"name": "image widths 200 400 600 kept", "input": "<p>a</p><img src=\"mailfile:3f0c5a52-8f43-4c86-9a5e-3c0f7a1b2c3d\" width=\"200\"><img src=\"mailfile:3f0c5a52-8f43-4c86-9a5e-3c0f7a1b2c3d\" width=\"400\"><img src=\"mailfile:3f0c5a52-8f43-4c86-9a5e-3c0f7a1b2c3d\" width=\"600\">", "contains": ["width=\"200\"", "width=\"400\"", "width=\"600\""]},
+    {"name": "https link with a backslash in the authority removed", "input": "<p><a href=\"https://bit.ly\\@eeg.at/x\">x</a></p>", "contains": ["x"], "notContains": ["href", "bit.ly"]},
+    {"name": "https link with % in the host removed", "input": "<p><a href=\"https://bit%2Ely/x\">x</a></p>", "contains": ["x"], "notContains": ["href", "bit%2Ely"]},
+    {"name": "https link with an unclosed IPv6 bracket removed", "input": "<p><a href=\"https://[::1\">x</a></p>", "contains": ["x"], "notContains": ["href", "::1"]},
+    {"name": "https link with a port that is no number removed", "input": "<p><a href=\"https://x.example:80x/\">x</a></p>", "contains": ["x"], "notContains": ["href", "x.example"]},
+    {"name": "mailto with a space after the colon removed", "input": "<p><a href=\"mailto: info@eeg.example\">mail</a></p>", "contains": ["mail"], "notContains": ["href", "info@eeg.example"]},
+    {"name": "https link with user info and a port kept", "input": "<p><a href=\"https://u:p@x.example:8443/a\">x</a></p>", "contains": ["href=\"https://u:p@x.example:8443/a\""]},
+    {"name": "https link with a bracket in the user info removed", "input": "<p><a href=\"https://u[x@x.example/\">x</a></p>", "contains": ["x"], "notContains": ["href"]},
+    {"name": "https link with text after the IPv6 bracket removed", "input": "<p><a href=\"https://[::1]x/\">x</a></p>", "contains": ["x"], "notContains": ["href"]}
   ]
 }

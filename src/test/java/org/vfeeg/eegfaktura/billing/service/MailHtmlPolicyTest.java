@@ -156,4 +156,15 @@ class MailHtmlPolicyTest {
         assertFalse(inspection.isEmpty());
         assertTrue(policy.inspect(clean("<p> <script>x</script></p><br>")).isEmpty());
     }
+
+    @Test
+    @DisplayName("links: the text without placeholder labels, the placeholder keys, nested elements")
+    void linksWithPlaceholders() {
+        var links = policy.links("<p><a href=\"https://eeg.at\">Web <span data-ph=\"eeg.name\"><strong>www.x.at"
+                + "</strong><br />y</span> <img src=\"mailfile:eegfaktura-logo\" />mehr<br />z</a>"
+                + "<a href=\"mailto:a@b.at\">a@b.at</a></p>");
+        assertEquals(2, links.size());
+        assertEquals(new MailHtmlPolicy.Link("https://eeg.at", "Web  mehrz", java.util.List.of("eeg.name")), links.get(0));
+        assertEquals(new MailHtmlPolicy.Link("mailto:a@b.at", "a@b.at", java.util.List.of()), links.get(1));
+    }
 }

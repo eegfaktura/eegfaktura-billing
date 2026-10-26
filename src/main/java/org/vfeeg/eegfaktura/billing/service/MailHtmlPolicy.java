@@ -222,8 +222,11 @@ public class MailHtmlPolicy {
         return linkLimits;
     }
 
-    /** A link of a sanitized HTML: its href and its visible text (including nested elements). */
-    public record Link(String href, String text) {
+    /**
+     * A link of a sanitized HTML: its href, its visible text (including nested elements, without the
+     * labels of placeholders) and the keys of the placeholders inside it.
+     */
+    public record Link(String href, String text, List<String> placeholders) {
     }
 
     /** The links ({@code a href}) of already sanitized HTML, in document order. */
@@ -232,6 +235,9 @@ public class MailHtmlPolicy {
         HtmlSanitizer.sanitize(sanitizedHtml == null ? "" : sanitizedHtml, new HtmlSanitizer.Policy() {
             private String href;
             private StringBuilder text;
+            private List<String> placeholders;
+            /** Open elements inside a placeholder of the link (its label is not link text). */
+            private int placeholderDepth;
 
             @Override public void openDocument() { }
             @Override public void closeDocument() { }
@@ -239,18 +245,33 @@ public class MailHtmlPolicy {
                 if ("a".equals(name) && text == null) {
                     href = attribute(attrs, "href");
                     text = new StringBuilder();
+                    placeholders = new ArrayList<>();
+                    return;
+                }
+                if (text == null || "br".equals(name) || "img".equals(name)) {
+                    return;
+                }
+                String placeholder = attribute(attrs, PLACEHOLDER_ATTRIBUTE);
+                if (placeholderDepth > 0) {
+                    placeholderDepth++;
+                } else if (placeholder != null && !placeholder.isBlank()) {
+                    placeholders.add(placeholder);
+                    placeholderDepth = 1;
                 }
             }
             @Override public void closeTag(String name) {
                 if ("a".equals(name) && text != null) {
                     if (href != null) {
-                        links.add(new Link(href, text.toString()));
+                        links.add(new Link(href, text.toString(), List.copyOf(placeholders)));
                     }
                     text = null;
+                    placeholderDepth = 0;
+                } else if (placeholderDepth > 0 && !"br".equals(name) && !"img".equals(name)) {
+                    placeholderDepth--;
                 }
             }
             @Override public void text(String chunk) {
-                if (text != null) {
+                if (text != null && placeholderDepth == 0) {
                     text.append(chunk);
                 }
             }
@@ -425,6 +446,12 @@ public class MailHtmlPolicy {
 
     /** https://host[/path|?query|#fragment] with a non-empty host and no whitespace anywhere. */
     private static final Pattern HTTPS_WITH_HOST = Pattern.compile("(?i)https://[^/?#\\s]+([/?#]\\S*)?");
+    /** Characters Go's url.Parse refuses in an authority (as in the backend), and "%" in both. */
+    private static final Pattern BAD_AUTHORITY_CHAR = Pattern.compile("[\\\\%^`{|}]");
+    /** Characters Go's url.Parse refuses in the user info of an authority. */
+    private static final Pattern BAD_USERINFO_CHAR = Pattern.compile("[<>\\[\\]]");
+    /** The port part of an authority: none, or ":" and digits (may be empty, as in Go). */
+    private static final Pattern PORT = Pattern.compile("(:[0-9]*)?");
 
     /** img width: a number of pixels or a percentage, as in the backend. */
     private static final Pattern WIDTH = Pattern.compile("[0-9]{1,4}%?");
@@ -463,15 +490,50 @@ public class MailHtmlPolicy {
             return id != null && (BUILTIN_LOGO_ID.equals(id) || allowedFileIds.test(id))
                     ? MAILFILE_SCHEME + ":" + id : null;
         }
+        if (trimmed.chars().anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n')) {
+            return null; // no spaces in a URL (as in the backend), e.g. "mailto: office@eeg.at"
+        }
         if ("mailto".equals(scheme) && trimmed.substring(colon + 1).isBlank()) {
             return null; // mailto without address
         }
-        if ("https".equals(scheme) && !HTTPS_WITH_HOST.matcher(trimmed).matches()) {
+        if ("https".equals(scheme) && (!HTTPS_WITH_HOST.matcher(trimmed).matches()
+                || !validAuthority(trimmed.substring("https://".length()).split("[/?#]", 2)[0]))) {
             // an https link needs a host and no spaces (as in the backend), e.g. not "https:/path";
             // java.net.URI is stricter than Go and would drop umlaut domains, "|" or "{" in a URL
             return null;
         }
         return trimmed;
+    }
+
+    /**
+     * An authority the backend (Go's url.Parse) accepts too, so both give the same verdict: no
+     * backslash or "%" (bit%2Ely is bit.ly to a browser), user info without brackets, a closed
+     * IPv6 bracket and a port of digits.
+     */
+    private static boolean validAuthority(String authority) {
+        if (BAD_AUTHORITY_CHAR.matcher(authority).find()) {
+            return false;
+        }
+        int at = authority.lastIndexOf('@');
+        if (at >= 0 && BAD_USERINFO_CHAR.matcher(authority.substring(0, at)).find()) {
+            return false;
+        }
+        String hostPort = authority.substring(at + 1);
+        String port;
+        if (hostPort.startsWith("[")) {
+            int end = hostPort.indexOf(']');
+            if (end < 0) {
+                return false; // https://[::1
+            }
+            port = hostPort.substring(end + 1);
+        } else {
+            if (hostPort.isEmpty() || hostPort.contains("[")) {
+                return false;
+            }
+            int portColon = hostPort.lastIndexOf(':');
+            port = portColon < 0 ? "" : hostPort.substring(portColon);
+        }
+        return PORT.matcher(port).matches();
     }
 
     private String style(String value) {
