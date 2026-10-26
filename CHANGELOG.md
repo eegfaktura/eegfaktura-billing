@@ -31,6 +31,17 @@ this changelog highlights the changes relevant for overview and operations.
   as not renderable → the default text is sent and the send protocol carries the existing fallback note.
   `limits` of the definition has the new fields `maxLinks` and `maxLinkDomains` (additive). Shared cases:
   `mail-link-cases.json` (identical in eegfaktura-backend).
+  Link texts are read as the reader sees them, with the same algorithm as eegfaktura-backend: zero-width
+  characters are removed, every Unicode space (also NBSP) separates words, and every word that is an address
+  (`…://…`, `www.…`, an e-mail address, a bare domain; surrounding quotes and punctuation stripped) must match
+  the target — „Mehr unter https://eeg.at“ is fine, `a@b`, `office@eeg` and `z.B.` are no address, a `mailto:`
+  with `%40` matches its text. The host dots `。` `．` `｡` count as `.` (`bit。ly` is a shortener); a single hex
+  word like `cafe` is a host name, not an IP. **No placeholder inside a link** (new key `placeholder-in-link`,
+  „Platzhalter dürfen nicht in einem Link stehen: Name der EEG“): at send time `eeg.email` would show another
+  address than the target. The sanitizer now drops the links the backend drops, so both give the same verdict:
+  an https link whose host part has a backslash, `%`, `^`, `{`, `|`, `}` or a backtick, an unclosed IPv6
+  bracket or a port that is no number, and any URL with a space (e.g. `mailto: office@…`, before kept as `%20`);
+  the link text stays.
 
 ### Security
 - **Uploaded mail images are re-encoded** (`/api/mailtemplates/{key}/files`, kind `image`): after the content
