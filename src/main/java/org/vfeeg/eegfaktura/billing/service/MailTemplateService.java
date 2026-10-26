@@ -189,7 +189,8 @@ public class MailTemplateService {
                             template != null,
                             template == null ? null : template.getLastUpdated(),
                             template == null ? null : template.getUpdatedBy(),
-                            template != null && template.getDefaultVersion() < entry.defaultVersion());
+                            template != null && template.getDefaultVersion() < entry.defaultVersion(),
+                            MailTemplateCatalog.FIXED_FOOTER);
                 })
                 .toList();
     }
@@ -380,7 +381,7 @@ public class MailTemplateService {
                 customized ? template.getLastUpdated() : null,
                 customized ? template.getUpdatedBy() : null,
                 // billing-document has no extra PDF and no hand-made volume template
-                entry.placeholders(), mailFiles, entry.limits(), null, false);
+                entry.placeholders(), mailFiles, entry.limits(), null, false, MailTemplateCatalog.FIXED_FOOTER);
     }
 
     // ---------------------------------------------------------------- sending

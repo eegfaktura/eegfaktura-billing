@@ -8,6 +8,65 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Added
+- **Fixed footer in the `billing-document` mail**: every mail (send run, default and stored text, preview
+  and test mail) ends with `versandt durch EEG Faktura, ein Service des VFEEG - https://vfeeg.org/`,
+  appended by the server after the sanitized body (HTML and the derived plain-text part); it is not
+  editable and not part of the stored text. The list and GET of `/api/mailtemplates` return it as the new
+  field `fixedFooter` (additive contract change, same field as in eegfaktura-backend; the web shows it
+  below the editor and nothing when the field is missing, so the deploy order is not critical — billing
+  before or together with the web).
+- **Font size in mail texts**: `mail-html-policy.json` version 2 (identical copy in eegfaktura-backend)
+  allows `font-size` `13px` and `20px` in the `style` of `p`, `h1`–`h3` and `li`, also together with
+  `text-align`; other sizes and units are dropped. New cases in the shared `mail-html-policy-cases.json`.
+- **Link rules in the `billing-document` mail text** (Variante A, decided 2026-10-26, same rules as in
+  eegfaktura-backend): no links to IP addresses (IPv4, IPv6, numeric hosts), none to URL shorteners (list
+  `links.blockedHosts` in the shared `mail-html-policy.json`, also their subdomains), a link text that shows
+  an address (`https://…`, `www.…`, a bare domain, an e-mail address) must show the link's own host/address,
+  at most 3 links and links to at most 2 main domains per text (the last two labels, or three after a
+  `secondLevelSuffixes` entry such as `co.at`/`gv.at`, so subdomains of one main domain count once; mailto links
+  count as links, not as domains; the fixed footer is not counted). A link text that is a file name
+  (`fileExtensions`, e.g. `anleitung.pdf`) is not an address. Save, preview and test mail answer 400 in the existing error format with a
+  German message per broken rule. A stored text that breaks the rules is not changed; at send time it counts
+  as not renderable → the default text is sent and the send protocol carries the existing fallback note.
+  `limits` of the definition has the new fields `maxLinks` and `maxLinkDomains` (additive). Shared cases:
+  `mail-link-cases.json` (identical in eegfaktura-backend).
+  Link texts are read as the reader sees them, with the same algorithm as eegfaktura-backend: zero-width
+  characters are removed, every Unicode space (also NBSP) separates words, and every word that is an address
+  (`…://…`, `www.…`, an e-mail address, a bare domain; surrounding quotes and punctuation stripped) must match
+  the target — „Mehr unter https://eeg.at“ is fine, `a@b`, `office@eeg` and `z.B.` are no address, a `mailto:`
+  with `%40` matches its text. The host dots `。` `．` `｡` count as `.` (`bit。ly` is a shortener); a single hex
+  word like `cafe` is a host name, not an IP. **No placeholder inside a link** (new key `placeholder-in-link`,
+  „Platzhalter dürfen nicht in einem Link stehen: Name der EEG“): at send time `eeg.email` would show another
+  address than the target. The sanitizer now drops the links the backend drops, so both give the same verdict:
+  an https link whose host part has a backslash, `%`, `^`, `{`, `|`, `}` or a backtick, an unclosed IPv6
+  bracket or a port that is no number, and any URL with a space (e.g. `mailto: office@…`, before kept as `%20`);
+  the link text stays. Also dropped as in the backend: an https link with more than one port (`bit.ly:80:90`),
+  with user info outside Go's characters (e.g. `ü@`), with a bracket that holds no IPv6 address (`[abc]`,
+  `[1.2.3.4]`) or with a control character; Unicode spaces (also NBSP) around a URL are trimmed.
+  **Host characters:** a link whose host has other characters than ASCII letters, digits, `-` and `.` (fullwidth
+  letters or digits, soft hyphen, zero-width characters, umlauts) is refused (new key `bad-host`, „Die
+  Linkadresse enthält ungültige Zeichen: münchen.at“); an umlaut domain has to be written in its `xn--` form
+  (`xn--mnchen-3ya.at`). Link texts: invisible format characters (Unicode `Cf`, e.g. soft hyphen) are removed,
+  fullwidth ASCII counts as ASCII, a word also ends at a `:` not followed by `//` (`Website:bank.at`),
+  punctuation and symbols at both ends of a word are stripped (`»bank.at«`, `bank.at…`, `→bank.at`; a final `/`
+  stays), the alt text of an image inside a link counts as link text, and `www.eeg.at:443` shows the host
+  `eeg.at`. Hosts and `mailto` addresses are compared with ASCII-only lower-casing (`İnfo@` is not `info@`); a
+  `mailto` address is trimmed of Unicode spaces (also NBSP) after percent-decoding.
+
+### Security
+- **Uploaded mail images are re-encoded** (`/api/mailtemplates/{key}/files`, kind `image`): after the content
+  type check the dimensions are read without decoding (more than 1200 px wide, 4000 px high or 4.8 million
+  pixels → 400 „Das Bild ist zu groß …“), then the image is decoded and written again with JDK ImageIO in the
+  same format (PNG lossless, JPEG quality 0.8, RGB); only these bytes are stored — EXIF/GPS, comments and data
+  appended to the file are dropped. A file that does not decode → 400 „Das Bild kann nicht gelesen werden.“
+  (also e.g. CMYK JPEGs). The byte limits apply to the re-encoded image. Already stored images are unchanged.
+
+### Changed
+- Default text of `billing-document` without the eegfaktura logo on top (the fixed footer names the
+  sender); `defaultVersion` 1 → 2, so EEGs with an own text see the "default changed" notice. Stored texts
+  are not migrated; one that still contains `mailfile:eegfaktura-logo` keeps showing the built-in logo.
+
 ## [1.2.0] – 2026-10-26
 
 ### Added

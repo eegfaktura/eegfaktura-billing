@@ -3,6 +3,7 @@ package org.vfeeg.eegfaktura.billing.service;
 import lombok.extern.slf4j.Slf4j;
 import org.vfeeg.eegfaktura.billing.domain.BillingMailTemplate;
 import org.vfeeg.eegfaktura.billing.domain.BillingMailTemplateFile;
+import org.vfeeg.eegfaktura.billing.model.MailTemplateModels.ValidationError;
 import org.vfeeg.eegfaktura.billing.repos.BillingMailTemplateRepository;
 import org.vfeeg.eegfaktura.billing.service.MailTemplateService.Prepared;
 import org.vfeeg.eegfaktura.billing.service.MailTemplateService.RenderedMail;
@@ -16,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Rendering of a prepared mail text and the text a send run uses. A collaborator of
@@ -29,6 +31,7 @@ class MailTemplateSending {
     private final MailTemplateRenderer renderer;
     private final BillingMailTemplateRepository templateRepository;
     private final MailTemplateFiles files;
+    private final MailLinkRules linkRules;
 
     MailTemplateSending(MailTemplateCatalog catalog, MailHtmlPolicy mailHtmlPolicy, MailTemplateRenderer renderer,
                         BillingMailTemplateRepository templateRepository, MailTemplateFiles files) {
@@ -37,6 +40,7 @@ class MailTemplateSending {
         this.renderer = renderer;
         this.templateRepository = templateRepository;
         this.files = files;
+        this.linkRules = new MailLinkRules(mailHtmlPolicy);
     }
 
     private MailTemplateCatalog.Entry entry(String key) {
@@ -45,8 +49,7 @@ class MailTemplateSending {
 
     Prepared defaultPrepared(String failure) {
         MailTemplateCatalog.Entry entry = entry(MailTemplateCatalog.BILLING_DOCUMENT);
-        return new Prepared(false, entry, entry.defaultSubject(), entry.defaultBodyHtml(),
-                Map.of(MailHtmlPolicy.BUILTIN_LOGO_ID, files.builtinLogo()), failure);
+        return new Prepared(false, entry, entry.defaultSubject(), entry.defaultBodyHtml(), Map.of(), failure);
     }
 
     /** See {@link MailTemplateService#prepareForSend}. */
@@ -71,6 +74,14 @@ class MailTemplateSending {
             Map<String, StoredImage> images = files.loadImages(committed, MailTemplateFiles.imageIds(committed));
             // sanitized once per run (defence in depth for stored rows); per mail only a re-render
             String body = mailHtmlPolicy.sanitize(template.getBodyHtml(), images.keySet());
+            // a text saved before the link rules that breaks them is not sent (fallback to the default)
+            List<MailLinkRules.Violation> violations = linkRules.check(body, entry.placeholders().stream()
+                    .collect(Collectors.toMap(MailTemplateCatalog.Placeholder::key,
+                            MailTemplateCatalog.Placeholder::label)));
+            if (!violations.isEmpty()) {
+                throw new MailTemplateService.ValidationException(violations.stream()
+                        .map(v -> new ValidationError("bodyHtml", v.message())).toList());
+            }
             Prepared prepared = new Prepared(true, entry, template.getSubject(), body, images, null);
             render(prepared, Map.of(), true); // dry run: fails here instead of per mail
             return prepared;
@@ -102,6 +113,7 @@ class MailTemplateSending {
         String subject = renderer.renderSubject(prepared.subject(), values, entry.placeholderKeys(), entry.htmlKeys());
         String body = renderer.renderBody(prepared.bodyHtml(), values,
                 entry.placeholderKeys(), entry.blockKeys(), entry.htmlKeys(), imageSrc);
-        return new RenderedMail(subject, renderer.frame(body), inlineImages);
+        // the fixed footer comes after the sanitized, rendered text: never stored, never editable
+        return new RenderedMail(subject, renderer.frame(body + MailTemplateCatalog.FIXED_FOOTER_HTML), inlineImages);
     }
 }

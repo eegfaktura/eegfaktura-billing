@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.vfeeg.eegfaktura.billing.security.Authority;
 import org.vfeeg.eegfaktura.billing.security.JwtAuthentication;
+import org.vfeeg.eegfaktura.billing.service.MailTemplateCatalog;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,17 +43,25 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].key").value(KEY))
                 .andExpect(jsonPath("$[0].customized").value(false))
-                .andExpect(jsonPath("$[0].defaultChanged").value(false));
+                .andExpect(jsonPath("$[0].defaultChanged").value(false))
+                .andExpect(jsonPath("$[0].fixedFooter").value(MailTemplateCatalog.FIXED_FOOTER));
         mvc.perform(as(get(BASE + KEY), "admin", TENANT_B))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.customized").value(false))
                 .andExpect(jsonPath("$.version").value(0))
                 .andExpect(jsonPath("$.subject").value("{document.type} {document.period} - {eeg.name}"))
                 .andExpect(jsonPath("$.bodyHtml").value(containsString("data-ph=\"recipient.name\"")))
-                .andExpect(jsonPath("$.bodyHtml").value(containsString("src=\"mailfile:eegfaktura-logo\"")))
+                // defaultVersion 2: the logo is gone from the default, the fixed footer is not part of it
+                .andExpect(jsonPath("$.bodyHtml").value(not(containsString("eegfaktura-logo"))))
+                .andExpect(jsonPath("$.bodyHtml").value(not(containsString("versandt"))))
+                .andExpect(jsonPath("$.defaultVersion").value(2))
+                .andExpect(jsonPath("$.fixedFooter").value(
+                        "versandt durch EEG Faktura, ein Service des VFEEG - https://vfeeg.org/"))
                 .andExpect(jsonPath("$.files.length()").value(0))
                 .andExpect(jsonPath("$.limits.maxImages").value(3))
                 .andExpect(jsonPath("$.limits.maxAttachments").value(0))
+                .andExpect(jsonPath("$.limits.maxLinks").value(3))
+                .andExpect(jsonPath("$.limits.maxLinkDomains").value(2))
                 .andExpect(jsonPath("$.placeholders[?(@.key=='eeg.contactBlock')].block").value(true));
     }
 
@@ -104,6 +113,16 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
                 .andExpect(jsonPath("$.errors[0].message").value(containsString("eeg.contactBlock")));
         putTemplate(TENANT_B, "x", "<p><span data-ph=\"eeg.contactBlock\">K</span></p>", 0)
                 .andExpect(status().isBadRequest());
+        // link rules (Variante A): rejected with a message, nothing stored
+        putTemplate(TENANT_B, "x", "<p><a href=\"https://192.168.1.10/login\">Portal</a></p>", 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("bodyHtml"))
+                .andExpect(jsonPath("$.errors[0].message")
+                        .value("Links zu IP-Adressen sind nicht erlaubt: 192.168.1.10"));
+        putTemplate(TENANT_B, "x", "<p><a href=\"https://a.at\">a</a> <a href=\"https://b.at\">b</a> "
+                        + "<a href=\"https://c.at\">c</a></p>", 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].message").value(containsString("höchstens 2 verschiedenen Domains")));
         putTemplate(TENANT_B, "x".repeat(201), "<p>a</p>", 0)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("subject"));
@@ -124,7 +143,26 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
         mvc.perform(as(get(BASE + KEY + "/files/" + id), "admin", TENANT_B))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(content().bytes(PNG)); // ImageIO's own output re-encodes to the same bytes
+
+        // re-encoded on upload: data after IEND is not stored; too large dimensions and corrupt files are 400
+        byte[] appended = Arrays.copyOf(PNG, PNG.length + 6);
+        System.arraycopy("hidden".getBytes(), 0, appended, PNG.length, 6);
+        String stripped = uploadImage(TENANT_B, appended);
+        mvc.perform(as(get(BASE + KEY + "/files/" + stripped), "admin", TENANT_B))
                 .andExpect(content().bytes(PNG));
+        mvc.perform(as(delete(BASE + KEY + "/files/" + stripped), "admin", TENANT_B))
+                .andExpect(status().isNoContent());
+        mvc.perform(as(multipart(BASE + KEY + "/files")
+                        .file(new MockMultipartFile("file", "wide.png", "image/png", png(1201, 1)))
+                        .param("kind", "image"), "admin", TENANT_B))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].message").value(containsString("zu groß")));
+        mvc.perform(as(multipart(BASE + KEY + "/files")
+                        .file(new MockMultipartFile("file", "broken.png", "image/png", Arrays.copyOf(PNG, 20)))
+                        .param("kind", "image"), "admin", TENANT_B))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("file"));
 
         // a text file named .png with image/png
         mvc.perform(as(multipart(BASE + KEY + "/files")
@@ -144,10 +182,10 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
                 .andExpect(status().isBadRequest());
 
         // together <= 500 KB
-        byte[] big = Arrays.copyOf(PNG, 400 * 1024);
+        byte[] big = png(370, 370); // about 400 KB
         uploadImage(TENANT_B, big);
         mvc.perform(as(multipart(BASE + KEY + "/files")
-                        .file(new MockMultipartFile("file", "c.png", "image/png", Arrays.copyOf(PNG, 120 * 1024)))
+                        .file(new MockMultipartFile("file", "c.png", "image/png", png(200, 200)))
                         .param("kind", "image"), "admin", TENANT_B))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].message").value(containsString("500 KB")));
@@ -178,7 +216,7 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
         when(jwtTokenService.validateTokenAndGetAuthentication("admin-p")).thenReturn(new JwtAuthentication("admin-p",
                 List.of(new Authority(tenant), new Authority("ROLE_EEG_ADMIN"))));
         mvc.perform(as(delete(BASE + KEY), "admin-p", tenant)).andExpect(status().isNoContent());
-        byte[] image = Arrays.copyOf(PNG, 200 * 1024);
+        byte[] image = png(260, 260); // about 200 KB
         int parallel = 6;
         java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(parallel);
@@ -283,7 +321,8 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
                 .andExpect(jsonPath("$.subject").value("Rechnung für Max Mustermann"))
                 .andExpect(jsonPath("$.html").value(containsString("src=\"data:image/png;base64,")))
                 .andExpect(jsonPath("$.html").value(containsString("Max Mustermann")))
-                .andExpect(jsonPath("$.html").value(not(containsString("mailfile:"))));
+                .andExpect(jsonPath("$.html").value(not(containsString("mailfile:"))))
+                .andExpect(jsonPath("$.html").value(containsString(MailTemplateCatalog.FIXED_FOOTER_HTML)));
         cleanup(TENANT_A);
         cleanup(TENANT_B);
     }
@@ -309,7 +348,7 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
 
         // 2 x 200 KB older than 24 h and 1 x 200 KB: 3 images, but together more than 500 KB
         cleanup(TENANT_B);
-        byte[] image = Arrays.copyOf(PNG, 200 * 1024);
+        byte[] image = png(260, 260); // about 200 KB
         List<String> big = new java.util.ArrayList<>(List.of(uploadImage(TENANT_B, image), uploadImage(TENANT_B, image)));
         ageDrafts(TENANT_B);
         big.add(uploadImage(TENANT_B, image));

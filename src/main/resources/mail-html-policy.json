@@ -1,6 +1,6 @@
 {
   "_comment": "Allowed HTML for EEG-editable member mails (konzept-mail-texte-editierbar.md, section H). Identical copy in eegfaktura-backend and eegfaktura-billing; change both together.",
-  "version": 1,
+  "version": 2,
   "elements": {
     "p": ["style"],
     "br": [],
@@ -26,11 +26,22 @@
     "img.src": ["mailfile"]
   },
   "styles": {
-    "text-align": ["left", "center", "right"]
+    "text-align": ["left", "center", "right"],
+    "font-size": ["13px", "20px"]
   },
   "required": {
     "span": ["data-ph"],
     "div": ["data-ph"]
   },
-  "linkRel": "noopener noreferrer"
+  "linkRel": "noopener noreferrer",
+  "links": {
+    "maxLinks": 3,
+    "maxLinkDomains": 2,
+    "blockedHosts": ["bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "cutt.ly", "rebrand.ly",
+      "shorturl.at", "tiny.cc", "rb.gy", "t.ly", "s.id", "lnkd.in", "bl.ink", "short.io", "v.gd", "tr.im", "shorte.st"],
+    "_domainComment": "Domains are counted by their main (registrable) domain: the last two labels, or the last three when the last two are one of secondLevelSuffixes. A link text whose last label is one of fileExtensions is a file name, not an address.",
+    "secondLevelSuffixes": ["co.at", "or.at", "gv.at", "ac.at"],
+    "fileExtensions": ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "txt", "csv", "zip", "jpg", "jpeg", "jfif",
+      "png", "gif", "htm", "html"]
+  }
 }

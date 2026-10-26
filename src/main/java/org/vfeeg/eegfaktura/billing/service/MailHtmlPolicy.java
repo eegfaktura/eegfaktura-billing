@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -56,6 +58,7 @@ public class MailHtmlPolicy {
     private final Map<String, List<String>> styles = new LinkedHashMap<>();
     private final Map<String, List<String>> required = new LinkedHashMap<>();
     private final List<String> linkRel = new ArrayList<>();
+    private final LinkLimits linkLimits;
 
     public MailHtmlPolicy() {
         try (InputStream in = new ClassPathResource("mail-html-policy.json").getInputStream()) {
@@ -69,11 +72,20 @@ public class MailHtmlPolicy {
                     linkRel.add(rel);
                 }
             }
+            JsonNode links = root.path("links");
+            List<String> blockedHosts = new ArrayList<>();
+            links.path("blockedHosts").forEach(h -> blockedHosts.add(h.asText().toLowerCase(Locale.ROOT)));
+            linkLimits = new LinkLimits(links.path("maxLinks").asInt(), links.path("maxLinkDomains").asInt(),
+                    Set.copyOf(blockedHosts), lowerCaseSet(links.path("secondLevelSuffixes")),
+                    lowerCaseSet(links.path("fileExtensions")));
         } catch (IOException e) {
             throw new UncheckedIOException("mail-html-policy.json not readable", e);
         }
         if (elements.isEmpty()) {
             throw new IllegalStateException("mail-html-policy.json has no elements");
+        }
+        if (linkLimits.maxLinks() <= 0 || linkLimits.maxLinkDomains() <= 0) {
+            throw new IllegalStateException("mail-html-policy.json has no link limits");
         }
         fragmentPolicy = builder(id -> false).toFactory();
     }
@@ -191,6 +203,90 @@ public class MailHtmlPolicy {
             }
         });
         return inspection;
+    }
+
+    /**
+     * The {@code links} section of the rule file: link count, domain count, blocked hosts, second-level
+     * suffixes (e.g. co.at) for the main domain, file extensions of link texts that are file names
+     * (all lower case).
+     */
+    public record LinkLimits(int maxLinks, int maxLinkDomains, Set<String> blockedHosts,
+                             Set<String> secondLevelSuffixes, Set<String> fileExtensions) {
+    }
+
+    private static Set<String> lowerCaseSet(JsonNode array) {
+        Set<String> values = new LinkedHashSet<>();
+        array.forEach(v -> values.add(v.asText().toLowerCase(Locale.ROOT)));
+        return Set.copyOf(values);
+    }
+
+    public LinkLimits linkLimits() {
+        return linkLimits;
+    }
+
+    /**
+     * A link of a sanitized HTML: its href, its visible text (including nested elements and the alt
+     * text of images, without the labels of placeholders) and the keys of the placeholders inside it.
+     */
+    public record Link(String href, String text, List<String> placeholders) {
+    }
+
+    /** The links ({@code a href}) of already sanitized HTML, in document order. */
+    public List<Link> links(String sanitizedHtml) {
+        List<Link> links = new ArrayList<>();
+        HtmlSanitizer.sanitize(sanitizedHtml == null ? "" : sanitizedHtml, new HtmlSanitizer.Policy() {
+            private String href;
+            private StringBuilder text;
+            private List<String> placeholders;
+            /** Open elements inside a placeholder of the link (its label is not link text). */
+            private int placeholderDepth;
+
+            @Override public void openDocument() { }
+            @Override public void closeDocument() { }
+            @Override public void openTag(String name, List<String> attrs) {
+                if ("a".equals(name) && text == null) {
+                    href = attribute(attrs, "href");
+                    text = new StringBuilder();
+                    placeholders = new ArrayList<>();
+                    return;
+                }
+                if (text == null || "br".equals(name)) {
+                    return;
+                }
+                if ("img".equals(name)) {
+                    // the alt text is shown when images are blocked: link text too (as in the backend)
+                    String alt = attribute(attrs, "alt");
+                    if (alt != null && placeholderDepth == 0) {
+                        text.append(' ').append(alt).append(' ');
+                    }
+                    return;
+                }
+                String placeholder = attribute(attrs, PLACEHOLDER_ATTRIBUTE);
+                if (placeholderDepth > 0) {
+                    placeholderDepth++;
+                } else if (placeholder != null && !placeholder.isBlank()) {
+                    placeholders.add(placeholder);
+                    placeholderDepth = 1;
+                }
+            }
+            @Override public void closeTag(String name) {
+                if ("a".equals(name) && text != null) {
+                    if (href != null) {
+                        links.add(new Link(href, text.toString(), List.copyOf(placeholders)));
+                    }
+                    text = null;
+                    placeholderDepth = 0;
+                } else if (placeholderDepth > 0 && !"br".equals(name) && !"img".equals(name)) {
+                    placeholderDepth--;
+                }
+            }
+            @Override public void text(String chunk) {
+                if (text != null && placeholderDepth == 0) {
+                    text.append(chunk);
+                }
+            }
+        });
+        return links;
     }
 
     /** Placeholder keys, mailfile ids and the plain text of a sanitized HTML. */
@@ -360,6 +456,12 @@ public class MailHtmlPolicy {
 
     /** https://host[/path|?query|#fragment] with a non-empty host and no whitespace anywhere. */
     private static final Pattern HTTPS_WITH_HOST = Pattern.compile("(?i)https://[^/?#\\s]+([/?#]\\S*)?");
+    /** Characters Go's url.Parse refuses in an authority (as in the backend), and "%" in both. */
+    private static final Pattern BAD_AUTHORITY_CHAR = Pattern.compile("[\\\\%^`{|}]");
+    /** The user info Go's url.Parse accepts (validUserinfo): ASCII letters, digits and these marks. */
+    private static final Pattern USERINFO = Pattern.compile("[A-Za-z0-9\\-._:~!$&'()*+,;=%@]*");
+    /** The port part of an authority: none, or ":" and digits (may be empty, as in Go). */
+    private static final Pattern PORT = Pattern.compile("(:[0-9]*)?");
 
     /** img width: a number of pixels or a percentage, as in the backend. */
     private static final Pattern WIDTH = Pattern.compile("[0-9]{1,4}%?");
@@ -383,8 +485,31 @@ public class MailHtmlPolicy {
         return AttributePolicy.IDENTITY_ATTRIBUTE_POLICY;
     }
 
+    /**
+     * {@code s} without Unicode spaces (also NBSP) and ASCII whitespace at both ends, as in the backend. An index
+     * loop: an anchored regex backtracks quadratically on a long run of spaces inside the URL.
+     */
+    static String trimSpaces(String s) {
+        int start = 0;
+        int end = s.length();
+        while (start < end && isEdgeSpace(s.charAt(start))) {
+            start++;
+        }
+        while (end > start && isEdgeSpace(s.charAt(end - 1))) {
+            end--;
+        }
+        return s.substring(start, end);
+    }
+
+    /** \p{Z} (all of it lies in the BMP) or ASCII whitespace \t \n \x0B \f \r. */
+    private static boolean isEdgeSpace(char c) {
+        int type = Character.getType(c);
+        return type == Character.SPACE_SEPARATOR || type == Character.LINE_SEPARATOR
+                || type == Character.PARAGRAPH_SEPARATOR || (c >= '\t' && c <= '\r');
+    }
+
     private static String url(String value, List<String> schemes, Predicate<String> allowedFileIds) {
-        String trimmed = value.trim();
+        String trimmed = trimSpaces(value);
         int colon = trimmed.indexOf(':');
         if (colon <= 0) {
             return null; // relative URL or none at all
@@ -398,15 +523,67 @@ public class MailHtmlPolicy {
             return id != null && (BUILTIN_LOGO_ID.equals(id) || allowedFileIds.test(id))
                     ? MAILFILE_SCHEME + ":" + id : null;
         }
+        if (trimmed.chars().anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n')) {
+            return null; // no spaces in a URL (as in the backend), e.g. "mailto: office@eeg.at"
+        }
+        if (trimmed.chars().anyMatch(c -> c < 0x20 || c == 0x7f)) {
+            return null; // control characters: Go's url.Parse refuses them
+        }
         if ("mailto".equals(scheme) && trimmed.substring(colon + 1).isBlank()) {
             return null; // mailto without address
         }
-        if ("https".equals(scheme) && !HTTPS_WITH_HOST.matcher(trimmed).matches()) {
+        if ("https".equals(scheme) && (!HTTPS_WITH_HOST.matcher(trimmed).matches()
+                || !validAuthority(trimmed.substring("https://".length()).split("[/?#]", 2)[0]))) {
             // an https link needs a host and no spaces (as in the backend), e.g. not "https:/path";
             // java.net.URI is stricter than Go and would drop umlaut domains, "|" or "{" in a URL
             return null;
         }
         return trimmed;
+    }
+
+    /**
+     * An authority the backend (Go's url.Parse) accepts too, so both give the same verdict: no
+     * backslash or "%" (bit%2Ely is bit.ly to a browser), user info of ASCII letters, digits and
+     * Go's marks only, a closed bracket with an IPv6 address and one port of digits (not
+     * bit.ly:80:90).
+     */
+    private static boolean validAuthority(String authority) {
+        if (BAD_AUTHORITY_CHAR.matcher(authority).find()) {
+            return false;
+        }
+        int at = authority.lastIndexOf('@');
+        if (at >= 0 && !USERINFO.matcher(authority.substring(0, at)).matches()) {
+            return false;
+        }
+        String hostPort = authority.substring(at + 1);
+        String port;
+        if (hostPort.startsWith("[")) {
+            int end = hostPort.indexOf(']');
+            if (end < 0 || !isIpv6Literal(hostPort.substring(0, end + 1))) {
+                return false; // https://[::1 or https://[abc]
+            }
+            port = hostPort.substring(end + 1);
+        } else {
+            if (hostPort.isEmpty() || hostPort.contains("[") || hostPort.indexOf(':') != hostPort.lastIndexOf(':')) {
+                return false;
+            }
+            int portColon = hostPort.lastIndexOf(':');
+            port = portColon < 0 ? "" : hostPort.substring(portColon);
+        }
+        return PORT.matcher(port).matches();
+    }
+
+    /**
+     * "[...]" holds an IPv6 address, as Go's url.Parse requires ([1.2.3.4] and [abc] are refused).
+     * In brackets InetAddress only parses the literal, it never asks DNS.
+     */
+    private static boolean isIpv6Literal(String bracketed) {
+        try {
+            InetAddress.getByName(bracketed);
+            return true;
+        } catch (UnknownHostException e) {
+            return false;
+        }
     }
 
     private String style(String value) {

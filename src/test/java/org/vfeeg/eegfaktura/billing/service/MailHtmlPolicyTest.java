@@ -84,7 +84,7 @@ class MailHtmlPolicyTest {
     }
 
     @Test
-    @DisplayName("style: only text-align left/center/right on p, h1-h3, li")
+    @DisplayName("style: text-align left/center/right on p, h1-h3, li")
     void styles() {
         assertEquals("<p style=\"text-align: center\">a</p>", clean("<p style=\"text-align: center;;\">a</p>"));
         assertEquals("<h2 style=\"text-align: right\">a</h2>", clean("<h2 style=\"TEXT-ALIGN:RIGHT\">a</h2>"));
@@ -93,6 +93,27 @@ class MailHtmlPolicyTest {
         assertEquals("<p>a</p>", clean("<p style=\"text-align:justify\">a</p>"));
         assertEquals("<p>a</p>", clean("<p style=\"background:url(javascript:alert(1))\">a</p>"));
         assertEquals("<strong>a</strong>", clean("<strong style=\"text-align:center\">a</strong>"));
+    }
+
+    @Test
+    @DisplayName("style: font-size only 13px or 20px, alone or combined with text-align; other sizes dropped")
+    void fontSizes() {
+        assertEquals("<p style=\"font-size: 13px\">a</p>", clean("<p style=\"font-size:13px\">a</p>"));
+        assertEquals("<h3 style=\"font-size: 20px\">a</h3>", clean("<h3 style=\"font-size:20px\">a</h3>"));
+        assertEquals("<p style=\"text-align: center; font-size: 20px\">a</p>",
+                clean("<p style=\"text-align:center;font-size:20px\">a</p>"));
+        // the editor's (TipTap) spaced form round-trips unchanged
+        assertEquals("<p style=\"text-align: center; font-size: 20px\">a</p>",
+                clean("<p style=\"text-align: center; font-size: 20px\">a</p>"));
+        assertEquals("<li style=\"font-size: 20px\">a</li>",
+                clean("<li style=\"font-size: 20px\">a</li>").replace("<ul>", "").replace("</ul>", ""));
+        assertEquals("<p style=\"font-size: 13px; text-align: right\">a</p>",
+                clean("<p style=\"font-size:13px; text-align:right\">a</p>"));
+        assertEquals("<p style=\"text-align: center\">a</p>", clean("<p style=\"text-align:center;font-size:30px\">a</p>"));
+        assertEquals("<p>a</p>", clean("<p style=\"font-size:30px\">a</p>"));
+        assertEquals("<p>a</p>", clean("<p style=\"font-size:1em\">a</p>"));
+        assertEquals("<p>a</p>", clean("<p style=\"font-size:13\">a</p>"));
+        assertEquals("<blockquote>a</blockquote>", clean("<blockquote style=\"font-size:20px\">a</blockquote>"));
     }
 
     @Test
@@ -134,5 +155,16 @@ class MailHtmlPolicyTest {
         assertEquals(Set.of(OWN_FILE), inspection.fileIds());
         assertFalse(inspection.isEmpty());
         assertTrue(policy.inspect(clean("<p> <script>x</script></p><br>")).isEmpty());
+    }
+
+    @Test
+    @DisplayName("links: the text without placeholder labels, the placeholder keys, nested elements")
+    void linksWithPlaceholders() {
+        var links = policy.links("<p><a href=\"https://eeg.at\">Web <span data-ph=\"eeg.name\"><strong>www.x.at"
+                + "</strong><br />y</span> <img src=\"mailfile:eegfaktura-logo\" />mehr<br />z</a>"
+                + "<a href=\"mailto:a@b.at\">a@b.at</a></p>");
+        assertEquals(2, links.size());
+        assertEquals(new MailHtmlPolicy.Link("https://eeg.at", "Web  mehrz", java.util.List.of("eeg.name")), links.get(0));
+        assertEquals(new MailHtmlPolicy.Link("mailto:a@b.at", "a@b.at", java.util.List.of()), links.get(1));
     }
 }

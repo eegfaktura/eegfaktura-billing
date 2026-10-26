@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentMailService;
+import org.vfeeg.eegfaktura.billing.service.MailTemplateCatalog;
 import org.vfeeg.eegfaktura.billing.service.MailTemplateService;
 import org.vfeeg.eegfaktura.billing.support.ConcurrencyAndMailBase;
 import org.vfeeg.eegfaktura.billing.support.GreenMailHolder;
@@ -34,7 +35,7 @@ import static org.mockito.Mockito.doAnswer;
 
 /**
  * {@link BillingDocumentMailService#sendAllBillingDocuments} against a real SMTP server (GreenMail): the
- * documents of a real final run with their PDFs, the real template and logo. Known-errors #18 (F7) for the
+ * documents of a real final run with their PDFs, the real default text and fixed footer. Known-errors #18 (F7) for the
  * status after failures.
  */
 class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
@@ -44,7 +45,7 @@ class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
     private static final String COMMUNITY = "office@eeg.example";
 
     @Test
-    void documentGoesOutWithPdfAndInlineLogo() throws Exception {
+    void documentGoesOutWithPdfAndFixedFooter() throws Exception {
         UUID runId = finalRun(members(MEMBER_1));
 
         String protocol = mailService.sendAllBillingDocuments(runId);
@@ -66,14 +67,16 @@ class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
         assertThat(pdf.getDisposition(), is(Part.ATTACHMENT));
         assertThat(pdf.getFileName(), is(PERIOD + "_Rechnung_TRECH202400042.pdf"));
         assertThat(new String(pdf.getInputStream().readNBytes(5)), is("%PDF-"));
-        Part logo = parts.stream().filter(p -> isType(p, "image/png")).findFirst()
-                .orElseThrow(() -> new AssertionError("no logo part"));
-        assertThat(logo.getDisposition(), is(Part.INLINE));
-        assertThat(logo.getHeader("Content-ID"), arrayContaining("<" + MailTemplateService.LOGO_CONTENT_ID + ">"));
+        // the default text has no eegfaktura logo since defaultVersion 2; the fixed footer names the sender
+        assertThat(parts.stream().noneMatch(p -> isType(p, "image/png")), is(true));
         String html = parts.stream().filter(p -> isType(p, "text/html")).findFirst()
                 .map(BillingMailDeliveryTests::text).orElseThrow(() -> new AssertionError("no HTML body"));
-        assertThat(html, containsString("cid:" + MailTemplateService.LOGO_CONTENT_ID));
+        assertThat(html, not(containsString("cid:" + MailTemplateService.LOGO_CONTENT_ID)));
         assertThat(html, containsString("Nachname1"));
+        assertThat(html, containsString(MailTemplateCatalog.FIXED_FOOTER_HTML));
+        String plain = parts.stream().filter(p -> isType(p, "text/plain")).findFirst()
+                .map(BillingMailDeliveryTests::text).orElseThrow(() -> new AssertionError("no text body"));
+        assertThat(plain, containsString(MailTemplateCatalog.FIXED_FOOTER));
 
         BillingRunDTO run = run(runId);
         assertThat(run.getMailStatus(), is("SENT"));
