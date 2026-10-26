@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.2.0] – 2026-10-26
+
 ### Added
 - **Editable member mail text (`billing-document`)** (konzept-mail-texte-editierbar.md): an EEG admin edits
   subject and text of the invoice/credit note mail under `/api/mailtemplates` (same schema as the backend:
