@@ -60,6 +60,8 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
                 .andExpect(jsonPath("$.files.length()").value(0))
                 .andExpect(jsonPath("$.limits.maxImages").value(3))
                 .andExpect(jsonPath("$.limits.maxAttachments").value(0))
+                .andExpect(jsonPath("$.limits.maxLinks").value(3))
+                .andExpect(jsonPath("$.limits.maxLinkDomains").value(2))
                 .andExpect(jsonPath("$.placeholders[?(@.key=='eeg.contactBlock')].block").value(true));
     }
 
@@ -111,6 +113,16 @@ class MailTemplateIntegrationTests extends MailTemplateIntegrationBase {
                 .andExpect(jsonPath("$.errors[0].message").value(containsString("eeg.contactBlock")));
         putTemplate(TENANT_B, "x", "<p><span data-ph=\"eeg.contactBlock\">K</span></p>", 0)
                 .andExpect(status().isBadRequest());
+        // link rules (Variante A): rejected with a message, nothing stored
+        putTemplate(TENANT_B, "x", "<p><a href=\"https://192.168.1.10/login\">Portal</a></p>", 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("bodyHtml"))
+                .andExpect(jsonPath("$.errors[0].message")
+                        .value("Links zu IP-Adressen sind nicht erlaubt: 192.168.1.10"));
+        putTemplate(TENANT_B, "x", "<p><a href=\"https://a.at\">a</a> <a href=\"https://b.at\">b</a> "
+                        + "<a href=\"https://c.at\">c</a></p>", 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].message").value(containsString("höchstens 2 verschiedenen Domains")));
         putTemplate(TENANT_B, "x".repeat(201), "<p>a</p>", 0)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("subject"));

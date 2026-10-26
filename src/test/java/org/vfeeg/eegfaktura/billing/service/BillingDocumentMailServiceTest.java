@@ -276,4 +276,17 @@ class BillingDocumentMailServiceTest {
         assertTrue(protocol.contains(BillingDocumentMailService.TEMPLATE_FALLBACK_NOTE), protocol);
         assertTrue(protocol.contains("erika@example.com OK"), protocol);
     }
+    @Test
+    @DisplayName("A stored text saved before the link rules that breaks them: the default is sent, the protocol says so")
+    void storedTextBreakingTheLinkRulesFallsBack() throws Exception {
+        stored("Eigener Betreff", "<p>Hallo, <a href=\"https://evil.example/login\">https://netz-noe.at</a></p>");
+
+        String protocol = service.sendAllBillingDocuments(run.getId());
+
+        Sent sent = sent();
+        assertEquals("Rechnung 01.07.2026 - 30.09.2026 - EEG Sonnenschein", sent.subject());
+        assertFalse(sent.html().contains("evil.example"), sent.html());
+        assertTrue(protocol.contains(BillingDocumentMailService.TEMPLATE_FALLBACK_NOTE), protocol);
+        assertTrue(protocol.contains("erika@example.com OK"), protocol);
+    }
 }

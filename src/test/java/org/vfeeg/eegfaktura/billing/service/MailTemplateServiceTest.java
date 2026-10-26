@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -31,6 +32,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /** Unit tests of MailTemplateService without a database. */
@@ -124,5 +126,44 @@ class MailTemplateServiceTest {
         // the plain-text part is derived from this HTML at the send point (EmailService)
         String text = EmailService.htmlToPlainText(html.getValue());
         assertTrue(text.endsWith("Eigener Text\n" + MailTemplateCatalog.FIXED_FOOTER), text);
+    }
+    @Test
+    void linkRulesAreA400InPreviewAndTestMailWithAMessage() {
+        String shortener = "<p><a href=\"https://bit.ly/x\">Portal</a></p>";
+        var preview = assertThrows(MailTemplateService.ValidationException.class,
+                () -> service.preview(TENANT, MailTemplateCatalog.BILLING_DOCUMENT,
+                        new PreviewRequest("x", shortener, null)));
+        assertEquals("bodyHtml", preview.getErrors().get(0).field());
+        assertEquals("Links zu Kurz-Link-Diensten sind nicht erlaubt: bit.ly", preview.getErrors().get(0).message());
+
+        String fourLinks = "<p><a href=\"https://eeg.at/1\">1</a> <a href=\"https://eeg.at/2\">2</a> "
+                + "<a href=\"https://eeg.at/3\">3</a> <a href=\"https://eeg.at/4\">4</a></p>";
+        var test = assertThrows(MailTemplateService.ValidationException.class,
+                () -> service.sendTest(TENANT, MailTemplateCatalog.BILLING_DOCUMENT,
+                        new TestRequest(MailTemplateService.RECIPIENT_ME, "x", fourLinks, null), "me@example.com"));
+        assertTrue(test.getErrors().get(0).message().startsWith("Höchstens 3 Links pro Mail"),
+                test.getErrors().get(0).message());
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void theFixedFooterLinkIsNotCounted() {
+        // three links to two domains in the text, plus the footer's link to a third domain
+        String body = "<p><a href=\"https://eeg.at/a\">a</a> <a href=\"https://eeg.at/b\">b</a> "
+                + "<a href=\"https://netz.at\">c</a></p>";
+
+        var preview = service.preview(TENANT, MailTemplateCatalog.BILLING_DOCUMENT, new PreviewRequest("x", body, null));
+
+        assertTrue(preview.html().contains(MailTemplateCatalog.FIXED_FOOTER_HTML), preview.html());
+    }
+
+    @Test
+    void definitionHasTheLinkLimits() {
+        var limits = service.get(TENANT, MailTemplateCatalog.BILLING_DOCUMENT).limits();
+
+        assertEquals(3, limits.maxLinks());
+        assertEquals(2, limits.maxLinkDomains());
+        assertEquals(3, limits.maxImages());
+        assertEquals(0, limits.maxAttachments());
     }
 }
