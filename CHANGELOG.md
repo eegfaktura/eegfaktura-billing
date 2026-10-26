@@ -8,6 +8,23 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Added
+- **Fixed footer in the `billing-document` mail**: every mail (send run, default and stored text, preview
+  and test mail) ends with `versandt durch EEG Faktura, ein Service des VFEEG - https://vfeeg.org/`,
+  appended by the server after the sanitized body (HTML and the derived plain-text part); it is not
+  editable and not part of the stored text. The list and GET of `/api/mailtemplates` return it as the new
+  field `fixedFooter` (additive contract change, same field as in eegfaktura-backend; the web shows it
+  below the editor and nothing when the field is missing, so the deploy order is not critical — billing
+  before or together with the web).
+- **Font size in mail texts**: `mail-html-policy.json` version 2 (identical copy in eegfaktura-backend)
+  allows `font-size` `13px` and `20px` in the `style` of `p`, `h1`–`h3` and `li`, also together with
+  `text-align`; other sizes and units are dropped. New cases in the shared `mail-html-policy-cases.json`.
+
+### Changed
+- Default text of `billing-document` without the eegfaktura logo on top (the fixed footer names the
+  sender); `defaultVersion` 1 → 2, so EEGs with an own text see the "default changed" notice. Stored texts
+  are not migrated; one that still contains `mailfile:eegfaktura-logo` keeps showing the built-in logo.
+
 ## [1.2.0] – 2026-10-26
 
 ### Added
