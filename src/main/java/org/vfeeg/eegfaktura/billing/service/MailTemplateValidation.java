@@ -7,6 +7,7 @@ import org.vfeeg.eegfaktura.billing.service.MailTemplateService.ValidationExcept
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -68,14 +69,15 @@ class MailTemplateValidation {
                             "Der Baustein " + use.key() + " ist nur als eigener Absatz möglich."));
                 }
             }
+            Map<String, String> labels = entry.placeholders().stream()
+                    .collect(Collectors.toMap(MailTemplateCatalog.Placeholder::key,
+                            MailTemplateCatalog.Placeholder::label));
             // link rules (Variante A): rejected with a message, never removed silently
-            for (MailLinkRules.Violation violation : linkRules.check(sanitized)) {
+            for (MailLinkRules.Violation violation : linkRules.check(sanitized, labels)) {
                 errors.add(new ValidationError("bodyHtml", violation.message()));
             }
             if (errors.isEmpty()) {
-                sanitized = renderer.relabel(sanitized, entry.placeholders().stream()
-                        .collect(Collectors.toMap(MailTemplateCatalog.Placeholder::key,
-                                MailTemplateCatalog.Placeholder::label)));
+                sanitized = renderer.relabel(sanitized, labels);
             }
             if (inspection.isEmpty()) {
                 errors.add(new ValidationError("bodyHtml", "Text ist nach der Bereinigung leer."));

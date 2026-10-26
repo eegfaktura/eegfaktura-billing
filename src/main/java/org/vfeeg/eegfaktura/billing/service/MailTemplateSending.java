@@ -17,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Rendering of a prepared mail text and the text a send run uses. A collaborator of
@@ -74,7 +75,9 @@ class MailTemplateSending {
             // sanitized once per run (defence in depth for stored rows); per mail only a re-render
             String body = mailHtmlPolicy.sanitize(template.getBodyHtml(), images.keySet());
             // a text saved before the link rules that breaks them is not sent (fallback to the default)
-            List<MailLinkRules.Violation> violations = linkRules.check(body);
+            List<MailLinkRules.Violation> violations = linkRules.check(body, entry.placeholders().stream()
+                    .collect(Collectors.toMap(MailTemplateCatalog.Placeholder::key,
+                            MailTemplateCatalog.Placeholder::label)));
             if (!violations.isEmpty()) {
                 throw new MailTemplateService.ValidationException(violations.stream()
                         .map(v -> new ValidationError("bodyHtml", v.message())).toList());

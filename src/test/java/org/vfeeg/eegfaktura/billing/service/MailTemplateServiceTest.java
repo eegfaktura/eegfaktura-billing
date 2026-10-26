@@ -147,6 +147,22 @@ class MailTemplateServiceTest {
     }
 
     @Test
+    void aPlaceholderInALinkIsA400WithItsLabel() {
+        String body = "<p><a href=\"https://eeg.at\"><span data-ph=\"eeg.name\">x</span></a></p>";
+        var preview = assertThrows(MailTemplateService.ValidationException.class,
+                () -> service.preview(TENANT, MailTemplateCatalog.BILLING_DOCUMENT, new PreviewRequest("x", body, null)));
+        assertEquals("Platzhalter dürfen nicht in einem Link stehen: Name der EEG",
+                preview.getErrors().get(0).message());
+    }
+
+    @Test
+    void theDefaultKeepsTheLinkRules() {
+        MailHtmlPolicy policy = new MailHtmlPolicy();
+        var entry = new MailTemplateCatalog(policy).find(MailTemplateCatalog.BILLING_DOCUMENT).orElseThrow();
+        assertEquals(List.of(), new MailLinkRules(policy).check(entry.defaultBodyHtml()));
+    }
+
+    @Test
     void theFixedFooterLinkIsNotCounted() {
         // three links to two domains in the text, plus the footer's link to a third domain
         String body = "<p><a href=\"https://eeg.at/a\">a</a> <a href=\"https://eeg.at/b\">b</a> "

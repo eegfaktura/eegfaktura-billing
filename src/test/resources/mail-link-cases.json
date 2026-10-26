@@ -1,5 +1,5 @@
 {
-  "_comment": "Link rules of EEG-editable member mails (Variante A, decided 2026-10-26). Identical copy in eegfaktura-backend and eegfaktura-billing; change both together. Each case: the stored body HTML (already sanitised) and either ok=true or the error keys the validation must report (order irrelevant). Keys: ip, shortener, text-mismatch, too-many-links, too-many-domains.",
+  "_comment": "Link rules of EEG-editable member mails (Variante A, decided 2026-10-26). Identical copy in eegfaktura-backend and eegfaktura-billing; change both together. Each case: the stored body HTML (already sanitised) and either ok=true or the error keys the validation must report (order irrelevant). Keys: ip, shortener, text-mismatch, placeholder-in-link, too-many-links, too-many-domains.",
   "version": 1,
   "cases": [
     {"name": "no link", "html": "<p>Hallo</p>", "ok": true},
@@ -31,6 +31,33 @@
     {"name": "file name as link text is not an address", "html": "<p><a href=\"https://eeg.at/a.pdf\">anleitung.pdf</a></p>", "ok": true},
     {"name": "e-mail address as text of an https link rejected", "html": "<p><a href=\"https://evil.example\">office@eeg.at</a></p>", "errors": ["text-mismatch"]},
     {"name": "web address as text of a mailto link rejected", "html": "<p><a href=\"mailto:office@eeg.at\">www.eeg.at</a></p>", "errors": ["text-mismatch"]},
-    {"name": "several problems reported together", "html": "<p><a href=\"https://bit.ly/a\">1</a> <a href=\"https://10.0.0.1\">2</a> <a href=\"https://a.at\">3</a> <a href=\"https://b.at\">https://c.at</a></p>", "errors": ["shortener", "ip", "text-mismatch", "too-many-links", "too-many-domains"]}
+    {"name": "several problems reported together", "html": "<p><a href=\"https://bit.ly/a\">1</a> <a href=\"https://10.0.0.1\">2</a> <a href=\"https://a.at\">3</a> <a href=\"https://b.at\">https://c.at</a></p>", "errors": ["shortener", "ip", "text-mismatch", "too-many-links", "too-many-domains"]},
+    {"name": "shortener with an ideographic full stop rejected", "html": "<p><a href=\"https://bit\u3002ly/x\">Portal</a></p>", "errors": ["shortener"]},
+    {"name": "shortener with a fullwidth full stop rejected", "html": "<p><a href=\"https://bit\uff0ely/x\">Portal</a></p>", "errors": ["shortener"]},
+    {"name": "single word of hex letters is a host name, not an ip", "html": "<p><a href=\"https://cafe/x\">Portal</a></p>", "ok": true},
+    {"name": "dotted hex and decimal labels are an ip", "html": "<p><a href=\"https://0x7f.1/x\">Portal</a></p>", "errors": ["ip"]},
+    {"name": "placeholder eeg.name in a link rejected", "html": "<p><a href=\"https://eeg.at/x\"><span data-ph=\"eeg.name\">Name der EEG</span></a></p>", "errors": ["placeholder-in-link"]},
+    {"name": "placeholder eeg.email in a mailto link rejected", "html": "<p><a href=\"mailto:office@eeg.at\"><span data-ph=\"eeg.email\">E-Mail der EEG</span></a></p>", "errors": ["placeholder-in-link"]},
+    {"name": "placeholder text in a link is no link text", "html": "<p><a href=\"https://eeg.at\">Web <strong><span data-ph=\"eeg.name\">www.evil.at</span></strong></a></p>", "errors": ["placeholder-in-link"]},
+    {"name": "nbsp before another address rejected", "html": "<p><a href=\"https://eeg.at\">Mehr&nbsp;www.evil.at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "narrow no-break space before another address rejected", "html": "<p><a href=\"https://eeg.at\">Mehr\u202fwww.evil.at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "zero-width space inside another address rejected", "html": "<p><a href=\"https://eeg.at\">www.ev\u200bil.at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "zero-width space after another bare domain rejected", "html": "<p><a href=\"https://eeg.at\">evil.at\u200b</a></p>", "errors": ["text-mismatch"]},
+    {"name": "another address with an ideographic full stop rejected", "html": "<p><a href=\"https://eeg.at\">evil\u3002at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "same address within a sentence is fine", "html": "<p><a href=\"https://eeg.at\">Mehr unter https://eeg.at</a></p>", "ok": true},
+    {"name": "same bare domain with a final full stop is fine", "html": "<p><a href=\"https://eeg.at\">eeg.at.</a></p>", "ok": true},
+    {"name": "another bare domain with a final full stop rejected", "html": "<p><a href=\"https://eeg.at\">evil.at.</a></p>", "errors": ["text-mismatch"]},
+    {"name": "another address in quotes rejected", "html": "<p><a href=\"https://eeg.at\">„www.evil.at“</a></p>", "errors": ["text-mismatch"]},
+    {"name": "one of two addresses is another rejected", "html": "<p><a href=\"https://eeg.at\">https://eeg.at und https://evil.at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "a@b is not an address", "html": "<p><a href=\"https://eeg.at\">a@b</a></p>", "ok": true},
+    {"name": "office@eeg without a dot is not an address", "html": "<p><a href=\"https://eeg.at\">office@eeg</a></p>", "ok": true},
+    {"name": "z.B. is not an address", "html": "<p><a href=\"https://eeg.at\">z.B.</a></p>", "ok": true},
+    {"name": "user info in a text address: the host after @ counts", "html": "<p><a href=\"https://evil.at\">https://eeg.at@evil.at</a></p>", "ok": true},
+    {"name": "user info in a text address: another host rejected", "html": "<p><a href=\"https://eeg.at\">https://eeg.at@evil.at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "mailto with an encoded @ matches the text", "html": "<p><a href=\"mailto:office%40eeg.at\">office@eeg.at</a></p>", "ok": true},
+    {"name": "mailto address within a sentence is fine", "html": "<p><a href=\"mailto:office@eeg.at\">Schreib an office@eeg.at, danke</a></p>", "ok": true},
+    {"name": "e-mail address within a sentence of an https link rejected", "html": "<p><a href=\"https://eeg.at\">Kontakt: office@eeg.at</a></p>", "errors": ["text-mismatch"]},
+    {"name": "mailto with a malformed escape is compared as written", "html": "<p><a href=\"mailto:a%zz@b.at\">a%zz@b.at</a></p>", "ok": true},
+    {"name": "ipv6 host with a port rejected", "html": "<p><a href=\"https://[2001:db8::1]:8443/x\">Portal</a></p>", "errors": ["ip"]}
   ]
 }
