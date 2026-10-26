@@ -166,7 +166,7 @@ class BillingScenarioOutputTests extends BillingScenarioBase {
         List<byte[]> contents = zipEntries(archiveService.createArchive(results.getBillingRunId()), names);
 
         assertThat(names, hasSize(3));
-        assertThat(names, everyItem(allOf(containsString(PERIOD), containsString(".pdf"))));
+        assertThat(names, everyItem(allOf(startsWith(PERIOD), containsString(".pdf"))));
         assertThat(contents.stream().map(c -> new String(c, 0, 5, StandardCharsets.US_ASCII))
                 .toList(), everyItem(startsWith("%PDF-")));
     }
