@@ -13,16 +13,18 @@ import java.util.stream.Collectors;
 
 /**
  * Checks and sanitizes subject and text of a mail (section H): length, placeholders, blocks only on
- * the top level. A collaborator of {@link MailTemplateService}.
+ * the top level, link rules ({@link MailLinkRules}). A collaborator of {@link MailTemplateService}.
  */
 class MailTemplateValidation {
 
     private final MailHtmlPolicy mailHtmlPolicy;
     private final MailTemplateRenderer renderer;
+    private final MailLinkRules linkRules;
 
     MailTemplateValidation(MailHtmlPolicy mailHtmlPolicy, MailTemplateRenderer renderer) {
         this.mailHtmlPolicy = mailHtmlPolicy;
         this.renderer = renderer;
+        this.linkRules = new MailLinkRules(mailHtmlPolicy);
     }
 
     Validated validate(MailTemplateCatalog.Entry entry, String subject, String bodyHtml, Predicate<String> imageIds) {
@@ -65,6 +67,10 @@ class MailTemplateValidation {
                     errors.add(new ValidationError("bodyHtml",
                             "Der Baustein " + use.key() + " ist nur als eigener Absatz möglich."));
                 }
+            }
+            // link rules (Variante A): rejected with a message, never removed silently
+            for (MailLinkRules.Violation violation : linkRules.check(sanitized)) {
+                errors.add(new ValidationError("bodyHtml", violation.message()));
             }
             if (errors.isEmpty()) {
                 sanitized = renderer.relabel(sanitized, entry.placeholders().stream()

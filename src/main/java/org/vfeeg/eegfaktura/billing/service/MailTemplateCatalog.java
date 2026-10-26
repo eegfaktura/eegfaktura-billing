@@ -21,8 +21,9 @@ public class MailTemplateCatalog {
     public record Placeholder(String key, String label, boolean block) {
     }
 
+    /** maxLinks and maxLinkDomains come from the {@code links} section of mail-html-policy.json. */
     public record Limits(int maxImages, int maxImageBytes, int maxAttachments, int maxAttachmentBytes,
-                         int maxTotalBytes) {
+                         int maxTotalBytes, int maxLinks, int maxLinkDomains) {
     }
 
     public record Entry(String key, String name, String description, int defaultVersion,
@@ -99,7 +100,8 @@ public class MailTemplateCatalog {
                         new Placeholder("eeg.contactBlock", "Kontaktdaten der EEG", true),
                         new Placeholder("billing.footerText", "Fußzeile der Belege", false)),
                 // grill-me 22.10.2026: at most 3 images, together <= 500 KB, no extra PDF
-                new Limits(3, 500 * 1024, 0, 0, 500 * 1024));
+                new Limits(3, 500 * 1024, 0, 0, 500 * 1024,
+                        mailHtmlPolicy.linkLimits().maxLinks(), mailHtmlPolicy.linkLimits().maxLinkDomains()));
         entries = Map.of(billingDocument.key(), billingDocument);
     }
 

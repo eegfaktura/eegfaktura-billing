@@ -48,7 +48,7 @@ class MailHtmlPolicyCasesTest {
                 List.of(new MailTemplateCatalog.Placeholder("eeg.name", "Name der EEG", false),
                         new MailTemplateCatalog.Placeholder("eeg.email", "E-Mail der EEG", false),
                         new MailTemplateCatalog.Placeholder("eeg.contactBlock", "Kontaktdaten der EEG", true)),
-                new MailTemplateCatalog.Limits(3, 500 * 1024, 0, 0, 500 * 1024));
+                new MailTemplateCatalog.Limits(3, 500 * 1024, 0, 0, 500 * 1024, 3, 2));
 
         List<DynamicTest> tests = new ArrayList<>();
         for (JsonNode c : root.path("cases")) {

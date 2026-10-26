@@ -56,6 +56,7 @@ public class MailHtmlPolicy {
     private final Map<String, List<String>> styles = new LinkedHashMap<>();
     private final Map<String, List<String>> required = new LinkedHashMap<>();
     private final List<String> linkRel = new ArrayList<>();
+    private final LinkLimits linkLimits;
 
     public MailHtmlPolicy() {
         try (InputStream in = new ClassPathResource("mail-html-policy.json").getInputStream()) {
@@ -69,11 +70,19 @@ public class MailHtmlPolicy {
                     linkRel.add(rel);
                 }
             }
+            JsonNode links = root.path("links");
+            List<String> blockedHosts = new ArrayList<>();
+            links.path("blockedHosts").forEach(h -> blockedHosts.add(h.asText().toLowerCase(Locale.ROOT)));
+            linkLimits = new LinkLimits(links.path("maxLinks").asInt(), links.path("maxLinkDomains").asInt(),
+                    Set.copyOf(blockedHosts));
         } catch (IOException e) {
             throw new UncheckedIOException("mail-html-policy.json not readable", e);
         }
         if (elements.isEmpty()) {
             throw new IllegalStateException("mail-html-policy.json has no elements");
+        }
+        if (linkLimits.maxLinks() <= 0 || linkLimits.maxLinkDomains() <= 0) {
+            throw new IllegalStateException("mail-html-policy.json has no link limits");
         }
         fragmentPolicy = builder(id -> false).toFactory();
     }
@@ -191,6 +200,50 @@ public class MailHtmlPolicy {
             }
         });
         return inspection;
+    }
+
+    /** The {@code links} section of the rule file: link count, domain count, blocked hosts (lower case). */
+    public record LinkLimits(int maxLinks, int maxLinkDomains, Set<String> blockedHosts) {
+    }
+
+    public LinkLimits linkLimits() {
+        return linkLimits;
+    }
+
+    /** A link of a sanitized HTML: its href and its visible text (including nested elements). */
+    public record Link(String href, String text) {
+    }
+
+    /** The links ({@code a href}) of already sanitized HTML, in document order. */
+    public List<Link> links(String sanitizedHtml) {
+        List<Link> links = new ArrayList<>();
+        HtmlSanitizer.sanitize(sanitizedHtml == null ? "" : sanitizedHtml, new HtmlSanitizer.Policy() {
+            private String href;
+            private StringBuilder text;
+
+            @Override public void openDocument() { }
+            @Override public void closeDocument() { }
+            @Override public void openTag(String name, List<String> attrs) {
+                if ("a".equals(name) && text == null) {
+                    href = attribute(attrs, "href");
+                    text = new StringBuilder();
+                }
+            }
+            @Override public void closeTag(String name) {
+                if ("a".equals(name) && text != null) {
+                    if (href != null) {
+                        links.add(new Link(href, text.toString()));
+                    }
+                    text = null;
+                }
+            }
+            @Override public void text(String chunk) {
+                if (text != null) {
+                    text.append(chunk);
+                }
+            }
+        });
+        return links;
     }
 
     /** Placeholder keys, mailfile ids and the plain text of a sanitized HTML. */
