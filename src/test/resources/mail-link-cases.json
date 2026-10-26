@@ -93,6 +93,8 @@
     {"name": "image alt text with another address rejected", "html": "<p><a href=\"https://evil.at\"><img src=\"mailfile:eegfaktura-logo\" alt=\"www.bank.at\"></a></p>", "errors": ["text-mismatch"]},
     {"name": "image alt text with the same address is fine", "html": "<p><a href=\"https://eeg.at\"><img src=\"mailfile:eegfaktura-logo\" alt=\"www.eeg.at\"></a></p>", "ok": true},
     {"name": "image alt text without an address is fine", "html": "<p><a href=\"https://eeg.at\"><img src=\"mailfile:eegfaktura-logo\" alt=\"Logo der EEG\"></a></p>", "ok": true},
+    {"name": "image file name jfif as alt text is not an address", "html": "<p><a href=\"https://eeg.at\"><img src=\"mailfile:eegfaktura-logo\" alt=\"foto.jfif\"></a></p>", "ok": true},
+    {"name": "image without alt does not split a shown address", "html": "<p><a href=\"https://evil.at\">bank<img src=\"mailfile:eegfaktura-logo\">.at</a></p>", "errors": ["text-mismatch"]},
     {"name": "www address with a port is the same host", "html": "<p><a href=\"https://eeg.at\">www.eeg.at:443</a></p>", "ok": true},
     {"name": "another www address with a port rejected", "html": "<p><a href=\"https://eeg.at\">www.evil.at:443</a></p>", "errors": ["text-mismatch"]}
   ]
