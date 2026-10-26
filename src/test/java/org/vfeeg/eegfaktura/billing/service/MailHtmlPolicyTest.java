@@ -102,6 +102,11 @@ class MailHtmlPolicyTest {
         assertEquals("<h3 style=\"font-size: 20px\">a</h3>", clean("<h3 style=\"font-size:20px\">a</h3>"));
         assertEquals("<p style=\"text-align: center; font-size: 20px\">a</p>",
                 clean("<p style=\"text-align:center;font-size:20px\">a</p>"));
+        // the editor's (TipTap) spaced form round-trips unchanged
+        assertEquals("<p style=\"text-align: center; font-size: 20px\">a</p>",
+                clean("<p style=\"text-align: center; font-size: 20px\">a</p>"));
+        assertEquals("<li style=\"font-size: 20px\">a</li>",
+                clean("<li style=\"font-size: 20px\">a</li>").replace("<ul>", "").replace("</ul>", ""));
         assertEquals("<p style=\"font-size: 13px; text-align: right\">a</p>",
                 clean("<p style=\"font-size:13px; text-align:right\">a</p>"));
         assertEquals("<p style=\"text-align: center\">a</p>", clean("<p style=\"text-align:center;font-size:30px\">a</p>"));
