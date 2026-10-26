@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -448,8 +450,11 @@ public class MailHtmlPolicy {
     private static final Pattern HTTPS_WITH_HOST = Pattern.compile("(?i)https://[^/?#\\s]+([/?#]\\S*)?");
     /** Characters Go's url.Parse refuses in an authority (as in the backend), and "%" in both. */
     private static final Pattern BAD_AUTHORITY_CHAR = Pattern.compile("[\\\\%^`{|}]");
-    /** Characters Go's url.Parse refuses in the user info of an authority. */
-    private static final Pattern BAD_USERINFO_CHAR = Pattern.compile("[<>\\[\\]]");
+    /** The user info Go's url.Parse accepts (validUserinfo): ASCII letters, digits and these marks. */
+    private static final Pattern USERINFO = Pattern.compile("[A-Za-z0-9\\-._:~!$&'()*+,;=%@]*");
+    /** Unicode spaces (also NBSP) and ASCII whitespace at the start or end of a URL, as in the backend. */
+    private static final Pattern EDGE_SPACES =
+            Pattern.compile("^[\\p{Z}\\t\\n\\x0B\\f\\r]+|[\\p{Z}\\t\\n\\x0B\\f\\r]+$");
     /** The port part of an authority: none, or ":" and digits (may be empty, as in Go). */
     private static final Pattern PORT = Pattern.compile("(:[0-9]*)?");
 
@@ -475,8 +480,13 @@ public class MailHtmlPolicy {
         return AttributePolicy.IDENTITY_ATTRIBUTE_POLICY;
     }
 
+    /** {@code s} without Unicode spaces (also NBSP) and ASCII whitespace at both ends, as in the backend. */
+    static String trimSpaces(String s) {
+        return EDGE_SPACES.matcher(s).replaceAll("");
+    }
+
     private static String url(String value, List<String> schemes, Predicate<String> allowedFileIds) {
-        String trimmed = value.trim();
+        String trimmed = trimSpaces(value);
         int colon = trimmed.indexOf(':');
         if (colon <= 0) {
             return null; // relative URL or none at all
@@ -493,6 +503,9 @@ public class MailHtmlPolicy {
         if (trimmed.chars().anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n')) {
             return null; // no spaces in a URL (as in the backend), e.g. "mailto: office@eeg.at"
         }
+        if (trimmed.chars().anyMatch(c -> c < 0x20 || c == 0x7f)) {
+            return null; // control characters: Go's url.Parse refuses them
+        }
         if ("mailto".equals(scheme) && trimmed.substring(colon + 1).isBlank()) {
             return null; // mailto without address
         }
@@ -507,33 +520,47 @@ public class MailHtmlPolicy {
 
     /**
      * An authority the backend (Go's url.Parse) accepts too, so both give the same verdict: no
-     * backslash or "%" (bit%2Ely is bit.ly to a browser), user info without brackets, a closed
-     * IPv6 bracket and a port of digits.
+     * backslash or "%" (bit%2Ely is bit.ly to a browser), user info of ASCII letters, digits and
+     * Go's marks only, a closed bracket with an IPv6 address and one port of digits (not
+     * bit.ly:80:90).
      */
     private static boolean validAuthority(String authority) {
         if (BAD_AUTHORITY_CHAR.matcher(authority).find()) {
             return false;
         }
         int at = authority.lastIndexOf('@');
-        if (at >= 0 && BAD_USERINFO_CHAR.matcher(authority.substring(0, at)).find()) {
+        if (at >= 0 && !USERINFO.matcher(authority.substring(0, at)).matches()) {
             return false;
         }
         String hostPort = authority.substring(at + 1);
         String port;
         if (hostPort.startsWith("[")) {
             int end = hostPort.indexOf(']');
-            if (end < 0) {
-                return false; // https://[::1
+            if (end < 0 || !isIpv6Literal(hostPort.substring(0, end + 1))) {
+                return false; // https://[::1 or https://[abc]
             }
             port = hostPort.substring(end + 1);
         } else {
-            if (hostPort.isEmpty() || hostPort.contains("[")) {
+            if (hostPort.isEmpty() || hostPort.contains("[") || hostPort.indexOf(':') != hostPort.lastIndexOf(':')) {
                 return false;
             }
             int portColon = hostPort.lastIndexOf(':');
             port = portColon < 0 ? "" : hostPort.substring(portColon);
         }
         return PORT.matcher(port).matches();
+    }
+
+    /**
+     * "[...]" holds an IPv6 address, as Go's url.Parse requires ([1.2.3.4] and [abc] are refused).
+     * In brackets InetAddress only parses the literal, it never asks DNS.
+     */
+    private static boolean isIpv6Literal(String bracketed) {
+        try {
+            InetAddress.getByName(bracketed);
+            return true;
+        } catch (UnknownHostException e) {
+            return false;
+        }
     }
 
     private String style(String value) {
