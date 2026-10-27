@@ -118,7 +118,7 @@ class BillingDocumentArchiveServiceTests {
         Map<String, String> entries = archiveWithContents(third, first, second);
 
         assertThat(new ArrayList<>(entries.keySet()), contains("Abr_YM-2025-6_Rechnung_Vorschau_5.pdf",
-                "Abr_YM-2025-6_Rechnung_Vorschau_5_2.pdf", "Abr_YM-2025-6_Rechnung_Vorschau_5_3.pdf"));
+                "Abr_YM-2025-6_Rechnung_Vorschau_5 (2).pdf", "Abr_YM-2025-6_Rechnung_Vorschau_5 (3).pdf"));
         // ties are broken by the file id
         assertThat(new ArrayList<>(entries.values()),
                 is(byId.stream().map(f -> f.getFileDataId().toString()).toList()));
@@ -127,15 +127,32 @@ class BillingDocumentArchiveServiceTests {
     }
 
     @Test
-    void counterNeverReusesANameThatIsAlreadyTaken() throws IOException {
-        // sorted by name: the two "…Vorschau.pdf" come first, so the second one takes "_2" and the file that
-        // is really called "…Vorschau_2.pdf" becomes "…Vorschau_2_2.pdf"
+    void counterNeverLooksLikeAMemberNumber() throws IOException {
+        // two previews without a member number next to member 2: the counter must not take "…_2.pdf",
+        // otherwise member 2 would be matched with someone else's preview
         assertThat(archive(
-                        file("Abr_X_Rechnung_Vorschau_2.pdf", INVOICE, null, null),
+                        file("Abr_X_Rechnung_Vorschau.pdf", INVOICE, null, "2"),
                         file("Abr_X_Rechnung_Vorschau.pdf", INVOICE, null, null),
                         file("Abr_X_Rechnung_Vorschau.pdf", INVOICE, null, null)),
-                contains("Abr_X_Rechnung_Vorschau.pdf", "Abr_X_Rechnung_Vorschau_2.pdf",
-                        "Abr_X_Rechnung_Vorschau_2_2.pdf"));
+                contains("Abr_X_Rechnung_Vorschau.pdf", "Abr_X_Rechnung_Vorschau (2).pdf",
+                        "Abr_X_Rechnung_Vorschau_2.pdf"));
+    }
+
+    @Test
+    void counterNeverReusesANameThatIsAlreadyTaken() throws IOException {
+        assertThat(archive(
+                        file("Abr_X_Rechnung_Vorschau (2).pdf", INVOICE, null, null),
+                        file("Abr_X_Rechnung_Vorschau.pdf", INVOICE, null, null),
+                        file("Abr_X_Rechnung_Vorschau.pdf", INVOICE, null, null)),
+                // " (2)" sorts before "." and keeps its name, so the second duplicate skips to " (3)"
+                contains("Abr_X_Rechnung_Vorschau (2).pdf", "Abr_X_Rechnung_Vorschau.pdf",
+                        "Abr_X_Rechnung_Vorschau (3).pdf"));
+    }
+
+    @Test
+    void storedFileWithoutNameDoesNotBreakTheArchive() throws IOException {
+        assertThat(archive(file(null, INVOICE, "RG1", null), file("Abr_X_Rechnung_RG2.pdf", INVOICE, "RG2", null)),
+                contains("Abr_X_Rechnung_RG2.pdf", "null"));
     }
 
     @Test
