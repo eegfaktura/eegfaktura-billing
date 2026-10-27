@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.4.0] – 2026-10-27
+
 ### Changed
 - **Visible change — entry names in the document ZIP of a run** (`GET /api/billingRuns/{id}/billingDocuments/archive`,
   platform#221): the number in front of each file name (a hash of the internal file id) is gone. Invoices and credit
