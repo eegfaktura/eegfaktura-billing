@@ -89,7 +89,9 @@ class BillingV3WorldTests extends BillingScenarioBase {
             }
             assertThat("energy line for " + allocation, item != null, is(true));
             assertItem(item, expected.amount().toPlainString(), expected.net().toPlainString(),
-                    row.path("tariff_vat_in_percent").asText("0"), expected.vat().toPlainString(),
+                    // „USt nein“ carries 0 %, not the rate left in the tariff (261027-mm1)
+                    row.path("tariff_use_vat").asBoolean() ? row.path("tariff_vat_in_percent").asText("0") : "0",
+                    expected.vat().toPlainString(),
                     expected.gross().toPlainString());
         }
     }

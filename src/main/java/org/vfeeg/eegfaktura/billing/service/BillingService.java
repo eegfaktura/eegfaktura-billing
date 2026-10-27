@@ -706,7 +706,9 @@ public class BillingService {
         BigDecimal discountValue = netValue.multiply(discountPercent.divide(BigDecimal.valueOf(100.0)))
                 .setScale(2, RoundingMode.HALF_UP);
         netValue = netValue.subtract(discountValue);
-        BigDecimal vatPercent = BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffVatInPercent());
+        // „USt nein“: die Position traegt 0 %, nicht den im Tarif stehengebliebenen Satz (261027-mm1)
+        BigDecimal vatPercent = billingMasterdata.getTariffUseVat()
+                ? BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffVatInPercent()) : BigDecimal.ZERO;
         BigDecimal vatEuro = BigDecimal.valueOf(0);
         if (billingMasterdata.getTariffUseVat()) {
             vatEuro = netValue.multiply(vatPercent.divide(BigDecimal.valueOf(100.0)))
@@ -753,7 +755,8 @@ public class BillingService {
         BigDecimal discountValue = price.multiply(discountPercentSafe.divide(BigDecimal.valueOf(100.0)))
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal netValue = price.subtract(discountValue);
-        BigDecimal vatPercentSafe = BigDecimalTools.makeZeroIfNull(vatPercent);
+        // „USt nein“: 0 % statt des stehengebliebenen Satzes (261027-mm1)
+        BigDecimal vatPercentSafe = useVat ? BigDecimalTools.makeZeroIfNull(vatPercent) : BigDecimal.ZERO;
         BigDecimal vatEuro = useVat ? netValue
                 .multiply(vatPercentSafe.divide(BigDecimal.valueOf(100.0)))
                 .setScale(2, RoundingMode.HALF_UP)
@@ -807,7 +810,8 @@ public class BillingService {
 
         BillingDocumentItem newBillingDocumentItem = new BillingDocumentItem();
 
-        BigDecimal vatPercentSafe = BigDecimalTools.makeZeroIfNull(vatPercent);
+        // „USt nein“: 0 % statt des stehengebliebenen Satzes (261027-mm1)
+        BigDecimal vatPercentSafe = useVat ? BigDecimalTools.makeZeroIfNull(vatPercent) : BigDecimal.ZERO;
         BigDecimal vatEuro = useVat ? pricePerMeter
                 .multiply(vatPercentSafe.divide(BigDecimal.valueOf(100.0)))
                 .setScale(2, RoundingMode.HALF_UP)
@@ -858,18 +862,19 @@ public class BillingService {
                 BigDecimal invoiceVat2Percent = BigDecimalTools.makeZeroIfNull(billingDocument.getVat2Percent());
                 BigDecimal invoiceVat2SumInEuro = BigDecimalTools.makeZeroIfNull(billingDocument.getVat2SumInEuro());
                 // Neuer UST Satz bereits in erstem oder zweiten UST Summenbetrag berücksichtigt?
+                // Saetze numerisch vergleichen (compareTo): 20 und 20.0 sind ein Satz (261027-mm1)
                 if (invoiceVat1Percent.compareTo(BigDecimal.valueOf(0))==0) {
                     invoiceVat1Percent = vatPercent;
                     billingDocument.setVat1Percent(vatPercent);
-                } else if (!invoiceVat1Percent.equals(vatPercent) &&
+                } else if (invoiceVat1Percent.compareTo(vatPercent)!=0 &&
                         invoiceVat2Percent.compareTo(BigDecimal.valueOf(0))==0) {
                     invoiceVat2Percent = vatPercent;
                     billingDocument.setVat2Percent(vatPercent);
                 }
                 // Neuen UST Betrag im passenden UST Satz aufsummieren
-                if (invoiceVat1Percent.equals(vatPercent)) {
+                if (invoiceVat1Percent.compareTo(vatPercent)==0) {
                     billingDocument.setVat1SumInEuro(invoiceVat1SumInEuro.add(vatEuro));
-                } else if (vatPercent.equals(invoiceVat2Percent)) {
+                } else if (vatPercent.compareTo(invoiceVat2Percent)==0) {
                     billingDocument.setVat2SumInEuro(invoiceVat2SumInEuro.add(vatEuro));
                 } else {
                     throw new IllegalArgumentException("More than 2 VAT rates not supported. Rate 1=%f, Rate 2=%f, New=%f"
