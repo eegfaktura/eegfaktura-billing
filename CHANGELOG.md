@@ -8,6 +8,16 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Changed
+- **Visible change — entry names in the document ZIP of a run** (`GET /api/billingRuns/{id}/billingDocuments/archive`,
+  platform#221): the number in front of each file name (a hash of the internal file id) is gone. Invoices and credit
+  notes keep their file name as stored (`Abr_YM-2025-6_Rechnung_RG202500304.pdf`, unique by the document number);
+  preview and INFO documents get the member number before `.pdf`
+  (`Abr_YM-2025-6_Rechnung_Vorschau_<member number>.pdf`; characters `/ \ : * ? " < > |` become `_`, no suffix
+  without a member number); a name that still occurs twice gets ` (2)`, ` (3)` (unlike `_<member number>`, so a counter never looks like a member number) … in a stable order (by name, then file
+  id). Communities that sort or match the unpacked files by the old names need to adapt. Unchanged: the response
+  shape of the endpoint, the stored file name, the PDF itself and the name of the single-document download.
+
 ## [1.3.0] – 2026-10-26
 
 ### Added
