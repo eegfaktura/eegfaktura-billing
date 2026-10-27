@@ -1,6 +1,5 @@
 package org.vfeeg.eegfaktura.billing.concurrency;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -148,11 +147,11 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
     /**
      * F4 (#15) through the resource: two real runs (two periods) of one community started at the same moment;
      * both are accepted (different periods, different claims), both must complete with distinct numbers.
-     * Since the asynchronous run nothing serialises the two calculations any more: both read the maximum,
-     * both take 42, the second run ends FAILED on the unique constraint (tenant, document number).
+     * Since the asynchronous run nothing serialised the two calculations: both read the maximum, both took 42,
+     * the second run ended FAILED on the unique constraint (tenant, document number). Since the joining fee final
+     * runs of one community wait for each other ({@code FinalRunLock}), so the second reads after the first commit.
      */
     @Test
-    @Disabled("known-errors #15")
     void twoRunsOfOneCommunityAtOnceGetDistinctNumbers() {
         BillingRunFixture world = insert(world().master(consumer(1, "C1"), "100"), false);
         CyclicBarrier start = new CyclicBarrier(2);
@@ -179,10 +178,10 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
      * F4 (#15): the number is read (max + 1) and saved without a lock. Two runs of one community in the
      * service (where a second instance of the service would call it as well) both read the maximum before
      * either saves. Correct: distinct numbers and both runs succeed. With the defect both take 42 and the
-     * second fails on the unique constraint (tenant, document number).
+     * second fails on the unique constraint (tenant, document number). Since {@code FinalRunLock} the second
+     * final run cannot read before the first commits (the barrier times out, the runs read one after the other).
      */
     @Test
-    @Disabled("known-errors #15")
     void numbersOfParallelRunsInTheServiceAreDistinct() {
         BillingRunFixture world = insert(world().master(consumer(1, "C1"), "100"), false);
         CyclicBarrier bothRead = new CyclicBarrier(2);
