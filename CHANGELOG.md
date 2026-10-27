@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.5.0] – 2026-10-27
+
 ### Fixed
 - **Visible change on printed documents — VAT of items with „USt nein“** (261027-mm1, also known-errors #16):
   energy items, the membership fee and the consumer meter-point fee of a tariff with „USt nein“ kept the VAT rate
