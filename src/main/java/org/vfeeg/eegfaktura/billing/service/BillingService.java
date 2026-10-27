@@ -43,6 +43,7 @@ public class BillingService {
     private final FileDataRepository fileDataRepository;
     private final ParticipantAmountService participantAmountService;
     private final FinalRunLock finalRunLock;
+    private final JoiningFeeRecordRepository joiningFeeRecordRepository;
 
     public BillingService(final BillingPdfService billingPdfService,
                           final BillingMasterdataRepository billingMasterdataRepository,
@@ -54,7 +55,8 @@ public class BillingService {
                           final BillingDocumentFileRepository billingDocumentFileRepository,
                           final FileDataRepository fileDataRepository,
                           final ParticipantAmountService participantAmountService,
-                          final FinalRunLock finalRunLock) {
+                          final FinalRunLock finalRunLock,
+                          final JoiningFeeRecordRepository joiningFeeRecordRepository) {
         this.billingPdfService = billingPdfService;
         this.billingMasterdataRepository = billingMasterdataRepository;
         this.billingDocumentNumberGenerator = billingDocumentNumberGenerator;
@@ -66,6 +68,7 @@ public class BillingService {
         this.fileDataRepository = fileDataRepository;
         this.participantAmountService = participantAmountService;
         this.finalRunLock = finalRunLock;
+        this.joiningFeeRecordRepository = joiningFeeRecordRepository;
     }
 
     /**
@@ -231,16 +234,30 @@ public class BillingService {
             // Nun wird fuer jeden Teilnehmer die Abrechnung durchgefuehrt
             // Beitrittsgebuehr: Verlauf der Gemeinschaft aus ihren endgueltigen Belegen, einmal je Lauf
             // (bei endgueltigen Laeufen erst nach der Sperre gelesen, sieht also die Belege eines Vorlaeufers)
+            // plus die Eintraege je Mitglied: nachverrechnen (vorgemerkt) bzw. ausserhalb bezahlt
+            List<JoiningFeeRecord> joiningFeeRecords = joiningFeeRecordRepository
+                    .findByTenantId(doBillingParams.getTenantId());
             JoiningFeeHistory joiningFeeHistory = new JoiningFeeHistory(
                     billingDocumentRepository.findEnergyBilledParticipants(doBillingParams.getTenantId(),
                             ZAEHLPUNKTGEBUEHR_TEXT + "%"),
                     billingDocumentRepository.findBilledJoiningFees(doBillingParams.getTenantId()).stream()
                             .map(BillingDocumentRepository.BilledJoiningFee::getParticipantId)
-                            .collect(Collectors.toSet()));
+                            .collect(Collectors.toSet()),
+                    participantsWith(joiningFeeRecords, JoiningFeeRecord.Kind.CHARGE_REQUESTED),
+                    participantsWith(joiningFeeRecords, JoiningFeeRecord.Kind.PAID_EXTERNALLY));
 
             for (List<BillingMasterdata> p : participantsWithAllocationsMap.values()) {
                 doBillingForParticipant(p, allocationMap, doBillingParams, billingRun, doBillingResults,
                         joiningFeeHistory);
+            }
+
+            // Vorgemerkte Mitglieder ohne Zaehlpunkt in diesem Lauf: eigene Rechnung nur mit der Beitrittsgebuehr
+            Map<String, List<BillingMasterdata>> requestedOutsideTheRun = billingMasterdataList.stream()
+                    .filter(m -> joiningFeeHistory.requested().contains(m.getParticipantId())
+                            && !participantsWithAllocationsMap.containsKey(m.getParticipantId()))
+                    .collect(Collectors.groupingBy(BillingMasterdata::getParticipantId));
+            for (List<BillingMasterdata> p : requestedOutsideTheRun.values()) {
+                doJoiningFeeOnlyInvoice(p, doBillingParams, billingRun, doBillingResults, joiningFeeHistory);
             }
 
             // Preview-Laeufe bleiben wiederholbar (NEW), finale Laeufe sind DONE.
@@ -330,18 +347,7 @@ public class BillingService {
             // Beitrittsgebuehr: einmalig mit der ersten Energieabrechnung, immer auf der Rechnung
             // (ein reiner Einspeiser bekommt dafuer eine eigene Rechnung), eigene USt-Einstellung
             if (isJoiningFeeDue(firstBillingMasterdata, energyInThisRun, joiningFeeHistory)) {
-                createCustomBillingDocumentItem(
-                        invoice,
-                        invoiceItems,
-                        JOINING_FEE_TEXT,
-                        null,
-                        firstBillingMasterdata.getTariffParticipantFeeName(),
-                        firstBillingMasterdata.getTariffJoiningFee(),
-                        BigDecimal.ZERO,
-                        firstBillingMasterdata.getTariffJoiningFeeUseVat(),
-                        firstBillingMasterdata.getTariffJoiningFeeVatInPercent(),
-                        BillingDocumentItemType.JOINING_FEE
-                );
+                createJoiningFeeItem(invoice, invoiceItems, firstBillingMasterdata);
             }
 
             // Zählpunktgebühren werden erstellt
@@ -892,19 +898,77 @@ public class BillingService {
     }
 
     /**
-     * Regel 2 (konzept-beitrittsgebuehr.md): Gebuehr > 0, in diesem Lauf mindestens eine Energieposition, und in
-     * der Gemeinschaft noch kein endgueltiger Beleg mit Beitrittsgebuehr oder mit Energie fuer das Mitglied.
+     * Regel 2 und Erweiterung 27.10.2026 (konzept-beitrittsgebuehr.md): Gebuehr > 0, in der Gemeinschaft noch kein
+     * endgueltiger Beleg mit Beitrittsgebuehr, nicht ausserhalb bezahlt, und entweder die erste Energieabrechnung
+     * (Energieposition in diesem Lauf, noch kein endgueltiger Beleg mit Energie) oder zur Verrechnung vorgemerkt.
      */
     private static boolean isJoiningFeeDue(BillingMasterdata billingMasterdata, boolean energyInThisRun,
                                            JoiningFeeHistory joiningFeeHistory) {
-        return energyInThisRun
-                && BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffJoiningFee()).signum() > 0
-                && !joiningFeeHistory.energyBilled().contains(billingMasterdata.getParticipantId())
-                && !joiningFeeHistory.joiningFeeBilled().contains(billingMasterdata.getParticipantId());
+        String participantId = billingMasterdata.getParticipantId();
+        boolean firstEnergyBilling = energyInThisRun && !joiningFeeHistory.energyBilled().contains(participantId);
+        return BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffJoiningFee()).signum() > 0
+                && !joiningFeeHistory.joiningFeeBilled().contains(participantId)
+                && !joiningFeeHistory.paidExternally().contains(participantId)
+                && (firstEnergyBilling || joiningFeeHistory.requested().contains(participantId));
     }
 
-    /** Mitglieder der Gemeinschaft mit Energie bzw. Beitrittsgebuehr auf einem endgueltigen Beleg. */
-    private record JoiningFeeHistory(Set<String> energyBilled, Set<String> joiningFeeBilled) {
+    /** Position „Beitrittsgebühr“: Tarifstand beim Abrechnen, kein Rabatt, eigene USt-Einstellung. */
+    private void createJoiningFeeItem(BillingDocument invoice, List<BillingDocumentItem> invoiceItems,
+                                      BillingMasterdata billingMasterdata) {
+        createCustomBillingDocumentItem(
+                invoice,
+                invoiceItems,
+                JOINING_FEE_TEXT,
+                null,
+                billingMasterdata.getTariffParticipantFeeName(),
+                billingMasterdata.getTariffJoiningFee(),
+                BigDecimal.ZERO,
+                billingMasterdata.getTariffJoiningFeeUseVat(),
+                billingMasterdata.getTariffJoiningFeeVatInPercent(),
+                BillingDocumentItemType.JOINING_FEE
+        );
+    }
+
+    /**
+     * Zur Verrechnung vorgemerktes Mitglied ohne Zaehlpunkt in diesem Lauf: eigene Rechnung nur mit der
+     * Beitrittsgebuehr (kein laufender Beitrag, keine Zaehlpunktgebuehr - es ist sonst nicht Teil des Laufs).
+     */
+    private void doJoiningFeeOnlyInvoice(List<BillingMasterdata> billingMasterdataList,
+                                         DoBillingParams doBillingParams, BillingRun billingRun,
+                                         DoBillingResults doBillingResults, JoiningFeeHistory joiningFeeHistory) {
+        BillingMasterdata firstBillingMasterdata = billingMasterdataList.get(0);
+        if (!isJoiningFeeDue(firstBillingMasterdata, false, joiningFeeHistory)) {
+            return;
+        }
+        ParticipantAmount participantAmount = new ParticipantAmount();
+        participantAmount.setId(UUID.fromString(firstBillingMasterdata.getParticipantId()));
+        BillingDocument invoice = createBillingDocument(firstBillingMasterdata, BillingDocumentType.INVOICE,
+                doBillingParams);
+        List<BillingDocumentItem> invoiceItems = new ArrayList<>();
+        createJoiningFeeItem(invoice, invoiceItems, firstBillingMasterdata);
+        calculateGrossValues(invoice, invoiceItems);
+        createAndAddDocumentNumber(invoice, firstBillingMasterdata, doBillingParams);
+        billingPdfService.createAndSavePDF(invoice, invoiceItems, Map.of(),
+                doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
+                doBillingParams.getBillingConfig().getFooterImageFileDataId(),
+                doBillingParams.isPreview());
+        invoice.setBillingRun(billingRun);
+        billingDocumentRepository.save(invoice);
+        participantAmountService.addParticipantAmountData(participantAmount, invoice, invoiceItems);
+        doBillingResults.getParticipantAmounts().add(participantAmount);
+    }
+
+    private static Set<String> participantsWith(List<JoiningFeeRecord> records, JoiningFeeRecord.Kind kind) {
+        return records.stream().filter(r -> r.getKind() == kind).map(JoiningFeeRecord::getParticipantId)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Mitglieder der Gemeinschaft mit Energie bzw. Beitrittsgebuehr auf einem endgueltigen Beleg, zur Verrechnung
+     * vorgemerkt bzw. als ausserhalb bezahlt erfasst.
+     */
+    private record JoiningFeeHistory(Set<String> energyBilled, Set<String> joiningFeeBilled,
+                                     Set<String> requested, Set<String> paidExternally) {
     }
 
     /**

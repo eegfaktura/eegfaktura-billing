@@ -31,6 +31,23 @@ this changelog highlights the changes relevant for overview and operations.
 - **Contract (callers eegfaktura-web, eegfaktura-v3 `BillingClient` — additive):** `ParticipantAmount.joiningFee`
   (gross, 0 when none) in `POST /api/billing` results and `GET /api/billingRuns/{id}/participantAmounts`; the joining
   fee no longer ends up in `participantFee`.
+- **Joining fee per member: charge later, paid outside eegfaktura** (extension 27.10.2026 of the concept). Flyway
+  `V1_19`: table `billing_joining_fee_record`, one row per (tenant, member) with `kind` `CHARGE_REQUESTED` or
+  `PAID_EXTERNALLY`, `paid_on`, `note` (free text, at most 200 characters, never logged), `created_by` (user of the
+  token), `created_at`. Due rule now: fee > 0, no final document with the fee, not paid externally, and either the
+  first energy billing or a request. A requested member is charged in the next final run even when already billed
+  with energy; without a metering point in the run it gets an own invoice with only the fee (a member in the run
+  without energy gets the fee on its usual invoice). Previews do not consume a request; after deleting the run the
+  fee is due again and the request stays. **Rollback note:** an older image ignores the table (requests are not
+  charged, members paid externally get the automatic fee) — check rows `PAID_EXTERNALLY` without a fee document
+  before rolling back.
+- **Contract (caller eegfaktura-web):** `PUT /api/billingDocuments/tenant/{tenantId}/participants/{participantId}/joiningFee`
+  with `{"kind": "CHARGE_REQUESTED"}` or `{"kind": "PAID_EXTERNALLY", "paidOn": "YYYY-MM-DD", "note": "…"}` → 204
+  (creates or replaces the member's record, so the two kinds exclude each other); `DELETE` on the same path → 204
+  (idempotent). Both answer 409 once a final document with the fee exists; PUT answers 400 for a missing/unknown
+  kind, a missing, malformed or future `paidOn`, `paidOn`/`note` with `CHARGE_REQUESTED`, a note over 200 characters
+  or a member id that is no UUID. `joiningFeeState` gains `requested` (bool, request not billed yet) and
+  `paidExternally` (`{"paidOn", "note"}` or null) and also lists members that only have a record.
 - **Final runs of one community run one after the other** (PostgreSQL transaction advisory lock per tenant, the
   first step of a final run; previews do not wait). A waiting run stays RUNNING; after
   `BILLING_FINAL_RUN_LOCK_TIMEOUT` (default `30m`, `0` = no limit; property `app.final-run-lock-timeout`) it ends

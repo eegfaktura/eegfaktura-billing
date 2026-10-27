@@ -6,9 +6,10 @@ import lombok.Setter;
 import java.time.LocalDate;
 
 /**
- * One member of a community in {@code GET /api/billingDocuments/tenant/{tenantId}/joiningFeeState}: only members
- * with at least one final document (run DONE) are listed. Read by eegfaktura-web (hint at the tariff assignment,
- * warning in the tariff dialog, member export).
+ * One member of a community in {@code GET /api/billingDocuments/tenant/{tenantId}/joiningFeeState}: members with at
+ * least one final document (run DONE) or with a joining-fee record (charge requested, paid externally; extension
+ * 27.10.2026). Read by eegfaktura-web (hint at the tariff assignment, warning in the tariff dialog, member export,
+ * status in the member details).
  */
 @Getter
 @Setter
@@ -19,6 +20,17 @@ public class JoiningFeeState {
     private boolean energyBilled;
     /** The final document with the joining fee, {@code null} when none was billed. */
     private Document joiningFee;
+    /** Charge requested for the next final run and not billed yet. */
+    private boolean requested;
+    /** Recorded as paid outside eegfaktura, {@code null} otherwise. */
+    private PaidExternally paidExternally;
+
+    @Getter
+    @Setter
+    public static class PaidExternally {
+        private LocalDate paidOn;
+        private String note;
+    }
 
     @Getter
     @Setter

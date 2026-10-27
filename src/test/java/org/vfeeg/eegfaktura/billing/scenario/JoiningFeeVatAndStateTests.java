@@ -6,7 +6,7 @@ import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
 import org.vfeeg.eegfaktura.billing.model.JoiningFeeState;
-import org.vfeeg.eegfaktura.billing.service.BillingDocumentService;
+import org.vfeeg.eegfaktura.billing.service.JoiningFeeService;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
 import org.vfeeg.eegfaktura.billing.support.AllocationBuilder;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
@@ -30,7 +30,7 @@ import static org.vfeeg.eegfaktura.billing.domain.BillingDocumentType.INVOICE;
 class JoiningFeeVatAndStateTests extends JoiningFeeScenarioBase {
 
     @Autowired
-    private BillingDocumentService billingDocumentService;
+    private JoiningFeeService joiningFeeService;
 
     /**
      * AK 8: running fee without VAT, joining fee 20 %, energy 20 %: each item keeps its own rate, one VAT sum.
@@ -96,7 +96,7 @@ class JoiningFeeVatAndStateTests extends JoiningFeeScenarioBase {
             BillingRunFixture world = insert(world().master(consumer(1, "C1").joiningFee("50", null), "100"), false);
 
             assertThat(itemsOfType(run(world, PERIOD, false).getBillingRunId(), JOINING_FEE), hasSize(1));
-            assertThat(billingDocumentService.findJoiningFeeState(own), hasSize(1));
+            assertThat(joiningFeeService.findJoiningFeeState(own), hasSize(1));
         } finally {
             tenant = sibling;
             cleanUp();
@@ -121,7 +121,7 @@ class JoiningFeeVatAndStateTests extends JoiningFeeScenarioBase {
                 "select id from billing_run where tenant_id = ? and run_status = 1", java.util.UUID.class, tenant)),
                 1, INVOICE).getDocumentNumber();
 
-        List<JoiningFeeState> state = billingDocumentService.findJoiningFeeState(tenant);
+        List<JoiningFeeState> state = joiningFeeService.findJoiningFeeState(tenant);
 
         assertThat(state.stream().map(JoiningFeeState::getParticipantId).toList(),
                 contains(participant(1), participant(2)));
@@ -130,6 +130,6 @@ class JoiningFeeVatAndStateTests extends JoiningFeeScenarioBase {
         assertThat(state.get(0).getJoiningFee().getDocumentDate(), is(REFERENCE_DATE));
         assertThat(state.get(1).isEnergyBilled(), is(false));
         assertThat(state.get(1).getJoiningFee(), nullValue());
-        assertThat(billingDocumentService.findJoiningFeeState(tenant + "X"), hasSize(0));
+        assertThat(joiningFeeService.findJoiningFeeState(tenant + "X"), hasSize(0));
     }
 }

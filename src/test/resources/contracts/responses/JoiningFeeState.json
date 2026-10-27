@@ -3,12 +3,14 @@
   "endpoints": [
     "GET /api/billingDocuments/tenant/{tenantId}/joiningFeeState (list)"
   ],
-  "note": "fields = every JSON field billing writes (a change needs a conscious update of this file and a CHANGELOG entry); readBy = what each caller reads, must stay a subset. joiningFee is an object {documentNumber, documentDate (YYYY-MM-DD)} or null",
+  "note": "fields = every JSON field billing writes (a change needs a conscious update of this file and a CHANGELOG entry); readBy = what each caller reads, must stay a subset. joiningFee is an object {documentNumber, documentDate (YYYY-MM-DD)} or null; paidExternally {paidOn (YYYY-MM-DD), note} or null (extension 27.10.2026)",
   "refresh": "src/test/resources/contracts/README.md",
   "fields": [
     "energyBilled",
     "joiningFee",
-    "participantId"
+    "paidExternally",
+    "participantId",
+    "requested"
   ],
   "readBy": {
     "eegfaktura-web": {
@@ -19,7 +21,9 @@
       "fields": [
         "participantId",
         "energyBilled",
-        "joiningFee"
+        "joiningFee",
+        "requested",
+        "paidExternally"
       ]
     }
   }

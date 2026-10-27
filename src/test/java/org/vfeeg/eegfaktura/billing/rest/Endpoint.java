@@ -56,7 +56,8 @@ public record Endpoint(Class<?> resource, HttpMethod method, String pattern, Kin
                 .replace("{tenantId}", tenant)
                 .replace("{clearingPeriodType}", "YQ")
                 .replace("{clearingPeriodIdentifier}", "2024-Q1")
-                .replace("{year}", "2024");
+                .replace("{year}", "2024")
+                .replace("{participantId}", ID.toString());
         return path.replace("{id}", kind == Kind.PATH_TENANT ? tenant : ID.toString());
     }
 
