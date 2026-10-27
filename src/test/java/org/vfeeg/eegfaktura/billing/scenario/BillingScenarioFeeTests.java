@@ -1,6 +1,5 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.vfeeg.eegfaktura.billing.domain.BillingConfig;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
@@ -93,7 +92,6 @@ class BillingScenarioFeeTests extends BillingScenarioBase {
      * Known-errors #17 (F6): the raw {@code null} is stored and the VAT sum fails with an NPE, swallowed by F1.
      */
     @Test
-    @Disabled("known-errors #17")
     void s07_participantFeeWithoutVatRateIsBilledWithZeroVat() {
         BillingRunFixture world = insert(world().master(consumer(1, "C1")
                 .column("tariff_participant_fee", new BigDecimal("10"))

@@ -8,6 +8,10 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Changed
+- Tests: `BillingScenarioFeeTests.s07` (participant fee with VAT on but no rate → billed with 0 %) runs again;
+  known-errors #17 was fixed by upstream #51 (`b373fcc`), the test stayed disabled. No change to the service.
+
 ## [1.5.0] – 2026-10-27
 
 ### Fixed
