@@ -1,0 +1,26 @@
+{
+  "dto": "org.vfeeg.eegfaktura.billing.model.JoiningFeeState",
+  "endpoints": [
+    "GET /api/billingDocuments/tenant/{tenantId}/joiningFeeState (list)"
+  ],
+  "note": "fields = every JSON field billing writes (a change needs a conscious update of this file and a CHANGELOG entry); readBy = what each caller reads, must stay a subset. joiningFee is an object {documentNumber, documentDate (YYYY-MM-DD)} or null",
+  "refresh": "src/test/resources/contracts/README.md",
+  "fields": [
+    "energyBilled",
+    "joiningFee",
+    "participantId"
+  ],
+  "readBy": {
+    "eegfaktura-web": {
+      "repository": "eegfaktura-web",
+      "commit": "contract of the joining-fee brief 2026-10-27 (spec-joining-fee.md); web branch feat/joining-fee not committed at the time",
+      "date": "2026-10-27",
+      "file": "src/util/JoiningFee.util.ts, src/components/core/JoiningFeeHint.component.tsx (branch feat/joining-fee)",
+      "fields": [
+        "participantId",
+        "energyBilled",
+        "joiningFee"
+      ]
+    }
+  }
+}

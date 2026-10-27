@@ -17,6 +17,7 @@
     "participantAmounts[].billingDocumentFileDTOs[].participantId",
     "participantAmounts[].billingDocumentFileDTOs[].tenantId",
     "participantAmounts[].id",
+    "participantAmounts[].joiningFee",
     "participantAmounts[].meteringPointFeeSum",
     "participantAmounts[].meteringPoints[].amount",
     "participantAmounts[].meteringPoints[].id",

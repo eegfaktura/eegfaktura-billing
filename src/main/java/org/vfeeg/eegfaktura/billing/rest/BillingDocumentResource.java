@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
+import org.vfeeg.eegfaktura.billing.model.JoiningFeeState;
 import org.vfeeg.eegfaktura.billing.security.TenantContext;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentService;
 
@@ -35,6 +36,14 @@ public class BillingDocumentResource {
             @PathVariable(name = "id") final String tenantId) {
         TenantContext.validateTenant(tenantId);
         return ResponseEntity.ok(billingDocumentService.findByTenantIdAndYear(tenantId, year));
+    }
+
+    /** Joining fee per member of the community (final runs only); eegfaktura-web, konzept-beitrittsgebuehr.md. */
+    @GetMapping("/tenant/{tenantId}/joiningFeeState")
+    public ResponseEntity<List<JoiningFeeState>> getJoiningFeeState(
+            @PathVariable(name = "tenantId") final String tenantId) {
+        TenantContext.validateTenant(tenantId);
+        return ResponseEntity.ok(billingDocumentService.findJoiningFeeState(tenantId));
     }
 
 //    @GetMapping("/tenant/{id}/{year}/export?xlsx")

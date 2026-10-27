@@ -15,7 +15,7 @@ import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.ID;
 import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.PATH_TENANT;
 
 /**
- * The 40 mapped handlers under {@code /api/**} (counted 2026-10-01, 31; plus 9 mail-text handlers 2026-10-25; commented-out mappings do not
+ * The 41 mapped handlers under {@code /api/**} (counted 2026-10-01, 31; plus 9 mail-text handlers 2026-10-25; plus joiningFeeState 2026-10-27; commented-out mappings do not
  * count, {@code known-errors.md} #29). {@code EndpointMappingGuardTests} compares this table with
  * the live mappings in both directions: a new endpoint without a row fails it.
  */
@@ -58,8 +58,10 @@ public final class EndpointTable {
             image(GET, CONFIGS + "/{id}/logoImage", false),
             // demands a multipart part although it is a GET (known-errors #21); the matrix sends one
             image(GET, CONFIGS + "/{id}/footerImage", true),
-            // BillingDocumentResource (3)
+            // BillingDocumentResource (4)
             row(BillingDocumentResource.class, GET, "/api/billingDocuments/tenant/{id}/{year}", PATH_TENANT, 200),
+            row(BillingDocumentResource.class, GET, "/api/billingDocuments/tenant/{tenantId}/joiningFeeState",
+                    PATH_TENANT, 200),
             row(BillingDocumentResource.class, GET, "/api/billingDocuments/{id}", ID, 200),
             row(BillingDocumentResource.class, DELETE, "/api/billingDocuments/{id}", ID, 204),
             // BillingDocumentFileResource (3)

@@ -45,7 +45,7 @@ class CallerResponseContractTests {
 
     @ParameterizedTest
     @ValueSource(strings = {"DoBillingResults", "BillingRunDTO", "ParticipantAmount", "BillingDocumentDTO",
-            "BillingDocumentFileDTO", "BillingConfigDTO", "ErrorResponse"})
+            "BillingDocumentFileDTO", "BillingConfigDTO", "ErrorResponse", "JoiningFeeState"})
     void fieldsMatchTheSnapshotAndCoverWhatTheCallersRead(String dto) throws Exception {
         JsonNode snapshot = ContractFixtures.read("responses/" + dto + ".json");
         Set<String> written = fieldPaths(mapper.valueToTree(filled(Class.forName(MODEL + dto))));

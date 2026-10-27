@@ -144,4 +144,14 @@ class LegacyMasterdataEntityReadTests {
             assertThat(row.getTariffParticipantFeeDiscount(), comparesEqualTo(BigDecimal.ZERO));
         }
     }
+
+    /** Joining fee (backend 20261027120000): from the member's EEG tariff, cents exact, own VAT setting. */
+    @Test
+    void joiningFeeComesFromTheParticipantsEegTariff() {
+        for (BillingMasterdata row : rowsByMeter().values()) {
+            assertThat(row.getTariffJoiningFee(), comparesEqualTo(new BigDecimal("49.90")));
+            assertThat(row.getTariffJoiningFeeUseVat(), is(true));
+            assertThat(row.getTariffJoiningFeeVatInPercent(), comparesEqualTo(new BigDecimal("13")));
+        }
+    }
 }

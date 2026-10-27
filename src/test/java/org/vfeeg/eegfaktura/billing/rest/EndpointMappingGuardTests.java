@@ -87,10 +87,10 @@ class EndpointMappingGuardTests extends WebSliceTest {
 
     @Test
     void everyApiHandlerHasExactlyOneRow() {
-        assertThat(EndpointTable.ALL, hasSize(40));
-        assertThat(keys(EndpointTable.ALL), hasSize(40));
+        assertThat(EndpointTable.ALL, hasSize(41));
+        assertThat(keys(EndpointTable.ALL), hasSize(41));
         assertThat(difference(liveApiMappings(), keys(EndpointTable.ALL)), is(empty()));
-        assertThat(liveApiMappings(), hasSize(40));
+        assertThat(liveApiMappings(), hasSize(41));
     }
 
     @Test

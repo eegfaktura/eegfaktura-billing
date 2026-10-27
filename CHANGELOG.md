@@ -8,6 +8,34 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Added
+- **One-time joining fee („Beitrittsgebühr“)** (konzept-beitrittsgebuehr.md, platform#217). **Deploy order: the
+  eegfaktura-backend migration `20261027120000_joining_fee` first** — billing reads three new columns of the view
+  `base.billing_masterdata` (`tariff_joining_fee`, `tariff_joining_fee_use_vat`, `tariff_joining_fee_vat_in_percent`,
+  from the member's EEG tariff); against the old view every run fails. Rules: the fee is due in the member's first
+  final run with an energy item (consumption or feed-in) when the EEG tariff has a fee > 0 and the community has no
+  final document (run DONE) with an energy item or a joining fee for the member yet — existing members count as
+  paid. It is billed once as the item „Beitrittsgebühr“ (1 × amount €, no discount, own VAT setting, 0 % with
+  „USt nein“) on the **invoice**, never on a credit note or INFO document; a pure producer gets an own invoice.
+  Previews show it without consuming it; deleting a final run makes it due again. **New item on printed invoices**
+  (rendered like the membership fee, after the metering-point blocks); invoices of tariffs without a fee are
+  unchanged.
+- Flyway `V1_18`: column `billing_document_item.item_type` (`ENERGY`, `PARTICIPANT_FEE`, `METERING_POINT_FEE`,
+  `JOINING_FEE`; every new item gets it, older items stay empty and their energy items are recognised by metering
+  point and a text not starting with „Zählpunktgebühr“) and index `billing_document(tenant_id, participant_id)`.
+  Rollback: older image, column and index may stay.
+- **Contract (caller eegfaktura-web):** `GET /api/billingDocuments/tenant/{tenantId}/joiningFeeState` (role
+  `EEG_ADMIN`, `Tenant` header, path tenant validated) →
+  `[{"participantId", "energyBilled", "joiningFee": {"documentNumber", "documentDate"} | null}]` for every member
+  with a final document of the community (others are absent).
+- **Contract (callers eegfaktura-web, eegfaktura-v3 `BillingClient` — additive):** `ParticipantAmount.joiningFee`
+  (gross, 0 when none) in `POST /api/billing` results and `GET /api/billingRuns/{id}/participantAmounts`; the joining
+  fee no longer ends up in `participantFee`.
+- **Final runs of one community run one after the other** (PostgreSQL transaction advisory lock per tenant, the
+  first step of a final run; previews do not wait). A waiting run stays RUNNING; after
+  `BILLING_FINAL_RUN_LOCK_TIMEOUT` (default `30m`, `0` = no limit; property `app.final-run-lock-timeout`) it ends
+  FAILED with „Ein anderer Abrechnungslauf dieser Gemeinschaft läuft noch“.
+
 ### Changed
 - Tests: `BillingScenarioFeeTests.s07` (participant fee with VAT on but no rate → billed with 0 %) runs again;
   known-errors #17 was fixed by upstream #51 (`b373fcc`), the test stayed disabled. No change to the service.
@@ -35,6 +63,10 @@ this changelog highlights the changes relevant for overview and operations.
   without a member number); a name that still occurs twice gets ` (2)`, ` (3)` (unlike `_<member number>`, so a counter never looks like a member number) … in a stable order (by name, then file
   id). Communities that sort or match the unpacked files by the old names need to adapt. Unchanged: the response
   shape of the endpoint, the stored file name, the PDF itself and the name of the single-document download.
+- **Abort text for a third VAT rate** (callers eegfaktura-web and eegfaktura-v3 show the run's `errorSummary`; the
+  prefix „Abrechnung fehlgeschlagen: “ is unchanged): instead of „More than 2 VAT rates not supported. Rate 1=…“ the
+  run now reports „Mitglied <member number>: mehr als zwei verschiedene USt-Sätze über 0 % auf einem Beleg (20,00 %,
+  10,00 %, 13,00 %). Bitte die USt-Sätze der Tarife prüfen.“ — the member number, never the name (also logged).
 
 ## [1.3.0] – 2026-10-26
 

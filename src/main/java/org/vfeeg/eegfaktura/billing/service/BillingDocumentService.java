@@ -6,12 +6,16 @@ import org.springframework.stereotype.Service;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
+import org.vfeeg.eegfaktura.billing.model.JoiningFeeState;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static java.time.temporal.TemporalAdjusters.firstDayOfYear;
@@ -48,6 +52,32 @@ public class BillingDocumentService {
         return billingDocuments.stream()
                 .map((billingDocument) -> mapToDTO(billingDocument, new BillingDocumentDTO()))
                 .toList();
+    }
+
+    /**
+     * Joining-fee state of every member with a final document of the community (runs DONE): energy billed,
+     * and the first final document with the joining fee. Members without a final document are absent.
+     */
+    public List<JoiningFeeState> findJoiningFeeState(String tenantId) {
+        Set<String> energyBilled = billingDocumentRepository.findEnergyBilledParticipants(tenantId,
+                BillingService.ZAEHLPUNKTGEBUEHR_TEXT + "%");
+        Map<String, JoiningFeeState.Document> fees = new HashMap<>();
+        for (BillingDocumentRepository.BilledJoiningFee fee : billingDocumentRepository.findBilledJoiningFees(tenantId)) {
+            fees.computeIfAbsent(fee.getParticipantId(), id -> {
+                JoiningFeeState.Document document = new JoiningFeeState.Document();
+                document.setDocumentNumber(fee.getDocumentNumber());
+                document.setDocumentDate(fee.getDocumentDate());
+                return document;
+            });
+        }
+        return billingDocumentRepository.findParticipantsWithFinalDocuments(tenantId).stream().sorted()
+                .map(participantId -> {
+                    JoiningFeeState state = new JoiningFeeState();
+                    state.setParticipantId(participantId);
+                    state.setEnergyBilled(energyBilled.contains(participantId));
+                    state.setJoiningFee(fees.get(participantId));
+                    return state;
+                }).toList();
     }
 
     public List<BillingDocumentDTO> findByBillingRunId(UUID billingRunId) {
