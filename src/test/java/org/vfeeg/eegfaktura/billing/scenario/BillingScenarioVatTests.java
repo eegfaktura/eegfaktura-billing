@@ -9,6 +9,7 @@ import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
 import org.vfeeg.eegfaktura.billing.support.BillingScenarioBase;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -21,6 +22,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
+import static org.vfeeg.eegfaktura.billing.domain.BillingDocumentType.CREDIT_NOTE;
 import static org.vfeeg.eegfaktura.billing.domain.BillingDocumentType.INVOICE;
 
 /** Scenarios S1, S3, S4, S5: VAT rates on one invoice. Amounts are computed by hand in the comments. */
@@ -127,7 +129,6 @@ class BillingScenarioVatTests extends BillingScenarioBase {
      * of 4.00 (energy 2.00 + fee 2.00), no second rate (known-errors #16, F5: {@code BigDecimal.equals}).
      */
     @Test
-    @Disabled("known-errors #16")
     void s05_sameRateWithOtherScaleIsOneVatSum() {
         BillingRunFixture world = insert(world().master(consumer(1, "C1").tariffVat("20")
                 .participantFee("10", "20.00"), "100"), false);
@@ -137,6 +138,91 @@ class BillingScenarioVatTests extends BillingScenarioBase {
         assertThat(results.getAbstractText(), is(RESULT_PREVIEW_OK));
         BillingDocumentDTO invoice = document(documents(results.getBillingRunId()), 1, INVOICE);
         assertAmounts(invoice, "20.00", "20", "4.00", null, null, "24.00");
+    }
+
+    /**
+     * 261027-mm1 — „USt nein“ items carry 0 %, not the rate left in the tariff: energy (tariff 20 %, USt nein),
+     * participant fee (10 %, USt nein), consumer meter-point fee (tariff's setting) and a producer's credit
+     * note (20 %, USt nein). No VAT rate on the documents. Invoice: 10.00 + 5.00 + 2.00 = 17.00.
+     */
+    @Test
+    void s05a_itemsWithoutVatCarryZeroPercent() {
+        BillingRunFixture world = insert(world()
+                .master(consumer(1, "C1").column("tariff_vat_in_percent", new BigDecimal("20"))
+                        .participantFee("5", null).column("tariff_participant_fee_vat_in_percent", new BigDecimal("10"))
+                        .meteringPointFee("2.00", "ZP", "0"), "100")
+                .master(producer(2, "P2").column("tariff_vat_in_percent", new BigDecimal("20")), "50"), false);
+
+        DoBillingResults results = bill(world, true);
+
+        assertThat(results.getAbstractText(), is(RESULT_PREVIEW_OK));
+        List<BillingDocumentDTO> docs = documents(results.getBillingRunId());
+        BillingDocumentDTO invoice = document(docs, 1, INVOICE);
+        assertAmounts(invoice, "17.00", null, null, null, null, "17.00");
+        List<BillingDocumentItem> items = items(invoice.getId());
+        assertThat(items, hasSize(3));
+        assertItem(items.get(0), "100.00", "10.00", "0", "0", "10.00");
+        assertItem(items.get(1), "1", "5.00", "0", "0", "5.00");
+        assertItem(items.get(2), "1", "2.00", "0", "0", "2.00");
+        BillingDocumentDTO creditNote = document(docs, 2, CREDIT_NOTE);
+        assertAmounts(creditNote, "4.00", null, null, null, null, "4.00");
+        assertItem(items(creditNote.getId()).get(0), "50.00", "4.00", "0", "0", "4.00");
+    }
+
+    /**
+     * 261027-mm1 — a rate left on a „USt nein“ participant fee (10 %) is no second VAT column next to the
+     * energy's 20 %: one VAT sum. Energy 10.00 + 2.00, fee 5.00 → net 15.00, gross 17.00.
+     */
+    @Test
+    void s05b_rateLeftOnFeeWithoutVatIsNoVatColumn() {
+        BillingRunFixture world = insert(world().master(consumer(1, "C1").tariffVat("20")
+                .participantFee("5", null).column("tariff_participant_fee_vat_in_percent", new BigDecimal("10")),
+                "100"), false);
+
+        DoBillingResults results = bill(world, true);
+
+        BillingDocumentDTO invoice = document(documents(results.getBillingRunId()), 1, INVOICE);
+        assertAmounts(invoice, "15.00", "20", "2.00", null, null, "17.00");
+        assertItem(items(invoice.getId()).get(1), "1", "5.00", "0", "0", "5.00");
+    }
+
+    /**
+     * 261027-mm1 — a rate left on a „USt nein“ participant fee (13 %) does not count as a third rate next to
+     * energy 20 % and a producer meter-point fee at 10 %: the run succeeds. Invoice: energy 10.00 + 2.00,
+     * fee 5.00, meter-point fee 2.00 + 0.20 → net 17.00, gross 19.20.
+     */
+    @Test
+    void s05c_rateLeftOnFeeWithoutVatDoesNotAbortTheRun() {
+        BillingRunFixture world = insert(world()
+                .master(consumer(1, "C1").tariffVat("20").participantFee("5", null)
+                        .column("tariff_participant_fee_vat_in_percent", new BigDecimal("13")), "100")
+                .master(producer(1, "P1").participantFee("5", null)
+                        .column("tariff_participant_fee_vat_in_percent", new BigDecimal("13"))
+                        .meteringPointFee("2.00", "ZP", "10"), "50"), false);
+
+        DoBillingResults results = bill(world, true);
+
+        assertThat(results.getAbstractText(), is(RESULT_PREVIEW_OK));
+        BillingDocumentDTO invoice = document(documents(results.getBillingRunId()), 1, INVOICE);
+        assertAmounts(invoice, "17.00", "20", "2.00", "10", "0.20", "19.20");
+    }
+
+    /**
+     * 261027-mm1 — 20 and 20.0 are one rate, so with a producer meter-point fee at 10 % there are two rates,
+     * not three: energy 10.00 + 2.00, fee 10.00 + 2.00, meter-point fee 2.00 + 0.20 → net 22.00, gross 26.20.
+     */
+    @Test
+    void s05d_sameRateWithOtherScaleDoesNotAbortTheRun() {
+        BillingRunFixture world = insert(world()
+                .master(consumer(1, "C1").tariffVat("20").participantFee("10", "20.0"), "100")
+                .master(producer(1, "P1").participantFee("10", "20.0").meteringPointFee("2.00", "ZP", "10"), "50"),
+                false);
+
+        DoBillingResults results = bill(world, true);
+
+        assertThat(results.getAbstractText(), is(RESULT_PREVIEW_OK));
+        BillingDocumentDTO invoice = document(documents(results.getBillingRunId()), 1, INVOICE);
+        assertAmounts(invoice, "22.00", "20", "4.00", "10", "0.20", "26.20");
     }
 
     private BillingRunFixture oneRateWorld() {

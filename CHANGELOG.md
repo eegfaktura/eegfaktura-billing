@@ -8,6 +8,16 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Fixed
+- **Visible change on printed documents — VAT of items with „USt nein“** (261027-mm1, also known-errors #16):
+  energy items, the membership fee and the consumer meter-point fee of a tariff with „USt nein“ kept the VAT rate
+  stored in the tariff. The VAT column of these items now shows **0 %**; they no longer count as a VAT rate, so
+  the document no longer shows a sum line „USt 20,00 %: 0,00 €“ for them; the Excel export of the run shows 0 in
+  „Pos. UST %“ and no such rate in „UST Satz 1/2 (%)“ — for a document with only „USt nein“ items the columns „UST Satz 1/2 (%)“ and „UST Satz 1/2 Summe (Euro)“ are now empty (were: rate 20, sum 0). A rate left in a „USt nein“ tariff no longer causes the abort
+  „More than 2 VAT rates not supported“ or a second VAT column. VAT rates are compared numerically: `20` and `20.0`
+  are one rate (before: two sums or the abort). Net, VAT and gross amounts are unchanged; inform the
+  communities (pilot group first) before the rollout.
+
 ## [1.4.0] – 2026-10-27
 
 ### Changed

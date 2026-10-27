@@ -414,7 +414,7 @@ class BillingIntegrationTests {
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getPricePerUnit()), is("12,83"));
         assertThat(item2234.getPpuUnit(), nullValue()); // left empty (default is kWh)
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item2234.getNetValue()), is("99,77"));
-        assertThat(item2234.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(item2234.getVatPercent(), comparesEqualTo(BigDecimal.ZERO));
         assertThat(item2234.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         BillingDocumentItem item1234 = billingDocumentItemList.stream()
@@ -427,7 +427,7 @@ class BillingIntegrationTests {
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getPricePerUnit()), is("12,83"));
         assertThat(item1234.getPpuUnit(), nullValue()); // left empty (default is kWh)
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item1234.getNetValue()), is("15,44"));
-        assertThat(item1234.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(item1234.getVatPercent(), comparesEqualTo(BigDecimal.ZERO));
         assertThat(item1234.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         BillingDocumentItem itemMitgliedsgebuehr = billingDocumentItemList.stream()
@@ -436,7 +436,7 @@ class BillingIntegrationTests {
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getPricePerUnit()), is("10,00"));
         assertThat(itemMitgliedsgebuehr.getPpuUnit(), is("€"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getNetValue()), is("10,00"));
-        assertThat(itemMitgliedsgebuehr.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(itemMitgliedsgebuehr.getVatPercent(), comparesEqualTo(BigDecimal.ZERO));
         assertThat(itemMitgliedsgebuehr.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         return true;
@@ -466,7 +466,7 @@ class BillingIntegrationTests {
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getAmount()), is("1,00"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getPricePerUnit()), is("10,00"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(itemMitgliedsgebuehr.getNetValue()), is("10,00"));
-        assertThat(itemMitgliedsgebuehr.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(itemMitgliedsgebuehr.getVatPercent(), comparesEqualTo(BigDecimal.ZERO));
         assertThat(itemMitgliedsgebuehr.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         return true;
@@ -501,7 +501,7 @@ class BillingIntegrationTests {
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getAmount()), is("2233,22"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getPricePerUnit()), is("19,33"));
         assertThat(BigDecimalTools.DECIMAL_FORMAT.format(item.getNetValue()), is("431,68"));
-        assertThat(item.getVatPercent(), is(BigDecimal.ZERO.setScale(1)));
+        assertThat(item.getVatPercent(), comparesEqualTo(BigDecimal.ZERO));
         assertThat(item.getVatValueInEuro(), is(BigDecimal.ZERO));
 
         return true;
