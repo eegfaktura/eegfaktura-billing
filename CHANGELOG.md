@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.6.0] – 2026-10-28
+
 ### Added
 - **One-time joining fee („Beitrittsgebühr“)** (konzept-beitrittsgebuehr.md, platform#217). **Deploy order: the
   eegfaktura-backend migration `20261028130000_joining_fee` first** — billing reads three new columns of the view
