@@ -8,6 +8,13 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Security
+- **Security: the Spring profile `dev` no longer opens the API.** `DevSecurityConfig` (profile `dev`) replaced the
+  JWT security chain with one that only disabled CSRF, so every endpoint answered without a token whenever the
+  profile was switched on. No deployment uses that profile (gitops, platform, docker-compose checked 28.10.2026); the
+  class is removed and the JWT chain applies in every profile. Found while assessing the Snyk Code alert
+  `java/DisablesCSRFProtection` (dismissed as false positive: bearer-only, stateless API).
+
 ## [1.6.0] – 2026-10-28
 
 ### Added
