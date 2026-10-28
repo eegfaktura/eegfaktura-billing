@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.7.0] – 2026-10-28
+
 ### Fixed
 - **A billing run without amounts, or whose amounts match no member, no longer ends as completed** (platform#189). **Contract (callers
   eegfaktura-web, eegfaktura-v3 `BillingClient`):** `POST /api/billing` (preview and final) with an empty or missing
