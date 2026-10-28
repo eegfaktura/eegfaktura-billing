@@ -159,6 +159,8 @@ class JoiningFeeRecordTests extends JoiningFeeScenarioBase {
         assertStatus(HttpStatus.CONFLICT, () -> joiningFeeService.saveRecord(tenant, participant(1),
                 request("PAID_EXTERNALLY", "2024-01-02", null), null));
         assertStatus(HttpStatus.CONFLICT, () -> joiningFeeService.deleteRecord(tenant, participant(1)));
+        // the tenant is validated case-insensitively, so another spelling is refused as well
+        assertStatus(HttpStatus.CONFLICT, () -> joiningFeeService.deleteRecord(tenant.toLowerCase(), participant(1)));
         // another community's fee does not block this member there
         joiningFeeService.saveRecord(tenant + "X", participant(1), request("CHARGE_REQUESTED", null, null), null);
         jdbc.update("delete from billing_joining_fee_record where tenant_id = ?", tenant + "X");

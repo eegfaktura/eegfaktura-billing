@@ -17,7 +17,8 @@ this changelog highlights the changes relevant for overview and operations.
   final document (run DONE) with an energy item or a joining fee for the member yet — existing members count as
   paid. It is billed once as the item „Beitrittsgebühr“ (1 × amount €, no discount, own VAT setting, 0 % with
   „USt nein“) on the **invoice**, never on a credit note or INFO document; a pure producer gets an own invoice.
-  Previews show it without consuming it; deleting a final run makes it due again. **New item on printed invoices**
+  Previews show it without consuming it; deleting a final run makes it due again unless the member has another
+  final document with energy (then „Gebühr anfordern“ charges it in the next final run). **New item on printed invoices**
   (rendered like the membership fee, after the metering-point blocks); invoices of tariffs without a fee are
   unchanged.
 - Flyway `V1_18`: column `billing_document_item.item_type` (`ENERGY`, `PARTICIPANT_FEE`, `METERING_POINT_FEE`,

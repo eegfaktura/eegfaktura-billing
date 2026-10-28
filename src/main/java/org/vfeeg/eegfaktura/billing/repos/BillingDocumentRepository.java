@@ -20,7 +20,8 @@ public interface BillingDocumentRepository extends JpaRepository<BillingDocument
 
     // ---- joining fee: history of a community from its final documents (runs DONE) only ----
 
-    String DONE_DOCUMENTS = "from BillingDocument d join d.billingRun r where d.tenantId = :tenantId"
+    // documents carry the tenant as in base.billing_masterdata (upper case); the caller may send any case
+    String DONE_DOCUMENTS = "from BillingDocument d join d.billingRun r where d.tenantId = upper(:tenantId)"
             + " and r.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.DONE";
 
     /** Members with at least one final document of the community. */
