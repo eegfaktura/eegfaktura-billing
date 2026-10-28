@@ -9,14 +9,15 @@ this changelog highlights the changes relevant for overview and operations.
 ## [Unreleased]
 
 ### Fixed
-- **A billing run without a single document no longer ends as completed** (platform#189). **Contract (callers
+- **A billing run without amounts, or whose amounts match no member, no longer ends as completed** (platform#189). **Contract (callers
   eegfaktura-web, eegfaktura-v3 `BillingClient`):** `POST /api/billing` (preview and final) with an empty or missing
   `allocations` list is now refused with **400** and `abstractText` „Keine Energiemengen für die Abrechnung übergeben
   – bitte die Seite neu laden und die Energiedaten des Zeitraums laden.“; no billing run row is created (before: 202,
   the run ended DONE, or NEW for a preview, with no document). When `allocations` are sent but none matches a
   member/metering point of `base.billing_masterdata`, the run now ends **FAILED** with the `errorSummary`
   „Abrechnung fehlgeschlagen: Keine der übergebenen Energiemengen passt zu einem Mitglied/Zählpunkt der Stammdaten –
-  es wurde kein Beleg erstellt.“ (no document, restartable like every FAILED run). Runs where at least one amount
+  es wurde kein Beleg erstellt.“ (nothing is written — documents of an earlier preview of the run stay, as with
+  every FAILED run; the run can be restarted). Runs where at least one amount
   matches are unchanged.
 
 ## [1.6.0] – 2026-10-28
