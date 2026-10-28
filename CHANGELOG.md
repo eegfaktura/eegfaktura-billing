@@ -65,6 +65,10 @@ this changelog highlights the changes relevant for overview and operations.
   known-errors #17 was fixed by upstream #51 (`b373fcc`), the test stayed disabled. No change to the service.
 
 ### Fixed
+- **CI: the Snyk Code scan fails visibly when it cannot run.** An invalid `SNYK_TOKEN` ended the weekly and
+  push scan green without any result (`continue-on-error`); now only „issues found“ keeps the run green (the
+  issues go to Code Scanning), an authentication or tool error fails it. The Snyk CLI is pinned to 1.1308.1
+  instead of the latest version.
 - Document numbers of two final runs of one community started at the same time (known-errors #15): the second
   run is now refused at once while the first runs (see Added), so it never fails on the unique constraint
   (tenant, document number) with a duplicate number.
