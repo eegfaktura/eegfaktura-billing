@@ -10,7 +10,7 @@ values ('RC100001', 'EEG Sonnenschein', 'Erneuerbare-Energie-Gemeinschaft Sonnen
         true, 'Hauptstraße', '1', 'Graz', '8010', 'AT611904300234573201', 'EEG Sonnenschein', 'Testbank',
         '+43 316 000000', 'office@eeg-sonnenschein.test', 'https://eeg-sonnenschein.test', 'AT12ZZZ00000000001');
 
--- Member tariff (EEG, with a joining fee since backend 20261027120000) and two meter tariffs; the consumer tariff
+-- Member tariff (EEG, with a joining fee since backend 20261028130000) and two meter tariffs; the consumer tariff
 -- has two versions, the view takes the newest.
 insert into base.tariff (id, tenant, type, name, "useVat", "vatInPercent", "participantFee", discount, version,
                          "joiningFee", "joiningFeeUseVat", "joiningFeeVatInPercent")

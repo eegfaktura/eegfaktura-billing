@@ -17,6 +17,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -27,7 +28,9 @@ import java.util.stream.Collectors;
 /**
  * Joining fee per member of a community (konzept-beitrittsgebuehr.md incl. the extension of 27.10.2026): the state
  * for eegfaktura-web and the records „charge in the next final run“ / „paid outside eegfaktura“. A record is
- * refused (409) once a final document with the joining fee exists - at most one fee per member.
+ * refused (409) once a final document with the joining fee exists - at most one fee per member - and while a final
+ * run of the community is running (it reads the records once; {@link FinalRunLock}). Records are stored with the
+ * tenant in upper case, whatever case the caller sends.
  */
 @Service
 @Transactional
@@ -37,11 +40,19 @@ public class JoiningFeeService {
 
     private final BillingDocumentRepository billingDocumentRepository;
     private final JoiningFeeRecordRepository joiningFeeRecordRepository;
+    private final FinalRunLock finalRunLock;
 
     public JoiningFeeService(final BillingDocumentRepository billingDocumentRepository,
-                             final JoiningFeeRecordRepository joiningFeeRecordRepository) {
+                             final JoiningFeeRecordRepository joiningFeeRecordRepository,
+                             final FinalRunLock finalRunLock) {
         this.billingDocumentRepository = billingDocumentRepository;
         this.joiningFeeRecordRepository = joiningFeeRecordRepository;
+        this.finalRunLock = finalRunLock;
+    }
+
+    /** The tenant as the records store it (validated case-insensitively, so one spelling for every caller). */
+    static String recordTenant(String tenantId) {
+        return tenantId.toUpperCase(Locale.ROOT);
     }
 
     /**
@@ -53,7 +64,8 @@ public class JoiningFeeService {
         Set<String> energyBilled = billingDocumentRepository.findEnergyBilledParticipants(tenantId,
                 BillingService.ZAEHLPUNKTGEBUEHR_TEXT + "%");
         Map<String, JoiningFeeState.Document> fees = billedFees(tenantId);
-        Map<String, JoiningFeeRecord> records = joiningFeeRecordRepository.findByTenantId(tenantId).stream()
+        Map<String, JoiningFeeRecord> records = joiningFeeRecordRepository.findByTenantId(recordTenant(tenantId))
+                .stream()
                 .collect(Collectors.toMap(JoiningFeeRecord::getParticipantId, Function.identity()));
         Set<String> participants = new TreeSet<>(billingDocumentRepository.findParticipantsWithFinalDocuments(tenantId));
         participants.addAll(records.keySet());
@@ -80,11 +92,13 @@ public class JoiningFeeService {
     public void saveRecord(String tenantId, String participantId, JoiningFeeRecordRequest request, String user) {
         String participant = participant(participantId);
         JoiningFeeRecord validated = validate(request);
+        refuseWhileFinalRun(tenantId);
         refuseWhenBilled(tenantId, participant);
-        JoiningFeeRecord record = joiningFeeRecordRepository.findByTenantIdAndParticipantId(tenantId, participant)
+        JoiningFeeRecord record = joiningFeeRecordRepository
+                .findByTenantIdAndParticipantId(recordTenant(tenantId), participant)
                 .orElseGet(() -> {
                     JoiningFeeRecord created = new JoiningFeeRecord();
-                    created.setTenantId(tenantId);
+                    created.setTenantId(recordTenant(tenantId));
                     created.setParticipantId(participant);
                     return created;
                 });
@@ -105,8 +119,9 @@ public class JoiningFeeService {
     /** Takes the request or the external payment back; idempotent. */
     public void deleteRecord(String tenantId, String participantId) {
         String participant = participant(participantId);
+        refuseWhileFinalRun(tenantId);
         refuseWhenBilled(tenantId, participant);
-        joiningFeeRecordRepository.findByTenantIdAndParticipantId(tenantId, participant)
+        joiningFeeRecordRepository.findByTenantIdAndParticipantId(recordTenant(tenantId), participant)
                 .ifPresent(joiningFeeRecordRepository::delete);
     }
 
@@ -116,6 +131,14 @@ public class JoiningFeeService {
             return UUID.fromString(participantId).toString();
         } catch (IllegalArgumentException | NullPointerException e) {
             throw badRequest("participantId ist keine gültige Id.");
+        }
+    }
+
+    /** 409 while a final run of the community runs: it read the records already; the lock is held to the commit. */
+    private void refuseWhileFinalRun(String tenantId) {
+        if (!finalRunLock.tryLock(tenantId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ein endgültiger Abrechnungslauf dieser "
+                    + "Gemeinschaft läuft gerade – die Beitrittsgebühr kann erst danach geändert werden.");
         }
     }
 

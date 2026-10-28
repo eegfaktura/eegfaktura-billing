@@ -96,9 +96,6 @@ The container is accepting the following environment variables as configuration:
 * `MAIL_SMTP_STARTTLS_ENABLE` (default = false)
 * `MAIL_NO_REPLY_TO` e-mail address to use as sender for automated mails (default = no-reply@eegfaktura.at)
 * `JWT_PUBLICKEYFILE` full path to the JWT public key file, used to decrypt JWT tokens from header (default = /billing/zertifikat-pub.pem)
-* `BILLING_FINAL_RUN_LOCK_TIMEOUT` longest wait of a final billing run while another final run of the same community
-  is running (e.g. `30m`, `90s`; `0` = no limit; default = 30m); after it the waiting run ends FAILED with
-  „Ein anderer Abrechnungslauf dieser Gemeinschaft läuft noch“
 
 ## Contributing
 

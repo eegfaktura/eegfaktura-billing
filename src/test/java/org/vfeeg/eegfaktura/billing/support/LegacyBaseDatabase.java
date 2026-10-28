@@ -28,7 +28,7 @@ public final class LegacyBaseDatabase {
             "legacy-base/04_20250604182344_add_bank_fields.up.sql",
             "legacy-base/05_20250605091807_add_account_info_to_billing_view.up.sql",
             "legacy-base/06_20260711120000_zvt_time_tariff.up.sql",
-            "legacy-base/07_20261027120000_joining_fee.up.sql");
+            "legacy-base/07_20261028130000_joining_fee.up.sql");
 
     public static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:15-alpine")

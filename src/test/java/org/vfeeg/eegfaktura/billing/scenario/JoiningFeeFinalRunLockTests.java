@@ -3,34 +3,38 @@ package org.vfeeg.eegfaktura.billing.scenario;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
+import org.vfeeg.eegfaktura.billing.model.JoiningFeeRecordRequest;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
 import org.vfeeg.eegfaktura.billing.service.BillingRunLauncher;
 import org.vfeeg.eegfaktura.billing.service.FinalRunLock;
+import org.vfeeg.eegfaktura.billing.service.JoiningFeeService;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
-import org.vfeeg.eegfaktura.billing.util.AppProperties;
 
-import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.vfeeg.eegfaktura.billing.domain.BillingDocumentItemType.JOINING_FEE;
 
 /**
- * AK 7 and the wait limit (grill 27.10.2026): final runs of one community run one after the other; a waiting run
- * sees the documents of the first; after {@code app.final-run-lock-timeout} it ends FAILED.
+ * AK 7 (konzept-beitrittsgebuehr.md, rule 6, decided 28.10.2026): final runs of one community run one at a time; a
+ * second final run is refused at once instead of waiting, and the joining fee records cannot change while a final
+ * run of the community runs.
  */
 class JoiningFeeFinalRunLockTests extends JoiningFeeScenarioBase {
 
@@ -39,24 +43,22 @@ class JoiningFeeFinalRunLockTests extends JoiningFeeScenarioBase {
     @Autowired
     private FinalRunLock finalRunLock;
     @Autowired
-    private AppProperties appProperties;
-    @Autowired
     private BillingRunLauncher billingRunLauncher;
     @Autowired
     private BillingRunRepository billingRunRepository;
+    @Autowired
+    private JoiningFeeService joiningFeeService;
 
     private final ExecutorService pool = Executors.newFixedThreadPool(2);
-    private final Duration configured = Duration.ofMinutes(30);
 
     @AfterEach
     void stopPool() {
-        appProperties.setFinalRunLockTimeout(configured);
         pool.shutdownNow();
     }
 
-    /** AK 7: run B (Q3) waits while run A (Q2) is not committed, then bills no second fee. */
+    /** AK 7: run B (Q3) is refused while run A (Q2) is not committed; the fee is billed once, by A. */
     @Test
-    void secondFinalRunWaitsAndBillsTheFeeOnce() throws Exception {
+    void secondFinalRunIsRefusedWhileTheFirstRuns() throws Exception {
         BillingRunFixture world = insert(world().master(consumer(1, "C1").joiningFee("50", null), "100"), false);
         CountDownLatch aInside = new CountDownLatch(1);
         CountDownLatch commitA = new CountDownLatch(1);
@@ -68,13 +70,13 @@ class JoiningFeeFinalRunLockTests extends JoiningFeeScenarioBase {
             return results;
         }));
         assertThat("run A computed", aInside.await(WAIT_SECONDS, TimeUnit.SECONDS), is(true));
-        Future<DoBillingResults> b = pool.submit(() -> run(world, Q3, false));
 
-        assertThrows(TimeoutException.class, () -> b.get(2, TimeUnit.SECONDS), "run B must wait for run A");
+        ExecutionException refused = assertThrows(ExecutionException.class,
+                () -> pool.submit(() -> run(world, Q3, false)).get(WAIT_SECONDS, TimeUnit.SECONDS));
+        assertThat(refused.getCause(), instanceOf(FinalRunLock.FinalRunBusyException.class));
         commitA.countDown();
 
         assertThat(itemsOfType(a.get(WAIT_SECONDS, TimeUnit.SECONDS).getBillingRunId(), JOINING_FEE), hasSize(1));
-        assertThat(itemsOfType(b.get(WAIT_SECONDS, TimeUnit.SECONDS).getBillingRunId(), JOINING_FEE), is(empty()));
         assertThat(joiningFeesInFinalRuns(), is(1));
     }
 
@@ -99,11 +101,10 @@ class JoiningFeeFinalRunLockTests extends JoiningFeeScenarioBase {
         holder.get(WAIT_SECONDS, TimeUnit.SECONDS);
     }
 
-    /** After the wait limit the waiting run ends FAILED with the message of the grill decision (launcher path). */
+    /** Through the launcher a refused run ends FAILED with the message for the admin, at once. */
     @Test
-    void waitingLongerThanTheLimitFailsTheRun() throws Exception {
+    void aRefusedRunEndsFailedWithTheMessage() throws Exception {
         BillingRunFixture world = insert(world().master(consumer(1, "C1").joiningFee("50", null), "100"), false);
-        appProperties.setFinalRunLockTimeout(Duration.ofSeconds(1));
         CountDownLatch held = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         Future<?> holder = pool.submit(() -> inTransaction(() -> {
@@ -124,9 +125,44 @@ class JoiningFeeFinalRunLockTests extends JoiningFeeScenarioBase {
         release.countDown();
         holder.get(WAIT_SECONDS, TimeUnit.SECONDS);
         assertThat(failed.getRunStatus(), is(BillingRunStatus.FAILED));
-        assertThat(failed.getErrorSummary(),
-                is("Abrechnung fehlgeschlagen: Ein anderer Abrechnungslauf dieser Gemeinschaft läuft noch"));
+        assertThat(failed.getErrorSummary(), is("Abrechnung fehlgeschlagen: Ein endgültiger Abrechnungslauf dieser "
+                + "Gemeinschaft läuft gerade – bitte nach dessen Ende erneut starten"));
         assertThat(joiningFeesInFinalRuns(), is(0));
+    }
+
+    /**
+     * Review finding 28.10.2026: a run reads the records once, so a record saved or removed while it runs would be
+     * ignored (fee billed although paid outside, or a withdrawn request billed). Both are refused with 409 instead.
+     */
+    @Test
+    void recordsCannotChangeWhileAFinalRunRuns() throws Exception {
+        BillingRunFixture world = insert(world().master(consumer(1, "C1").joiningFee("50", null), "100"), false);
+        CountDownLatch held = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Future<?> holder = pool.submit(() -> inTransaction(() -> {
+            finalRunLock.lock(tenant);
+            held.countDown();
+            await(release);
+            return null;
+        }));
+        assertThat(held.await(WAIT_SECONDS, TimeUnit.SECONDS), is(true));
+
+        JoiningFeeRecordRequest paid = new JoiningFeeRecordRequest();
+        paid.setKind("PAID_EXTERNALLY");
+        paid.setPaidOn("2026-01-15");
+        ResponseStatusException saved = assertThrows(ResponseStatusException.class,
+                () -> joiningFeeService.saveRecord(tenant, participant(1), paid, null));
+        assertThat(saved.getStatusCode(), is(HttpStatus.CONFLICT));
+        ResponseStatusException removed = assertThrows(ResponseStatusException.class,
+                () -> joiningFeeService.deleteRecord(tenant, participant(1)));
+        assertThat(removed.getStatusCode(), is(HttpStatus.CONFLICT));
+
+        release.countDown();
+        holder.get(WAIT_SECONDS, TimeUnit.SECONDS);
+        joiningFeeService.saveRecord(tenant, participant(1), paid, null);
+        assertThat(joiningFeeService.findJoiningFeeState(tenant), hasSize(1));
+        assertThat(joiningFeesInFinalRuns(), is(0));
+        assertThat(itemsOfType(run(world, PERIOD, true).getBillingRunId(), JOINING_FEE), is(empty()));
     }
 
     private BillingRun awaitFinished(BillingRun run) throws InterruptedException {

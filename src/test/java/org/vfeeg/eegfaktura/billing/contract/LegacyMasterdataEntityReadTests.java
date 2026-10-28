@@ -145,7 +145,7 @@ class LegacyMasterdataEntityReadTests {
         }
     }
 
-    /** Joining fee (backend 20261027120000): from the member's EEG tariff, cents exact, own VAT setting. */
+    /** Joining fee (backend 20261028130000): from the member's EEG tariff, cents exact, own VAT setting. */
     @Test
     void joiningFeeComesFromTheParticipantsEegTariff() {
         for (BillingMasterdata row : rowsByMeter().values()) {

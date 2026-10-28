@@ -10,7 +10,7 @@ this changelog highlights the changes relevant for overview and operations.
 
 ### Added
 - **One-time joining fee („Beitrittsgebühr“)** (konzept-beitrittsgebuehr.md, platform#217). **Deploy order: the
-  eegfaktura-backend migration `20261027120000_joining_fee` first** — billing reads three new columns of the view
+  eegfaktura-backend migration `20261028130000_joining_fee` first** — billing reads three new columns of the view
   `base.billing_masterdata` (`tariff_joining_fee`, `tariff_joining_fee_use_vat`, `tariff_joining_fee_vat_in_percent`,
   from the member's EEG tariff); against the old view every run fails. Rules: the fee is due in the member's first
   final run with an energy item (consumption or feed-in) when the EEG tariff has a fee > 0 and the community has no
@@ -48,14 +48,26 @@ this changelog highlights the changes relevant for overview and operations.
   kind, a missing, malformed or future `paidOn`, `paidOn`/`note` with `CHARGE_REQUESTED`, a note over 200 characters
   or a member id that is no UUID. `joiningFeeState` gains `requested` (bool, request not billed yet) and
   `paidExternally` (`{"paidOn", "note"}` or null) and also lists members that only have a record.
-- **Final runs of one community run one after the other** (PostgreSQL transaction advisory lock per tenant, the
-  first step of a final run; previews do not wait). A waiting run stays RUNNING; after
-  `BILLING_FINAL_RUN_LOCK_TIMEOUT` (default `30m`, `0` = no limit; property `app.final-run-lock-timeout`) it ends
-  FAILED with „Ein anderer Abrechnungslauf dieser Gemeinschaft läuft noch“.
+- **Final runs of one community run one at a time** (PostgreSQL transaction advisory lock per tenant, two-key so it
+  does not meet other advisory locks, the first step of a final run; previews take no lock). A second final run of
+  the community does not wait (decided 28.10.2026, so no billing thread waits and other communities are never held
+  up): it ends FAILED at once with „Ein endgültiger Abrechnungslauf dieser Gemeinschaft läuft gerade – bitte nach
+  dessen Ende erneut starten“. The joining fee records (`PUT`/`DELETE …/joiningFee`) answer 409 while a final run
+  of the community runs, because the run reads them once. Records are stored with the tenant in upper case.
 
 ### Changed
+- **Abort text for a third VAT rate** (callers eegfaktura-web and eegfaktura-v3 show the run's `errorSummary`; the
+  prefix „Abrechnung fehlgeschlagen: “ is unchanged): instead of „More than 2 VAT rates not supported. Rate 1=…“ the
+  run now reports „Mitglied <member number>: mehr als zwei verschiedene USt-Sätze über 0 % auf einem Beleg (20,00 %,
+  10,00 %, 13,00 %). Bitte die USt-Sätze der Tarife prüfen.“ — the member number, never the name (also logged).
 - Tests: `BillingScenarioFeeTests.s07` (participant fee with VAT on but no rate → billed with 0 %) runs again;
   known-errors #17 was fixed by upstream #51 (`b373fcc`), the test stayed disabled. No change to the service.
+
+### Fixed
+- Document numbers of two final runs of one community started at the same time (known-errors #15): the second
+  run is now refused at once while the first runs (see Added), so it never fails on the unique constraint
+  (tenant, document number) with a duplicate number.
+
 
 ## [1.5.0] – 2026-10-27
 
@@ -80,23 +92,6 @@ this changelog highlights the changes relevant for overview and operations.
   without a member number); a name that still occurs twice gets ` (2)`, ` (3)` (unlike `_<member number>`, so a counter never looks like a member number) … in a stable order (by name, then file
   id). Communities that sort or match the unpacked files by the old names need to adapt. Unchanged: the response
   shape of the endpoint, the stored file name, the PDF itself and the name of the single-document download.
-- **Abort text for a third VAT rate** (callers eegfaktura-web and eegfaktura-v3 show the run's `errorSummary`; the
-  prefix „Abrechnung fehlgeschlagen: “ is unchanged): instead of „More than 2 VAT rates not supported. Rate 1=…“ the
-  run now reports „Mitglied <member number>: mehr als zwei verschiedene USt-Sätze über 0 % auf einem Beleg (20,00 %,
-  10,00 %, 13,00 %). Bitte die USt-Sätze der Tarife prüfen.“ — the member number, never the name (also logged).
-
-### Fixed
-- **Visible change on printed documents — VAT of items with „USt nein“** (261027-mm1, also known-errors #16):
-  energy items, the membership fee and the consumer meter-point fee of a tariff with „USt nein“ kept the VAT rate
-  stored in the tariff. The VAT column of these items now shows **0 %**; they no longer count as a VAT rate, so
-  the document no longer shows a sum line „USt 20,00 %: 0,00 €“ for them; the Excel export of the run shows 0 in
-  „Pos. UST %“ and no such rate in „UST Satz 1/2 (%)“. A rate left in a „USt nein“ tariff no longer causes the abort
-  „More than 2 VAT rates not supported“ or a second VAT column. VAT rates are compared numerically: `20` and `20.0`
-  are one rate (before: two sums or the abort). Net, VAT and gross amounts are unchanged; inform the
-  communities (pilot group first) before the rollout.
-- Document numbers of two final runs of one community started at the same time (known-errors #15): the second
-  run now waits for the first (see Added), so both get distinct numbers instead of the second failing on the
-  unique constraint.
 
 ## [1.3.0] – 2026-10-26
 

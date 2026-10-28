@@ -77,7 +77,7 @@ create table if not exists base.billing_masterdata
     tariff_time2_cent_per_kwh             numeric
 );
 
--- joining fee (backend 20261027120000); also for a reused container whose table predates the columns
+-- joining fee (backend 20261028130000); also for a reused container whose table predates the columns
 alter table base.billing_masterdata
     add column if not exists tariff_joining_fee                numeric default 0,
     add column if not exists tariff_joining_fee_use_vat        boolean default false,

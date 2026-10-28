@@ -60,6 +60,24 @@ class JoiningFeeRecordTests extends JoiningFeeScenarioBase {
     }
 
     /**
+     * Review finding 28.10.2026: the tenant is validated case-insensitively, so a record must count whatever case the
+     * caller sends; it is stored in upper case and found by the run and by the state of either spelling.
+     */
+    @Test
+    void aRecordCountsWhateverCaseTheTenantIsSentIn() {
+        BillingRunFixture world = insert(world().master(consumer(1, "C1").joiningFee("50", null), "100"), false);
+
+        joiningFeeService.saveRecord(tenant.toLowerCase(), participant(1),
+                request("PAID_EXTERNALLY", "2026-01-15", "bar"), null);
+
+        assertThat(jdbc.queryForObject("select tenant_id from billing_joining_fee_record", String.class),
+                is(tenant.toUpperCase()));
+        assertThat(state(1).getPaidExternally(), notNullValue());
+        assertThat(joiningFeeService.findJoiningFeeState(tenant.toLowerCase()), hasSize(1));
+        assertThat(itemsOfType(run(world, PERIOD, false).getBillingRunId(), JOINING_FEE), is(empty()));
+    }
+
+    /**
      * A requested member without energy in the run: in the run with 0 kWh the fee joins the usual invoice (running
      * fee); not in the run at all, the member gets an own invoice with only the fee.
      */

@@ -188,8 +188,8 @@ public class BillingService {
     @Transactional
     public DoBillingResults executeBillingRun(UUID billingRunId, DoBillingParams doBillingParams) {
 
-        // Endgueltige Laeufe einer Gemeinschaft nacheinander (Beitrittsgebuehr hoechstens einmal);
-        // als erster Schritt, Vorschau-Laeufe sperren nicht
+        // Endgueltige Laeufe einer Gemeinschaft einzeln (Beitrittsgebuehr hoechstens einmal): ein zweiter
+        // endet sofort (Entscheidung 28.10.2026); als erster Schritt, Vorschau-Laeufe sperren nicht
         if (!doBillingParams.isPreview()) {
             finalRunLock.lock(doBillingParams.getTenantId());
         }
@@ -236,7 +236,7 @@ public class BillingService {
             // (bei endgueltigen Laeufen erst nach der Sperre gelesen, sieht also die Belege eines Vorlaeufers)
             // plus die Eintraege je Mitglied: nachverrechnen (vorgemerkt) bzw. ausserhalb bezahlt
             List<JoiningFeeRecord> joiningFeeRecords = joiningFeeRecordRepository
-                    .findByTenantId(doBillingParams.getTenantId());
+                    .findByTenantId(JoiningFeeService.recordTenant(doBillingParams.getTenantId()));
             JoiningFeeHistory joiningFeeHistory = new JoiningFeeHistory(
                     billingDocumentRepository.findEnergyBilledParticipants(doBillingParams.getTenantId(),
                             ZAEHLPUNKTGEBUEHR_TEXT + "%"),

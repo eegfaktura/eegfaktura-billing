@@ -1,69 +1,50 @@
 package org.vfeeg.eegfaktura.billing.service;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceException;
 import org.springframework.stereotype.Component;
-import org.vfeeg.eegfaktura.billing.util.AppProperties;
 
-import java.sql.SQLException;
 import java.util.Locale;
 
 /**
- * Final runs of one community run one after the other (konzept-beitrittsgebuehr.md, rule 6): a PostgreSQL
+ * Final runs of one community run one at a time (konzept-beitrittsgebuehr.md, rule 6): a PostgreSQL
  * transaction-level advisory lock per tenant, held until the run's transaction ends - across replicas and
- * restarts, unlike {@code InMemoryLockRepository}. A second final run waits (status RUNNING) and then sees the
- * documents of the first. The wait is limited by {@code app.final-run-lock-timeout}
- * ({@code BILLING_FINAL_RUN_LOCK_TIMEOUT}, default 30 minutes, 0 = no limit); after it the run fails.
+ * restarts, unlike {@code InMemoryLockRepository}. A second final run does not wait (decided 28.10.2026): it ends
+ * at once with {@link FinalRunBusyException}, so no billing thread waits and runs of other communities are never
+ * held up. The joining fee records of the community take the same lock, so they cannot change while a final run
+ * reads them.
  */
 @Component
 public class FinalRunLock {
 
-    static final String WAIT_TIMEOUT_MESSAGE = "Ein anderer Abrechnungslauf dieser Gemeinschaft läuft noch";
-    private static final String LOCK_NOT_AVAILABLE = "55P03";
+    static final String BUSY_MESSAGE =
+            "Ein endgültiger Abrechnungslauf dieser Gemeinschaft läuft gerade – bitte nach dessen Ende erneut starten";
+    /** first key of the two-key advisory lock: keeps these locks apart from other (single-key) advisory locks */
+    private static final int LOCK_CLASS = 217;
 
     private final EntityManager entityManager;
-    private final AppProperties appProperties;
 
-    public FinalRunLock(final EntityManager entityManager, final AppProperties appProperties) {
+    public FinalRunLock(final EntityManager entityManager) {
         this.entityManager = entityManager;
-        this.appProperties = appProperties;
     }
 
-    /** Waits for the community's lock; must run inside the run's transaction. */
+    /** Takes the community's lock without waiting; must run inside a transaction. False: a final run holds it. */
+    public boolean tryLock(String tenantId) {
+        Object locked = entityManager.createNativeQuery("select pg_try_advisory_xact_lock(?1, hashtext(?2))")
+                .setParameter(1, LOCK_CLASS)
+                .setParameter(2, "billing_run_final/" + tenantId.toUpperCase(Locale.ROOT))
+                .getSingleResult();
+        return Boolean.TRUE.equals(locked);
+    }
+
+    /** For a final run: the community's lock, or {@link FinalRunBusyException} when another final run holds it. */
     public void lock(String tenantId) {
-        String previousTimeout = (String) entityManager
-                .createNativeQuery("select current_setting('lock_timeout')").getSingleResult();
-        setLockTimeout(appProperties.getFinalRunLockTimeout().toMillis() + "ms");
-        try {
-            entityManager.createNativeQuery("select 1 from (select pg_advisory_xact_lock(hashtext(?1))) l")
-                    .setParameter(1, "billing_run_final/" + tenantId.toUpperCase(Locale.ROOT))
-                    .getSingleResult();
-        } catch (PersistenceException e) {
-            if (isLockNotAvailable(e)) {
-                throw new FinalRunLockTimeoutException();
-            }
-            throw e;
+        if (!tryLock(tenantId)) {
+            throw new FinalRunBusyException();
         }
-        // later lock waits of the run (e.g. document numbers) keep the server's setting
-        setLockTimeout(previousTimeout);
     }
 
-    private void setLockTimeout(String value) {
-        entityManager.createNativeQuery("select set_config('lock_timeout', ?1, true)")
-                .setParameter(1, value).getSingleResult();
-    }
-
-    private static boolean isLockNotAvailable(Throwable e) {
-        for (Throwable t = e; t != null; t = t.getCause()) {
-            if (t instanceof SQLException sql && LOCK_NOT_AVAILABLE.equals(sql.getSQLState())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** The wait limit passed; the launcher records the run as FAILED with this message. */
-    public static class FinalRunLockTimeoutException extends RuntimeException {
-        public FinalRunLockTimeoutException() { super(WAIT_TIMEOUT_MESSAGE); }
+    /** Another final run of the community holds the lock; the launcher records the run as FAILED with this text. */
+    public static class FinalRunBusyException extends RuntimeException {
+        public FinalRunBusyException() { super(BUSY_MESSAGE); }
     }
 }
