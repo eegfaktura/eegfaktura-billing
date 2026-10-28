@@ -32,6 +32,10 @@ public class BillingService {
 
     public static final String ZAEHLPUNKTGEBUEHR_TEXT = "Zählpunktgebühr";
     public static final String JOINING_FEE_TEXT = "Beitrittsgebühr";
+    static final String NO_ALLOCATIONS_TEXT = "Keine Energiemengen für die Abrechnung übergeben – bitte die Seite"
+            + " neu laden und die Energiedaten des Zeitraums laden.";
+    static final String NO_MATCHING_ALLOCATIONS_TEXT = "Keine der übergebenen Energiemengen passt zu einem"
+            + " Mitglied/Zählpunkt der Stammdaten – es wurde kein Beleg erstellt.";
     private final BillingMasterdataRepository billingMasterdataRepository;
     private final BillingDocumentNumberGenerator billingDocumentNumberGenerator;
     private final BillingRunRepository billingRunRepository;
@@ -79,6 +83,11 @@ public class BillingService {
      */
     @Transactional
     public BillingRun acceptBillingRun(DoBillingParams doBillingParams) {
+
+        // Ohne Energiemengen gibt es nichts abzurechnen: ablehnen, bevor ein Lauf angelegt wird (platform#189)
+        if (doBillingParams.getAllocations() == null || doBillingParams.getAllocations().length == 0) {
+            throw new IllegalArgumentException(NO_ALLOCATIONS_TEXT);
+        }
 
         // Pruefe das gewuenschte Belegdatum. Dieses darf nicht in die Zukunft
         // datiert werden => Fehler
@@ -137,6 +146,11 @@ public class BillingService {
     /** Bereits abgeschlossener/stornierter Lauf - vom Aufrufer als Konflikt zu behandeln. */
     public static class BillingRunAlreadyClosedException extends RuntimeException {
         public BillingRunAlreadyClosedException(String message) { super(message); }
+    }
+
+    /** Keine uebergebene Energiemenge passt zu einem Mitglied/Zaehlpunkt - fuehrt zum Lauf-Abbruch (FAILED). */
+    public static class NoMatchingAllocationsException extends RuntimeException {
+        public NoMatchingAllocationsException(String message) { super(message); }
     }
 
     /**
@@ -230,6 +244,11 @@ public class BillingService {
             Map<String, List<BillingMasterdata>> participantsWithAllocationsMap = billingMasterdataList.stream()
                     .filter(e -> allocationMap.containsKey(e.getParticipantId()+"@"+e.getMeteringPointId()))
                     .collect(Collectors.groupingBy(BillingMasterdata::getParticipantId));
+
+            // Keine Menge passt zu den Stammdaten: kein Beleg - der Lauf endet FAILED statt DONE (platform#189)
+            if (participantsWithAllocationsMap.isEmpty()) {
+                throw new NoMatchingAllocationsException(NO_MATCHING_ALLOCATIONS_TEXT);
+            }
 
             // Nun wird fuer jeden Teilnehmer die Abrechnung durchgefuehrt
             // Beitrittsgebuehr: Verlauf der Gemeinschaft aus ihren endgueltigen Belegen, einmal je Lauf

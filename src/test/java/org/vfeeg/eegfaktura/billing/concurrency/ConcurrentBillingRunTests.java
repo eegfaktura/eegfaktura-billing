@@ -5,10 +5,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
+import org.vfeeg.eegfaktura.billing.model.Allocation;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
 import org.vfeeg.eegfaktura.billing.rest.BillingResource;
+import org.vfeeg.eegfaktura.billing.support.AllocationBuilder;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
 import org.vfeeg.eegfaktura.billing.support.ConcurrencyAndMailBase;
 import org.vfeeg.eegfaktura.billing.support.Gate;
@@ -274,8 +276,10 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
             "Ein endgültiger Abrechnungslauf dieser Gemeinschaft läuft gerade – bitte nach dessen Ende erneut starten";
     private static final String BUSY = "Abrechnung fehlgeschlagen: " + BUSY_TEXT;
 
+    /** A run of a community without master rows; one amount, since a start without amounts is refused (#189). */
     private static DoBillingParams params(String tenantId, String period) {
         DoBillingParams params = BillingRunFixture.forTenant(tenantId).params(PERIOD_TYPE, period, false);
+        params.setAllocations(new Allocation[]{AllocationBuilder.of(participant(1), "C1", "100")});
         return withDate(params);
     }
 
