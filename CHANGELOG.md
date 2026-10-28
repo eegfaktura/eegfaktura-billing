@@ -18,7 +18,9 @@ this changelog highlights the changes relevant for overview and operations.
   „Abrechnung fehlgeschlagen: Keine der übergebenen Energiemengen passt zu einem Mitglied/Zählpunkt der Stammdaten –
   es wurde kein Beleg erstellt.“ (nothing is written — documents of an earlier preview of the run stay, as with
   every FAILED run; the run can be restarted). Runs where at least one amount
-  matches are unchanged.
+  matches are unchanged. A period with no energy at all therefore gives no run, also when members are marked
+  „Beitrittsgebühr nachverrechnen“: their fee stays requested and is billed with the first run with energy (decided
+  28.10.2026; before, such a run wrote fee-only invoices).
 
 ## [1.6.0] – 2026-10-28
 
