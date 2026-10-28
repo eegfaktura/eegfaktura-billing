@@ -6,6 +6,7 @@ import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
+import org.vfeeg.eegfaktura.billing.service.BillingService;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
 import org.vfeeg.eegfaktura.billing.support.BillingScenarioBase;
 
@@ -112,16 +113,20 @@ class BillingScenarioVatTests extends BillingScenarioBase {
     }
 
     /**
-     * S4 without the defect part: the run fails with the reason. Since 1.0.8 the service throws it (the launcher
+     * S4 without the defect part: the run fails with the reason (since the joining fee a German text with the
+     * member number and the three rates). Since 1.0.8 the service throws it (the launcher
      * records the run as FAILED with "Abrechnung fehlgeschlagen: " + the message, the resource's caller polls it).
      */
     @Test
     void s04_threeVatRatesFailTheRun() {
         BillingRunFixture world = insert(threeRateWorld(), false);
 
-        IllegalArgumentException failed = assertThrows(IllegalArgumentException.class, () -> bill(world, true));
+        BillingService.VatRateLimitException failed =
+                assertThrows(BillingService.VatRateLimitException.class, () -> bill(world, true));
 
-        assertThat(failed.getMessage(), startsWith("More than 2 VAT rates not supported"));
+        // since the joining fee: the member number and the rates, no name (the message is also logged)
+        assertThat(failed.getMessage(), is("Mitglied ohne Mitgliedsnummer: mehr als zwei verschiedene USt-Sätze"
+                + " über 0 % auf einem Beleg (20,00 %, 10,00 %, 13,00 %). Bitte die USt-Sätze der Tarife prüfen."));
     }
 
     /**

@@ -75,5 +75,15 @@ create table if not exists base.billing_masterdata
     tariff_time2_name                     varchar,
     tariff_time2_from                     varchar,
     tariff_time2_to                       varchar,
-    tariff_time2_cent_per_kwh             numeric
+    tariff_time2_cent_per_kwh             numeric,
+    -- joining fee (backend 20261028130000): the view's fallback is 0/false like tariff_participant_fee_*
+    tariff_joining_fee                    numeric default 0,
+    tariff_joining_fee_use_vat            boolean default false,
+    tariff_joining_fee_vat_in_percent     numeric default 0
 );
+
+-- joining fee (backend 20261028130000); also for a reused container whose table predates the columns
+alter table base.billing_masterdata
+    add column if not exists tariff_joining_fee                numeric default 0,
+    add column if not exists tariff_joining_fee_use_vat        boolean default false,
+    add column if not exists tariff_joining_fee_vat_in_percent numeric default 0;

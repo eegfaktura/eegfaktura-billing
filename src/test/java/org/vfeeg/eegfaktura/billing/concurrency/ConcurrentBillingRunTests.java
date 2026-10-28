@@ -1,6 +1,5 @@
 package org.vfeeg.eegfaktura.billing.concurrency;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,9 +17,12 @@ import java.time.Duration;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -147,13 +149,14 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
 
     /**
      * F4 (#15) through the resource: two real runs (two periods) of one community started at the same moment;
-     * both are accepted (different periods, different claims), both must complete with distinct numbers.
-     * Since the asynchronous run nothing serialises the two calculations any more: both read the maximum,
-     * both take 42, the second run ends FAILED on the unique constraint (tenant, document number).
+     * both are accepted (different periods, different claims). Since the asynchronous run nothing serialised the two
+     * calculations: both read the maximum, both took 42, the second run ended FAILED on the unique constraint
+     * (tenant, document number). Since the joining fee final runs of one community run one at a time
+     * ({@code FinalRunLock}, decided 28.10.2026: refused, not waiting): the second ends FAILED with a clear message
+     * when the first is still running, or runs after it; never two documents with one number.
      */
     @Test
-    @Disabled("known-errors #15")
-    void twoRunsOfOneCommunityAtOnceGetDistinctNumbers() {
+    void twoRunsOfOneCommunityAtOnceNeverShareANumber() {
         BillingRunFixture world = insert(world().master(consumer(1, "C1"), "100"), false);
         CyclicBarrier start = new CyclicBarrier(2);
 
@@ -166,24 +169,33 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
                     }))
                     .toList();
 
+            int done = 0;
             for (Future<ResponseEntity<DoBillingResults>> run : runs) {
                 ResponseEntity<DoBillingResults> accepted = result(run, "run");
                 assertThat(accepted.getStatusCode(), is(HttpStatus.ACCEPTED));
-                assertThat(awaitFinished(accepted.getBody().getBillingRunId()), is(BillingRunStatus.DONE));
+                UUID runId = accepted.getBody().getBillingRunId();
+                if (awaitFinished(runId) == BillingRunStatus.DONE) {
+                    done++;
+                } else {
+                    assertThat(run(runId).getErrorSummary(), is(BUSY));
+                }
             }
-            assertThat(documentNumbers(), containsInAnyOrder("TRECH202400042", "TRECH202400043"));
+            assertThat("at least one run billed", done >= 1, is(true));
+            List<String> numbers = documentNumbers();
+            assertThat(numbers.size(), is(done));
+            assertThat("distinct numbers", Set.copyOf(numbers).size(), is(done));
         });
     }
 
     /**
      * F4 (#15): the number is read (max + 1) and saved without a lock. Two runs of one community in the
-     * service (where a second instance of the service would call it as well) both read the maximum before
-     * either saves. Correct: distinct numbers and both runs succeed. With the defect both take 42 and the
-     * second fails on the unique constraint (tenant, document number).
+     * service (where a second instance of the service would call it as well) would both read the maximum before
+     * either saves, both take 42, and the second would fail on the unique constraint (tenant, document number).
+     * Since {@code FinalRunLock} (refused, not waiting, decided 28.10.2026) the first holds the community's lock
+     * while it reads the number (held at the barrier), so the second final run is refused at once.
      */
     @Test
-    @Disabled("known-errors #15")
-    void numbersOfParallelRunsInTheServiceAreDistinct() {
+    void secondFinalRunInTheServiceIsRefusedWhileTheFirstReadsItsNumber() {
         BillingRunFixture world = insert(world().master(consumer(1, "C1"), "100"), false);
         CyclicBarrier bothRead = new CyclicBarrier(2);
         AtomicInteger reads = new AtomicInteger();
@@ -201,10 +213,21 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
                             withDate(world.params(PERIOD_TYPE, period, false)))))
                     .toList();
 
+            int ok = 0;
+            int refused = 0;
             for (Future<DoBillingResults> run : runs) {
-                assertThat(result(run, "run").getAbstractText(), is(RESULT_FINAL_OK));
+                try {
+                    assertThat(run.get(Gate.TIMEOUT.toMillis(), TimeUnit.MILLISECONDS).getAbstractText(),
+                            is(RESULT_FINAL_OK));
+                    ok++;
+                } catch (ExecutionException e) {
+                    assertThat(e.getCause().getMessage(), is(BUSY_TEXT));
+                    refused++;
+                }
             }
-            assertThat(documentNumbers(), containsInAnyOrder("TRECH202400042", "TRECH202400043"));
+            assertThat(ok, is(1));
+            assertThat(refused, is(1));
+            assertThat(documentNumbers(), containsInAnyOrder("TRECH202400042"));
         });
     }
 
@@ -246,6 +269,10 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
         throw new AssertionError("run " + runId + " still " + run.getRunStatus() + " after " + Gate.TIMEOUT
                 + (run.getErrorSummary() != null ? ": " + run.getErrorSummary() : ""));
     }
+
+    private static final String BUSY_TEXT =
+            "Ein endgültiger Abrechnungslauf dieser Gemeinschaft läuft gerade – bitte nach dessen Ende erneut starten";
+    private static final String BUSY = "Abrechnung fehlgeschlagen: " + BUSY_TEXT;
 
     private static DoBillingParams params(String tenantId, String period) {
         DoBillingParams params = BillingRunFixture.forTenant(tenantId).params(PERIOD_TYPE, period, false);

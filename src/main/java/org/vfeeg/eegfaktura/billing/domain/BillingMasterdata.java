@@ -114,12 +114,21 @@ public class BillingMasterdata {
     @Column(name = "tariff_time2_cent_per_kwh")
     private BigDecimal tariffTime2CentPerKwh;
 
+    // Beitrittsgebuehr aus dem EEG-Tarif des Mitglieds (backend-View, Ersatzwert 0/false)
+    private BigDecimal tariffJoiningFee;
+    private Boolean tariffJoiningFeeUseVat;
+    private BigDecimal tariffJoiningFeeVatInPercent;
+
     public Boolean getTariffUseVat() {
         return Objects.requireNonNullElse(tariffUseVat, Boolean.FALSE);
     }
 
     public Boolean getTariffParticipantFeeUseVat() {
         return Objects.requireNonNullElse(tariffParticipantFeeUseVat, Boolean.FALSE);
+    }
+
+    public Boolean getTariffJoiningFeeUseVat() {
+        return Objects.requireNonNullElse(tariffJoiningFeeUseVat, Boolean.FALSE);
     }
 
     public Boolean getEecSubjectToVat() {

@@ -31,6 +31,7 @@ public class BillingService {
 
 
     public static final String ZAEHLPUNKTGEBUEHR_TEXT = "Zählpunktgebühr";
+    public static final String JOINING_FEE_TEXT = "Beitrittsgebühr";
     private final BillingMasterdataRepository billingMasterdataRepository;
     private final BillingDocumentNumberGenerator billingDocumentNumberGenerator;
     private final BillingRunRepository billingRunRepository;
@@ -41,6 +42,8 @@ public class BillingService {
     private final BillingPdfService billingPdfService;
     private final FileDataRepository fileDataRepository;
     private final ParticipantAmountService participantAmountService;
+    private final FinalRunLock finalRunLock;
+    private final JoiningFeeRecordRepository joiningFeeRecordRepository;
 
     public BillingService(final BillingPdfService billingPdfService,
                           final BillingMasterdataRepository billingMasterdataRepository,
@@ -51,7 +54,9 @@ public class BillingService {
                           final BillingConfigRepository billingConfigRepository,
                           final BillingDocumentFileRepository billingDocumentFileRepository,
                           final FileDataRepository fileDataRepository,
-                          final ParticipantAmountService participantAmountService) {
+                          final ParticipantAmountService participantAmountService,
+                          final FinalRunLock finalRunLock,
+                          final JoiningFeeRecordRepository joiningFeeRecordRepository) {
         this.billingPdfService = billingPdfService;
         this.billingMasterdataRepository = billingMasterdataRepository;
         this.billingDocumentNumberGenerator = billingDocumentNumberGenerator;
@@ -62,6 +67,8 @@ public class BillingService {
         this.billingDocumentFileRepository = billingDocumentFileRepository;
         this.fileDataRepository = fileDataRepository;
         this.participantAmountService = participantAmountService;
+        this.finalRunLock = finalRunLock;
+        this.joiningFeeRecordRepository = joiningFeeRecordRepository;
     }
 
     /**
@@ -181,6 +188,12 @@ public class BillingService {
     @Transactional
     public DoBillingResults executeBillingRun(UUID billingRunId, DoBillingParams doBillingParams) {
 
+        // Endgueltige Laeufe einer Gemeinschaft einzeln (Beitrittsgebuehr hoechstens einmal): ein zweiter
+        // endet sofort (Entscheidung 28.10.2026); als erster Schritt, Vorschau-Laeufe sperren nicht
+        if (!doBillingParams.isPreview()) {
+            finalRunLock.lock(doBillingParams.getTenantId());
+        }
+
         DoBillingResults doBillingResults = new DoBillingResults();
 
         BillingRun billingRun = billingRunRepository.findById(billingRunId)
@@ -219,8 +232,32 @@ public class BillingService {
                     .collect(Collectors.groupingBy(BillingMasterdata::getParticipantId));
 
             // Nun wird fuer jeden Teilnehmer die Abrechnung durchgefuehrt
+            // Beitrittsgebuehr: Verlauf der Gemeinschaft aus ihren endgueltigen Belegen, einmal je Lauf
+            // (bei endgueltigen Laeufen erst nach der Sperre gelesen, sieht also die Belege eines Vorlaeufers)
+            // plus die Eintraege je Mitglied: nachverrechnen (vorgemerkt) bzw. ausserhalb bezahlt
+            List<JoiningFeeRecord> joiningFeeRecords = joiningFeeRecordRepository
+                    .findByTenantId(JoiningFeeService.recordTenant(doBillingParams.getTenantId()));
+            JoiningFeeHistory joiningFeeHistory = new JoiningFeeHistory(
+                    billingDocumentRepository.findEnergyBilledParticipants(doBillingParams.getTenantId(),
+                            ZAEHLPUNKTGEBUEHR_TEXT + "%"),
+                    billingDocumentRepository.findBilledJoiningFees(doBillingParams.getTenantId()).stream()
+                            .map(BillingDocumentRepository.BilledJoiningFee::getParticipantId)
+                            .collect(Collectors.toSet()),
+                    participantsWith(joiningFeeRecords, JoiningFeeRecord.Kind.CHARGE_REQUESTED),
+                    participantsWith(joiningFeeRecords, JoiningFeeRecord.Kind.PAID_EXTERNALLY));
+
             for (List<BillingMasterdata> p : participantsWithAllocationsMap.values()) {
-                doBillingForParticipant(p, allocationMap, doBillingParams, billingRun, doBillingResults);
+                doBillingForParticipant(p, allocationMap, doBillingParams, billingRun, doBillingResults,
+                        joiningFeeHistory);
+            }
+
+            // Vorgemerkte Mitglieder ohne Zaehlpunkt in diesem Lauf: eigene Rechnung nur mit der Beitrittsgebuehr
+            Map<String, List<BillingMasterdata>> requestedOutsideTheRun = billingMasterdataList.stream()
+                    .filter(m -> joiningFeeHistory.requested().contains(m.getParticipantId())
+                            && !participantsWithAllocationsMap.containsKey(m.getParticipantId()))
+                    .collect(Collectors.groupingBy(BillingMasterdata::getParticipantId));
+            for (List<BillingMasterdata> p : requestedOutsideTheRun.values()) {
+                doJoiningFeeOnlyInvoice(p, doBillingParams, billingRun, doBillingResults, joiningFeeHistory);
             }
 
             // Preview-Laeufe bleiben wiederholbar (NEW), finale Laeufe sind DONE.
@@ -240,7 +277,8 @@ public class BillingService {
     private void doBillingForParticipant(List<BillingMasterdata> billingMasterdataList,
                                          Map<String, Allocation> allocationMap,
                                          DoBillingParams doBillingParams, BillingRun billingRun,
-                                         DoBillingResults doBillingResults) {
+                                         DoBillingResults doBillingResults,
+                                         JoiningFeeHistory joiningFeeHistory) {
 
         BillingMasterdata firstBillingMasterdata = billingMasterdataList.get(0);
         ParticipantAmount participantAmount = new ParticipantAmount();
@@ -252,17 +290,42 @@ public class BillingService {
                         m -> StringUtils.defaultString(m.getMeteringEquipmentName()),
                         (a, b) -> a));
 
-        // (1) Erzeuge Rechnungen (INVOICES)
+        // (1) Energiepositionen beider Belegarten zuerst: ob die Beitrittsgebuehr faellig ist, haengt
+        // davon ab, ob das Mitglied in diesem Lauf Energie (Bezug oder Einspeisung) abgerechnet bekommt.
+        List<BillingMasterdata> consumersOnly = billingMasterdataList.stream().filter(
+                billingMasterdata -> billingMasterdata.getMeteringPointType().equals(MeteringPointType.CONSUMER)).toList();
+
+        final BillingDocument invoice = createBillingDocument(firstBillingMasterdata,
+                BillingDocumentType.INVOICE,
+                doBillingParams);
+        List<BillingDocumentItem> invoiceItems = new ArrayList<>();
+        consumersOnly.forEach(e -> createBillingDocumentItem(invoice, invoiceItems, e, allocationMap));
+
+        List<BillingMasterdata> producersOnly = billingMasterdataList.stream().filter(
+                e -> e.getMeteringPointType().equals(MeteringPointType.PRODUCER)).toList();
+
+        // Wenn der Erzeuger keine UID hat,
+        //     dann bekommt er eine normale Gutschrift (ohne UST) mit Fixtexten zu Gutschriften
+        // Wenn der Erzeuger eine UID hat UND die EEG nur Erzeugern ohne UID eine Gutschrift schickt
+        //     dann wird ein Info Dokument erstellt mit UST und den Fixtexten
+        //     gem. BillingConfig INFO Dokumenten
+        // Wenn der Erzeuger eine UID hat UND die EEG allen Erzeugern Gutschriften schickt,
+        //     dann wird eine Reverse Charge Gutschrift erstellt mit UST UND den
+        //     Fixtexten gem. BillingConfig INFO Dokumenten
+        final BillingDocument producerDocument = createBillingDocument(billingMasterdataList.get(0),
+                StringUtils.isNotEmpty(billingMasterdataList.get(0).getParticipantVatId()) ?
+                        (doBillingParams.getBillingConfig().isCreateCreditNotesForAllProducers() ?
+                                BillingDocumentType.CREDIT_NOTE_RC : BillingDocumentType.INFO)
+                        : BillingDocumentType.CREDIT_NOTE,
+                doBillingParams);
+        List<BillingDocumentItem> creditNotesItems = new ArrayList<>();
+        producersOnly.forEach(e -> createBillingDocumentItem(producerDocument, creditNotesItems, e, allocationMap));
+
+        // Bis hier enthalten beide Listen nur tatsaechlich angelegte Energiepositionen
+        boolean energyInThisRun = !invoiceItems.isEmpty() || !creditNotesItems.isEmpty();
+
+        // (2) Erzeuge Rechnungen (INVOICES)
         {
-            List<BillingMasterdata> consumersOnly = billingMasterdataList.stream().filter(
-                    billingMasterdata -> billingMasterdata.getMeteringPointType().equals(MeteringPointType.CONSUMER)).toList();
-
-            final BillingDocument invoice = createBillingDocument(firstBillingMasterdata,
-                    BillingDocumentType.INVOICE,
-                    doBillingParams);
-            List<BillingDocumentItem> invoiceItems = new ArrayList<>();
-            consumersOnly.forEach(e -> createBillingDocumentItem(invoice, invoiceItems, e, allocationMap));
-
             // Wenn Mitgliedsbeitrag (tariffParticipantFee) not null, dann als Position hinzufügen
             final String documentText = firstBillingMasterdata.getTariffParticipantFeeText();
             createCustomBillingDocumentItem(
@@ -277,8 +340,15 @@ public class BillingService {
                     firstBillingMasterdata.getTariffParticipantFee(),
                     firstBillingMasterdata.getTariffParticipantFeeDiscount(),
                     firstBillingMasterdata.getTariffParticipantFeeUseVat(),
-                    firstBillingMasterdata.getTariffParticipantFeeVatInPercent()
+                    firstBillingMasterdata.getTariffParticipantFeeVatInPercent(),
+                    BillingDocumentItemType.PARTICIPANT_FEE
             );
+
+            // Beitrittsgebuehr: einmalig mit der ersten Energieabrechnung, immer auf der Rechnung
+            // (ein reiner Einspeiser bekommt dafuer eine eigene Rechnung), eigene USt-Einstellung
+            if (isJoiningFeeDue(firstBillingMasterdata, energyInThisRun, joiningFeeHistory)) {
+                createJoiningFeeItem(invoice, invoiceItems, firstBillingMasterdata);
+            }
 
             // Zählpunktgebühren werden erstellt
             billingMasterdataList.stream().filter(
@@ -300,28 +370,8 @@ public class BillingService {
             participantAmountService.addParticipantAmountData(participantAmount, invoice, invoiceItems);
         }
 
-        // (2) Erzeuge Gutschriften (CREDIT_NOTES) bzw. ggf. Info-Dokument (INFO) für alle Erzeuger
+        // (3) Erzeuge Gutschriften (CREDIT_NOTES) bzw. ggf. Info-Dokument (INFO) für alle Erzeuger
         {
-            List<BillingMasterdata> producersOnly = billingMasterdataList.stream().filter(
-                    e -> e.getMeteringPointType().equals(MeteringPointType.PRODUCER)).toList();
-
-            // Wenn der Erzeuger keine UID hat,
-            //     dann bekommt er eine normale Gutschrift (ohne UST) mit Fixtexten zu Gutschriften
-            // Wenn der Erzeuger eine UID hat UND die EEG nur Erzeugern ohne UID eine Gutschrift schickt
-            //     dann wird ein Info Dokument erstellt mit UST und den Fixtexten
-            //     gem. BillingConfig INFO Dokumenten
-            // Wenn der Erzeuger eine UID hat UND die EEG allen Erzeugern Gutschriften schickt,
-            //     dann wird eine Reverse Charge Gutschrift erstellt mit UST UND den
-            //     Fixtexten gem. BillingConfig INFO Dokumenten
-            final BillingDocument producerDocument = createBillingDocument(billingMasterdataList.get(0),
-                    StringUtils.isNotEmpty(billingMasterdataList.get(0).getParticipantVatId()) ?
-                            (doBillingParams.getBillingConfig().isCreateCreditNotesForAllProducers() ?
-                                    BillingDocumentType.CREDIT_NOTE_RC : BillingDocumentType.INFO)
-                            : BillingDocumentType.CREDIT_NOTE,
-                    doBillingParams);
-            List<BillingDocumentItem> creditNotesItems = new ArrayList<>();
-            producersOnly.forEach(e -> createBillingDocumentItem(producerDocument, creditNotesItems, e, allocationMap));
-
             calculateGrossValues(producerDocument, creditNotesItems);
 
             if (!BigDecimalTools.isNullOrZero(producerDocument.getGrossAmountInEuro())) {
@@ -669,6 +719,7 @@ public class BillingService {
                                           boolean keepZeroPosition) {
 
         BillingDocumentItem newBillingDocumentItem = new BillingDocumentItem();
+        newBillingDocumentItem.setItemType(BillingDocumentItemType.ENERGY);
         newBillingDocumentItem.setMeteringPointId(billingMasterdata.getMeteringPointId());
         newBillingDocumentItem.setMeteringPointType(billingMasterdata.getMeteringPointType());
         newBillingDocumentItem.setText(timeWindowLabel == null
@@ -745,7 +796,8 @@ public class BillingService {
                                            BigDecimal price,
                                            BigDecimal discountPercent,
                                            boolean useVat,
-                                           BigDecimal vatPercent) {
+                                           BigDecimal vatPercent,
+                                           BillingDocumentItemType itemType) {
 
         if (BigDecimalTools.isNullOrZero(price)) return;
 
@@ -765,6 +817,7 @@ public class BillingService {
 
         if (BigDecimalTools.isNullOrZero(grossValue)) return; // Keine Nullposition!
 
+        newBillingDocumentItem.setItemType(itemType);
         newBillingDocumentItem.setText(text);
         newBillingDocumentItem.setDocumentText(documentText);
         newBillingDocumentItem.setTariffName(tariffName);
@@ -822,6 +875,7 @@ public class BillingService {
 
         // Gruppierungsschluessel fuer die ZP-Bloecke im PDF; ParticipantAmountService
         // nimmt Gebuehren-Items weiterhin per Text-Prefix aus den Energie-Betraegen aus.
+        newBillingDocumentItem.setItemType(BillingDocumentItemType.METERING_POINT_FEE);
         newBillingDocumentItem.setMeteringPointId(billingMasterdata.getMeteringPointId());
         newBillingDocumentItem.setText(String.format(ZAEHLPUNKTGEBUEHR_TEXT + ": %s", billingMasterdata.getMeteringPointId()));
         final String documentText = billingMasterdata.getTariffMeteringPointFeeText();
@@ -841,6 +895,94 @@ public class BillingService {
         billingDocumentItems.add(
                 billingDocumentItemRepository.save(newBillingDocumentItem));
 
+    }
+
+    /**
+     * Regel 2 und Erweiterung 27.10.2026 (konzept-beitrittsgebuehr.md): Gebuehr > 0, in der Gemeinschaft noch kein
+     * endgueltiger Beleg mit Beitrittsgebuehr, nicht ausserhalb bezahlt, und entweder die erste Energieabrechnung
+     * (Energieposition in diesem Lauf, noch kein endgueltiger Beleg mit Energie) oder zur Verrechnung vorgemerkt.
+     */
+    private static boolean isJoiningFeeDue(BillingMasterdata billingMasterdata, boolean energyInThisRun,
+                                           JoiningFeeHistory joiningFeeHistory) {
+        String participantId = billingMasterdata.getParticipantId();
+        boolean firstEnergyBilling = energyInThisRun && !joiningFeeHistory.energyBilled().contains(participantId);
+        return BigDecimalTools.makeZeroIfNull(billingMasterdata.getTariffJoiningFee()).signum() > 0
+                && !joiningFeeHistory.joiningFeeBilled().contains(participantId)
+                && !joiningFeeHistory.paidExternally().contains(participantId)
+                && (firstEnergyBilling || joiningFeeHistory.requested().contains(participantId));
+    }
+
+    /** Position „Beitrittsgebühr“: Tarifstand beim Abrechnen, kein Rabatt, eigene USt-Einstellung. */
+    private void createJoiningFeeItem(BillingDocument invoice, List<BillingDocumentItem> invoiceItems,
+                                      BillingMasterdata billingMasterdata) {
+        createCustomBillingDocumentItem(
+                invoice,
+                invoiceItems,
+                JOINING_FEE_TEXT,
+                null,
+                billingMasterdata.getTariffParticipantFeeName(),
+                billingMasterdata.getTariffJoiningFee(),
+                BigDecimal.ZERO,
+                billingMasterdata.getTariffJoiningFeeUseVat(),
+                billingMasterdata.getTariffJoiningFeeVatInPercent(),
+                BillingDocumentItemType.JOINING_FEE
+        );
+    }
+
+    /**
+     * Zur Verrechnung vorgemerktes Mitglied ohne Zaehlpunkt in diesem Lauf: eigene Rechnung nur mit der
+     * Beitrittsgebuehr (kein laufender Beitrag, keine Zaehlpunktgebuehr - es ist sonst nicht Teil des Laufs).
+     */
+    private void doJoiningFeeOnlyInvoice(List<BillingMasterdata> billingMasterdataList,
+                                         DoBillingParams doBillingParams, BillingRun billingRun,
+                                         DoBillingResults doBillingResults, JoiningFeeHistory joiningFeeHistory) {
+        BillingMasterdata firstBillingMasterdata = billingMasterdataList.get(0);
+        if (!isJoiningFeeDue(firstBillingMasterdata, false, joiningFeeHistory)) {
+            return;
+        }
+        ParticipantAmount participantAmount = new ParticipantAmount();
+        participantAmount.setId(UUID.fromString(firstBillingMasterdata.getParticipantId()));
+        BillingDocument invoice = createBillingDocument(firstBillingMasterdata, BillingDocumentType.INVOICE,
+                doBillingParams);
+        List<BillingDocumentItem> invoiceItems = new ArrayList<>();
+        createJoiningFeeItem(invoice, invoiceItems, firstBillingMasterdata);
+        calculateGrossValues(invoice, invoiceItems);
+        createAndAddDocumentNumber(invoice, firstBillingMasterdata, doBillingParams);
+        billingPdfService.createAndSavePDF(invoice, invoiceItems, Map.of(),
+                doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
+                doBillingParams.getBillingConfig().getFooterImageFileDataId(),
+                doBillingParams.isPreview());
+        invoice.setBillingRun(billingRun);
+        billingDocumentRepository.save(invoice);
+        participantAmountService.addParticipantAmountData(participantAmount, invoice, invoiceItems);
+        doBillingResults.getParticipantAmounts().add(participantAmount);
+    }
+
+    private static Set<String> participantsWith(List<JoiningFeeRecord> records, JoiningFeeRecord.Kind kind) {
+        return records.stream().filter(r -> r.getKind() == kind).map(JoiningFeeRecord::getParticipantId)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Mitglieder der Gemeinschaft mit Energie bzw. Beitrittsgebuehr auf einem endgueltigen Beleg, zur Verrechnung
+     * vorgemerkt bzw. als ausserhalb bezahlt erfasst.
+     */
+    private record JoiningFeeHistory(Set<String> energyBilled, Set<String> joiningFeeBilled,
+                                     Set<String> requested, Set<String> paidExternally) {
+    }
+
+    /**
+     * Mehr als zwei USt-Saetze ueber 0 % auf einem Beleg - fachlicher Abbruch des Laufs. Nennt die Mitgliedsnummer,
+     * nicht den Namen: die Meldung steht auch im Server-Log (BillingRunLauncher).
+     */
+    public static class VatRateLimitException extends RuntimeException {
+        public VatRateLimitException(String participantNumber, BigDecimal rate1, BigDecimal rate2, BigDecimal rate3) {
+            super(String.format("Mitglied %s: mehr als zwei verschiedene USt-Sätze über 0 %% auf einem Beleg"
+                            + " (%s, %s, %s). Bitte die USt-Sätze der Tarife prüfen.",
+                    StringUtils.defaultIfBlank(participantNumber, "ohne Mitgliedsnummer"),
+                    BigDecimalTools.makeGermanString(rate1, "%"), BigDecimalTools.makeGermanString(rate2, "%"),
+                    BigDecimalTools.makeGermanString(rate3, "%")));
+        }
     }
 
     // Beträge der Position (item) zu Gesamtbeträgen aufsummieren
@@ -877,8 +1019,8 @@ public class BillingService {
                 } else if (vatPercent.compareTo(invoiceVat2Percent)==0) {
                     billingDocument.setVat2SumInEuro(invoiceVat2SumInEuro.add(vatEuro));
                 } else {
-                    throw new IllegalArgumentException("More than 2 VAT rates not supported. Rate 1=%f, Rate 2=%f, New=%f"
-                            .formatted(invoiceVat1Percent, invoiceVat2Percent, vatPercent));
+                    throw new VatRateLimitException(billingDocument.getRecipientParticipantNumber(),
+                            invoiceVat1Percent, invoiceVat2Percent, vatPercent);
                 }
             }
             BigDecimal netAmountInEuro = BigDecimalTools.makeZeroIfNull(billingDocument.getNetAmountInEuro());

@@ -27,6 +27,11 @@ repository, file (with lines), commit and date in `source`.
   `backend/src/main/resources/db/migration/` (last changed in `12514bc`), sha256
   `cb9434d332850c2eae8e2e704bc74aa53bbf6f248c4e48bdeb228094301e3dc9`, AGPL-3.0.
 
+- **Joining fee (2026-10-27)**: `responses/JoiningFeeState.json` and the field `joiningFee` of `ParticipantAmount`
+  follow the contract of the joining-fee brief (konzept-beitrittsgebuehr.md, platform#217); the web code on branch
+  `feat/joining-fee` was not committed when they were written — refresh `readBy` and `web/endpoints.json` from the
+  web commit. The view columns come from `../legacy-base/07_…` (see the README there).
+
 ## Decisions the tests pin (as the code decides today)
 
 - **Unknown JSON fields are tolerated**: `JacksonConfig` disables `FAIL_ON_UNKNOWN_PROPERTIES`.

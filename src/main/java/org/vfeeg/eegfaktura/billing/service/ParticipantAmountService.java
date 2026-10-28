@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
+import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItemType;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.MeteringPointType;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentFileDTO;
@@ -68,10 +69,16 @@ public class ParticipantAmountService {
         participantAmount.getMeteringPoints().addAll(meteringPointAmounts.values());
 
         // Jenes Item ohne einer MeteringPointId UND nicht mit dem Text "Zaehlpunktgebuehr" beginnt
-        // ist (aktuell) die Mitgliedsgebühr
+        // ist (aktuell) die Mitgliedsgebühr - ausser der Beitrittsgebuehr (eigenes Feld)
         billingDocumentItems.stream().filter(billingDocumentItem -> billingDocumentItem.getMeteringPointId()==null
+                && billingDocumentItem.getItemType() != BillingDocumentItemType.JOINING_FEE
                 && !billingDocumentItem.getText().startsWith(BillingService.ZAEHLPUNKTGEBUEHR_TEXT))
                 .forEach(billingDocumentItem -> participantAmount.setParticipantFee(billingDocumentItem.getGrossValue()));
+
+        billingDocumentItems.stream()
+                .filter(billingDocumentItem -> billingDocumentItem.getItemType() == BillingDocumentItemType.JOINING_FEE)
+                .forEach(billingDocumentItem -> participantAmount.setJoiningFee(
+                        participantAmount.getJoiningFee().add(billingDocumentItem.getGrossValue())));
 
         // Jene Items die mit dem Text "Zaehlpunktgebuehr" beginnen, sind eben solche
         // und werden hier aufsummiert

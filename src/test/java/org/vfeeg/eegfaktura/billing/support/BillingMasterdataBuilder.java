@@ -126,6 +126,13 @@ public final class BillingMasterdataBuilder {
         return column("tariff_participant_fee_vat_in_percent", bd(vatPercentOrNull == null ? "0" : vatPercentOrNull));
     }
 
+    /** Joining fee of the member's EEG tariff with its own VAT setting ({@code null} = „USt nein“). */
+    public BillingMasterdataBuilder joiningFee(String amount, String vatPercentOrNull) {
+        column("tariff_joining_fee", bd(amount));
+        column("tariff_joining_fee_use_vat", vatPercentOrNull != null);
+        return column("tariff_joining_fee_vat_in_percent", bd(vatPercentOrNull == null ? "0" : vatPercentOrNull));
+    }
+
     public BillingMasterdataBuilder meteringPointFee(String amount, String text, String vatPercent) {
         return column("tariff_use_metering_point_fee", true).column("tariff_metering_point_fee", bd(amount))
                 .column("tariff_metering_point_fee_text", text).column("tariff_metering_point_vat", bd(vatPercent));

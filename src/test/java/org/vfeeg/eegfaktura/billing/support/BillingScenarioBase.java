@@ -111,6 +111,7 @@ public abstract class BillingScenarioBase {
         jdbc.update("delete from billing_config where tenant_id = ?", tenant);
         jdbc.update("delete from file_data where tenant_id = ?", tenant);
         jdbc.update("delete from base.billing_masterdata where tenant_id = ?", tenant);
+        jdbc.update("delete from billing_joining_fee_record where tenant_id = ?", tenant);
     }
 
     // ---- data ------------------------------------------------------------------------------------
