@@ -26,10 +26,12 @@ class FileDataTenantMigrationTests extends BillingScenarioBase {
     private final List<UUID> configs = new ArrayList<>();
     private final List<UUID> files = new ArrayList<>();
     private final List<UUID> documentFiles = new ArrayList<>();
+    private final List<UUID> mailFiles = new ArrayList<>();
 
     @AfterEach
     void removeRows() {
         documentFiles.forEach(id -> jdbc.update("delete from billing_document_file where id = ?", id));
+        mailFiles.forEach(id -> jdbc.update("delete from billing_mail_template_file where id = ?", id));
         configs.forEach(id -> jdbc.update("delete from billing_config where id = ?", id));
         files.forEach(id -> jdbc.update("delete from file_data where id = ?", id));
     }
@@ -41,6 +43,7 @@ class FileDataTenantMigrationTests extends BillingScenarioBase {
         UUID shared = file(null);           // referenced by two communities: ownership unclear
         UUID alsoAPdf = file(null);         // a document file as well
         UUID template = file(null);         // also the custom template of a config
+        UUID alsoAMailImage = file(null);   // an image of the mail text as well
         UUID unreferenced = file(null);
         UUID alreadySet = file("RC999999");
         // one config per community (unique tenant_id)
@@ -49,7 +52,9 @@ class FileDataTenantMigrationTests extends BillingScenarioBase {
         config(tenant + "-B", shared, null, null);
         config(tenant + "-C", shared, alsoAPdf, null);
         config(tenant + "-D", template, null, template);
+        config(tenant + "-E", alsoAMailImage, null, null);
         documentFile(alsoAPdf);
+        mailFile(alsoAMailImage);
 
         migrate();
         migrate();
@@ -59,6 +64,7 @@ class FileDataTenantMigrationTests extends BillingScenarioBase {
         assertThat(tenantOf(shared), nullValue());
         assertThat(tenantOf(alsoAPdf), nullValue());
         assertThat(tenantOf(template), nullValue());
+        assertThat(tenantOf(alsoAMailImage), nullValue());
         assertThat(tenantOf(unreferenced), nullValue());
         assertThat(tenantOf(alreadySet), is("RC999999"));
     }
@@ -89,6 +95,13 @@ class FileDataTenantMigrationTests extends BillingScenarioBase {
         jdbc.update("insert into billing_document_file (id, date_created, last_updated, file_data_id, tenant_id)"
                 + " values (?, now(), now(), ?, ?)", id, fileDataId, tenant);
         documentFiles.add(id);
+    }
+
+    private void mailFile(UUID fileDataId) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("insert into billing_mail_template_file (id, tenant_id, mail_key, file_data_id, kind, size,"
+                + " date_created) values (?, ?, 'billing-document', ?, 'image', 1, now())", id, tenant, fileDataId);
+        mailFiles.add(id);
     }
 
     private String tenantOf(UUID fileDataId) {
