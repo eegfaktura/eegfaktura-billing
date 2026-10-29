@@ -8,6 +8,12 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Fixed
+- **Test: a failed billing run leaves nothing behind, checked through the launcher** (eegfaktura-dev tracking billing 12).
+  The code was fixed in 1.0.8 (the calculation rolls back, `BillingRunLauncher` records the run as FAILED); the scenario
+  test `s04_threeVatRatesFailAndLeaveNothingBehind` was still disabled and called the old synchronous path. It now
+  accepts, claims and launches the run like the start endpoint and is enabled. No change in behaviour.
+
 ### Security
 - **CI: the release workflow pins its actions by commit SHA** (eegfaktura-dev tracking W-261028-mm6). `rolling-release.yml`
   builds and pushes the shipped image, but used floating tags (`@v4`, `@v3`, …); a moved tag ran in the job that holds
