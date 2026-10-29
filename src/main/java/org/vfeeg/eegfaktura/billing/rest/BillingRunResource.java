@@ -90,7 +90,7 @@ public class BillingRunResource {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
-        return billingRunActionLock.inTransaction(id, () -> {
+        return billingRunActionLock.export(id, () -> {
                 ByteArrayResource resource = new ByteArrayResource(
                         billingDocumentXlsxService.createXlsx(billingRunDTO.getId()));
 
@@ -113,7 +113,7 @@ public class BillingRunResource {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
-        return billingRunActionLock.inTransaction(id, () -> {
+        return billingRunActionLock.export(id, () -> {
                 List<BillingDocumentDTO> billingDocumentDTOs = billingDocumentService.findByBillingRunId(id);
 
                 ByteArrayResource resource = new ByteArrayResource(
@@ -137,7 +137,7 @@ public class BillingRunResource {
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
         // eigene Verbindung fuer die Sperre: der Mailversand schreibt seinen Status schrittweise (kein Gesamt-Rollback)
-        return billingRunActionLock.onOwnConnection(id, () -> {
+        return billingRunActionLock.mailRun(id, () -> {
                 try {
                     String sendProtocol = billingDocumentMailService.sendAllBillingDocuments(id);
                     return new ResponseEntity<>(sendProtocol, HttpStatus.OK);
@@ -169,7 +169,7 @@ public class BillingRunResource {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
-        billingRunActionLock.inTransaction(id, () -> {
+        billingRunActionLock.delete(id, () -> {
                 billingRunService.delete(id);
                 return null;
         });

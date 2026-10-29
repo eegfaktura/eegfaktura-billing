@@ -13,15 +13,16 @@ this changelog highlights the changes relevant for overview and operations.
   The code was fixed in 1.0.8 (the calculation rolls back, `BillingRunLauncher` records the run as FAILED); the scenario
   test `s04_threeVatRatesFailAndLeaveNothingBehind` was still disabled and called the old synchronous path. It now
   accepts, claims and launches the run like the start endpoint and is enabled. No change in behaviour.
-- **Export, mail run and deletion of a billing run: one at a time per run, refused instead of waiting** (eegfaktura-dev
+- **Export, mail run and deletion of a billing run: database locks per run, refused instead of waiting** (eegfaktura-dev
   tracking billing 14). The in-memory lock per community (`InMemoryLockRepository`) let a third request in next to a
-  waiting second one, expired after 15 minutes and did not hold across replicas. Now a PostgreSQL advisory lock per
-  billing run (like the final-run lock) guards `GET /api/billingRuns/{id}/billingDocuments/xlsx`, `…/archive`,
-  `…/sendmail` and `DELETE /api/billingRuns/{id}`. **What callers see (eegfaktura-web):** a second of these requests
-  for the same run while one is running gets **409** at once (before: it waited until the first had finished); the
-  web shows its usual error message for the action. Requests for different runs of a community no longer wait for
+  waiting second one, expired after 15 minutes and did not hold across replicas. Now PostgreSQL advisory locks per
+  billing run (like the final-run lock) guard `GET /api/billingRuns/{id}/billingDocuments/xlsx`, `…/archive`,
+  `…/sendmail` and `DELETE /api/billingRuns/{id}`: exports only read and run next to each other and next to a mail run;
+  a second mail run of the same run, a deletion while an export or mail run of the run is busy, and an export or mail
+  run during a deletion are refused. **What callers see (eegfaktura-web):** those requests get **409** at once
+  (before: they waited until the first had finished). Requests for different runs of a community no longer wait for
   each other. Answers are otherwise unchanged (sendmail still answers 500 with the text for its own refusals, e.g.
-  mails already sent). The mail run keeps committing its status steps one by one (the lock is held on a connection
+  mails already sent). The mail run keeps committing its status steps one by one (the locks are held on a connection
   of its own).
 - **Logo and footer images stored before 1.2.0 get the community as owner** (eegfaktura-dev tracking billing 32, data
   part). Migration `V1_20` sets `file_data.tenant_id` for images without one, from the billing configuration that

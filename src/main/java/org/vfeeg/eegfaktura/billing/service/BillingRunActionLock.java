@@ -18,17 +18,23 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 /**
- * One export, mail run or deletion of a billing run at a time (known-errors #14): a PostgreSQL transaction-level
- * advisory lock per run, like {@link FinalRunLock} - across replicas, released by the database when the
- * transaction or its connection ends, so nothing expires early and nothing stays behind. A second action on the
- * same run does not wait: it is refused with 409. Replaces the per-tenant {@code InMemoryLockRepository}; actions on
- * different runs of a community no longer wait for each other.
+ * Export, mail run and deletion of a billing run (known-errors #14): PostgreSQL advisory locks per run, like
+ * {@link FinalRunLock} - across replicas, released by the database when the transaction or its connection ends, so
+ * nothing expires early and nothing stays behind. Nobody waits: a conflicting request is refused with 409.
+ * <ul>
+ *   <li>exports only read: they take the run key shared, so they run next to each other and next to a mail run;</li>
+ *   <li>a deletion takes the run key exclusively: refused while an export or mail run of the run is busy, and
+ *   these are refused while it deletes;</li>
+ *   <li>a mail run takes the run key shared plus the run's mail key exclusively: a second mail run of the same run
+ *   is refused.</li>
+ * </ul>
+ * Replaces the per-tenant {@code InMemoryLockRepository}; requests for different runs never wait for each other.
  */
 @Component
 public class BillingRunActionLock {
 
-    static final String BUSY_MESSAGE = "Für diesen Abrechnungslauf läuft gerade ein Export, ein Mailversand oder"
-            + " das Löschen – bitte danach erneut versuchen.";
+    public static final String BUSY_MESSAGE = "Dieser Abrechnungslauf wird gerade bearbeitet (Export, Mailversand"
+            + " oder Löschen) – bitte danach erneut versuchen.";
     /** first key of the two-key advisory lock; {@link FinalRunLock} uses 217 */
     private static final int LOCK_CLASS = 218;
 
@@ -36,6 +42,11 @@ public class BillingRunActionLock {
     @FunctionalInterface
     public interface Action<T> {
         T run() throws IOException;
+    }
+
+    /** 409: a conflicting action of the run is busy. */
+    public static class BusyException extends ResponseStatusException {
+        public BusyException() { super(HttpStatus.CONFLICT, BUSY_MESSAGE); }
     }
 
     private final DataSource dataSource;
@@ -46,11 +57,44 @@ public class BillingRunActionLock {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    /** Runs the action in a transaction that holds the run's lock; the action's own transactions join it. */
-    public <T> T inTransaction(UUID billingRunId, Action<T> action) throws IOException {
+    /** xlsx/archive export: run key shared, in a transaction that the export's own calls join. */
+    public <T> T export(UUID billingRunId, Action<T> action) throws IOException {
+        return inTransaction("pg_try_advisory_xact_lock_shared", billingRunId, action);
+    }
+
+    /** Deletion: run key exclusive, in a transaction that the deletion's own calls join. */
+    public <T> T delete(UUID billingRunId, Action<T> action) throws IOException {
+        return inTransaction("pg_try_advisory_xact_lock", billingRunId, action);
+    }
+
+    /**
+     * Mail run: the run's mail key exclusive and its run key shared. The mail run commits its status steps one by
+     * one, so it does not run in one transaction: the locks are held on a connection of its own, which the mail run
+     * does not use.
+     */
+    public <T> T mailRun(UUID billingRunId, Action<T> action) throws IOException {
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                if (!tryLock(connection, "pg_try_advisory_xact_lock", mailKey(billingRunId))
+                        || !tryLock(connection, "pg_try_advisory_xact_lock_shared", runKey(billingRunId))) {
+                    throw new BusyException();
+                }
+                return action.run();
+            } finally {
+                connection.rollback(); // ends the transaction and with it the locks
+            }
+        } catch (SQLException e) {
+            throw new DataAccessResourceFailureException("Sperre des Abrechnungslaufs nicht möglich", e);
+        }
+    }
+
+    private <T> T inTransaction(String lockFunction, UUID billingRunId, Action<T> action) throws IOException {
         try {
             return transactionTemplate.execute(status -> {
-                lock(DataSourceUtils.getConnection(dataSource), billingRunId);
+                if (!tryLock(DataSourceUtils.getConnection(dataSource), lockFunction, runKey(billingRunId))) {
+                    throw new BusyException();
+                }
                 try {
                     return action.run();
                 } catch (IOException e) {
@@ -62,34 +106,22 @@ public class BillingRunActionLock {
         }
     }
 
-    /**
-     * For an action that must not run in one transaction (the mail run commits its status steps one by one): the
-     * lock is held in a transaction on a connection of its own, which the action does not use.
-     */
-    public <T> T onOwnConnection(UUID billingRunId, Action<T> action) throws IOException {
-        try (Connection connection = dataSource.getConnection()) {
-            connection.setAutoCommit(false);
-            try {
-                lock(connection, billingRunId);
-                return action.run();
-            } finally {
-                connection.rollback(); // ends the transaction and with it the lock
-            }
-        } catch (SQLException e) {
-            throw new DataAccessResourceFailureException("Sperre des Abrechnungslaufs nicht möglich", e);
-        }
+    private static String runKey(UUID billingRunId) {
+        return "billing_run_action/" + billingRunId;
     }
 
-    /** Takes the run's lock without waiting, or 409 when another action of the run holds it. */
-    private static void lock(Connection connection, UUID billingRunId) {
+    private static String mailKey(UUID billingRunId) {
+        return "billing_run_mail/" + billingRunId;
+    }
+
+    /** Takes one advisory lock without waiting; {@code lockFunction} is one of the fixed names above. */
+    private static boolean tryLock(Connection connection, String lockFunction, String key) {
         try (PreparedStatement statement = connection.prepareStatement(
-                "select pg_try_advisory_xact_lock(?, hashtext(?))")) {
+                "select " + lockFunction + "(?, hashtext(?))")) {
             statement.setInt(1, LOCK_CLASS);
-            statement.setString(2, "billing_run_action/" + billingRunId);
+            statement.setString(2, key);
             try (ResultSet result = statement.executeQuery()) {
-                if (!result.next() || !result.getBoolean(1)) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, BUSY_MESSAGE);
-                }
+                return result.next() && result.getBoolean(1);
             }
         } catch (SQLException e) {
             throw new DataAccessResourceFailureException("Sperre des Abrechnungslaufs nicht möglich", e);

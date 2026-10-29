@@ -77,9 +77,11 @@ class BillingRunWebTests extends EndpointMatrix {
             when(billingDocumentArchiveService.createArchive(ID)).thenReturn(new byte[]{4, 5});
             when(billingDocumentMailService.sendAllBillingDocuments(ID)).thenReturn("2 mails sent");
             // the lock is free: the action runs (the database lock itself: BillingRunActionLockTests)
-            when(billingRunActionLock.inTransaction(any(), any())).thenAnswer(
+            when(billingRunActionLock.export(any(), any())).thenAnswer(
                     invocation -> invocation.<BillingRunActionLock.Action<?>>getArgument(1).run());
-            when(billingRunActionLock.onOwnConnection(any(), any())).thenAnswer(
+            when(billingRunActionLock.delete(any(), any())).thenAnswer(
+                    invocation -> invocation.<BillingRunActionLock.Action<?>>getArgument(1).run());
+            when(billingRunActionLock.mailRun(any(), any())).thenAnswer(
                     invocation -> invocation.<BillingRunActionLock.Action<?>>getArgument(1).run());
         } catch (Exception e) {
             throw new IllegalStateException(e);
@@ -170,8 +172,9 @@ class BillingRunWebTests extends EndpointMatrix {
     void anActionOnABusyRunIsRefusedWith409() throws Exception {
         stubRecordsOf(OWN);
         ResponseStatusException busy = new ResponseStatusException(HttpStatus.CONFLICT, "busy");
-        doThrow(busy).when(billingRunActionLock).inTransaction(any(), any());
-        doThrow(busy).when(billingRunActionLock).onOwnConnection(any(), any());
+        doThrow(busy).when(billingRunActionLock).export(any(), any());
+        doThrow(busy).when(billingRunActionLock).delete(any(), any());
+        doThrow(busy).when(billingRunActionLock).mailRun(any(), any());
 
         for (String path : List.of("/{id}/billingDocuments/xlsx", "/{id}/billingDocuments/archive",
                 "/{id}/billingDocuments/sendmail")) {
