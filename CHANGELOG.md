@@ -28,6 +28,12 @@ this changelog highlights the changes relevant for overview and operations.
   mails already sent). The mail run keeps committing its status steps one by one: its locks are session locks on a
   connection of its own (not idle in a transaction), released explicitly; a failure while releasing them is logged and
   does not replace the mail run's answer.
+- **A billing run request without `preview` is refused instead of running as a final run** (eegfaktura-dev tracking
+  billing 34, decided 2026-10-29). **Contract (callers eegfaktura-web, eegfaktura-v3 `BillingClient`):** `POST /api/billing`
+  now requires the key `preview` (true or false). Without it — missing, `null`, or misspelt such as `isPreview` — the
+  answer is **400** (`ErrorResponse` with the field error `preview`) and no run is created or started; before, the
+  request silently ran as a **final** run (document numbers consumed, run closed). Both callers always send `preview`
+  (web: `ParticipantPane` `onDoBilling`; v3: `LegacyDoBillingParams`), so their requests are unchanged.
 - **Document number prefixes with blanks: " R" and "R" are one sequence** (eegfaktura-dev tracking billing 15). The prefix
   was used untrimmed to find the last number but printed trimmed, so a prefix saved with a leading or trailing blank
   started its own sequence and could print a number that was already issued (the run then failed on the unique
