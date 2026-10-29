@@ -23,6 +23,11 @@ this changelog highlights the changes relevant for overview and operations.
   each other. Answers are otherwise unchanged (sendmail still answers 500 with the text for its own refusals, e.g.
   mails already sent). The mail run keeps committing its status steps one by one (the lock is held on a connection
   of its own).
+- **Logo and footer images stored before 1.2.0 get the community as owner** (eegfaktura-dev tracking billing 32, data
+  part). Migration `V1_20` sets `file_data.tenant_id` for images without one, from the billing configuration that
+  references them as logo or footer image — only when the configurations of exactly one community reference the
+  row and nothing else does (no document PDF, no custom template, no mail-text image). `GET /api/fileData/{id}` then
+  returns these images to their community (before: refused); every other row stays unchanged.
 
 ### Security
 - **CI: the release workflow pins its actions by commit SHA** (eegfaktura-dev tracking W-261028-mm6). `rolling-release.yml`
