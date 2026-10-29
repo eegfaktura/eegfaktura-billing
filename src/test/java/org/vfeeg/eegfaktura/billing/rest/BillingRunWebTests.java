@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
@@ -12,15 +13,19 @@ import org.vfeeg.eegfaktura.billing.service.BillingDocumentArchiveService;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentMailService;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentService;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentXlsxService;
+import org.vfeeg.eegfaktura.billing.service.BillingRunActionLock;
 import org.vfeeg.eegfaktura.billing.service.BillingRunService;
 import org.vfeeg.eegfaktura.billing.service.ParticipantAmountService;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -45,6 +50,8 @@ class BillingRunWebTests extends EndpointMatrix {
     BillingDocumentMailService billingDocumentMailService;
     @MockitoBean
     ParticipantAmountService participantAmountService;
+    @MockitoBean
+    BillingRunActionLock billingRunActionLock;
 
     @Override
     protected List<Endpoint> endpoints() {
@@ -69,6 +76,11 @@ class BillingRunWebTests extends EndpointMatrix {
             when(billingDocumentXlsxService.createXlsx(ID)).thenReturn(new byte[]{1, 2, 3});
             when(billingDocumentArchiveService.createArchive(ID)).thenReturn(new byte[]{4, 5});
             when(billingDocumentMailService.sendAllBillingDocuments(ID)).thenReturn("2 mails sent");
+            // the lock is free: the action runs (the database lock itself: BillingRunActionLockTests)
+            when(billingRunActionLock.inTransaction(any(), any())).thenAnswer(
+                    invocation -> invocation.<BillingRunActionLock.Action<?>>getArgument(1).run());
+            when(billingRunActionLock.onOwnConnection(any(), any())).thenAnswer(
+                    invocation -> invocation.<BillingRunActionLock.Action<?>>getArgument(1).run());
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
@@ -151,6 +163,24 @@ class BillingRunWebTests extends EndpointMatrix {
         mvc.perform(row(HttpMethod.GET, "/{id}/billingDocuments/sendmail").request(OWN, OWN, TestTokens.admin()))
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().string("mail run already in progress"));
+    }
+
+    /** known-errors #14: while another export, mail run or deletion of the run holds its lock, 409 at once. */
+    @Test
+    void anActionOnABusyRunIsRefusedWith409() throws Exception {
+        stubRecordsOf(OWN);
+        ResponseStatusException busy = new ResponseStatusException(HttpStatus.CONFLICT, "busy");
+        doThrow(busy).when(billingRunActionLock).inTransaction(any(), any());
+        doThrow(busy).when(billingRunActionLock).onOwnConnection(any(), any());
+
+        for (String path : List.of("/{id}/billingDocuments/xlsx", "/{id}/billingDocuments/archive",
+                "/{id}/billingDocuments/sendmail")) {
+            mvc.perform(row(HttpMethod.GET, path).request(OWN, OWN, TestTokens.admin()))
+                    .andExpect(status().isConflict());
+        }
+        mvc.perform(row(HttpMethod.DELETE, "/{id}").request(OWN, OWN, TestTokens.admin()))
+                .andExpect(status().isConflict());
+        verify(billingRunService, never()).delete(any());
     }
 
     @Test

@@ -26,7 +26,7 @@ import static org.mockito.Mockito.doAnswer;
 
 /**
  * F7 (#18), status race: two simultaneous sends of one run, called on the service (through the resource
- * the per-tenant lock would serialise them and hide the race). The check "status empty" and the write
+ * the per-run lock would refuse the second and hide the race). The check "status empty" and the write
  * "IN PROGRESS" are separate statements without a lock.
  */
 class MailSendRaceTests extends ConcurrencyAndMailBase {

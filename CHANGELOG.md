@@ -13,6 +13,16 @@ this changelog highlights the changes relevant for overview and operations.
   The code was fixed in 1.0.8 (the calculation rolls back, `BillingRunLauncher` records the run as FAILED); the scenario
   test `s04_threeVatRatesFailAndLeaveNothingBehind` was still disabled and called the old synchronous path. It now
   accepts, claims and launches the run like the start endpoint and is enabled. No change in behaviour.
+- **Export, mail run and deletion of a billing run: one at a time per run, refused instead of waiting** (eegfaktura-dev
+  tracking billing 14). The in-memory lock per community (`InMemoryLockRepository`) let a third request in next to a
+  waiting second one, expired after 15 minutes and did not hold across replicas. Now a PostgreSQL advisory lock per
+  billing run (like the final-run lock) guards `GET /api/billingRuns/{id}/billingDocuments/xlsx`, `…/archive`,
+  `…/sendmail` and `DELETE /api/billingRuns/{id}`. **What callers see (eegfaktura-web):** a second of these requests
+  for the same run while one is running gets **409** at once (before: it waited until the first had finished); the
+  web shows its usual error message for the action. Requests for different runs of a community no longer wait for
+  each other. Answers are otherwise unchanged (sendmail still answers 500 with the text for its own refusals, e.g.
+  mails already sent). The mail run keeps committing its status steps one by one (the lock is held on a connection
+  of its own).
 
 ### Security
 - **CI: the release workflow pins its actions by commit SHA** (eegfaktura-dev tracking W-261028-mm6). `rolling-release.yml`
