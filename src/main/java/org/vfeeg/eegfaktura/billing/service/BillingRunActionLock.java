@@ -1,5 +1,7 @@
 package org.vfeeg.eegfaktura.billing.service;
 
+import com.zaxxer.hikari.HikariDataSource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.datasource.DataSourceUtils;
@@ -20,7 +22,7 @@ import java.util.UUID;
 /**
  * Export, mail run and deletion of a billing run (known-errors #14): PostgreSQL advisory locks per run, like
  * {@link FinalRunLock} - across replicas, released by the database when the transaction or its connection ends, so
- * nothing expires early and nothing stays behind. Nobody waits: a conflicting request is refused with 409.
+ * nothing expires early and nothing stays behind (the mail run releases its session locks itself). Nobody waits: a conflicting request is refused with 409.
  * <ul>
  *   <li>exports only read: they take the run key shared, so they run next to each other and next to a mail run;</li>
  *   <li>a deletion takes the run key exclusively: refused while an export or mail run of the run is busy, and
@@ -31,6 +33,7 @@ import java.util.UUID;
  * Replaces the per-tenant {@code InMemoryLockRepository}; requests for different runs never wait for each other.
  */
 @Component
+@Slf4j
 public class BillingRunActionLock {
 
     public static final String BUSY_MESSAGE = "Dieser Abrechnungslauf wird gerade bearbeitet (Export, Mailversand"
@@ -69,23 +72,32 @@ public class BillingRunActionLock {
 
     /**
      * Mail run: the run's mail key exclusive and its run key shared. The mail run commits its status steps one by
-     * one, so it does not run in one transaction: the locks are held on a connection of its own, which the mail run
-     * does not use.
+     * one and may take minutes, so the locks are session locks on a connection of its own (autocommit, never idle in
+     * a transaction), which the mail run does not use, released explicitly afterwards. A failure while releasing or
+     * closing is logged and never replaces the mail run's result or exception; a connection whose locks could not be
+     * released is evicted from the pool, which ends its session and with it the locks.
      */
     public <T> T mailRun(UUID billingRunId, Action<T> action) throws IOException {
-        try (Connection connection = dataSource.getConnection()) {
-            connection.setAutoCommit(false);
-            try {
-                if (!tryLock(connection, "pg_try_advisory_xact_lock", mailKey(billingRunId))
-                        || !tryLock(connection, "pg_try_advisory_xact_lock_shared", runKey(billingRunId))) {
-                    throw new BusyException();
-                }
-                return action.run();
-            } finally {
-                connection.rollback(); // ends the transaction and with it the locks
-            }
+        Connection connection;
+        try {
+            connection = dataSource.getConnection();
+            connection.setAutoCommit(true);
         } catch (SQLException e) {
             throw new DataAccessResourceFailureException("Sperre des Abrechnungslaufs nicht möglich", e);
+        }
+        boolean mailLocked = false;
+        boolean runLocked = false;
+        try {
+            mailLocked = tryLock(connection, "pg_try_advisory_lock", mailKey(billingRunId));
+            runLocked = mailLocked && tryLock(connection, "pg_try_advisory_lock_shared", runKey(billingRunId));
+            if (!runLocked) {
+                throw new BusyException();
+            }
+            return action.run();
+        } finally {
+            boolean released = !runLocked || unlock(connection, "pg_advisory_unlock_shared", billingRunId);
+            released &= !mailLocked || unlock(connection, "pg_advisory_unlock", billingRunId);
+            close(connection, released, billingRunId);
         }
     }
 
@@ -112,6 +124,41 @@ public class BillingRunActionLock {
 
     private static String mailKey(UUID billingRunId) {
         return "billing_run_mail/" + billingRunId;
+    }
+
+    /** Releases one session lock of the mail run; false (logged) when that failed. */
+    private static boolean unlock(Connection connection, String unlockFunction, UUID billingRunId) {
+        String key = unlockFunction.endsWith("_shared") ? runKey(billingRunId) : mailKey(billingRunId);
+        try (PreparedStatement statement = connection.prepareStatement(
+                "select " + unlockFunction + "(?, hashtext(?))")) {
+            statement.setInt(1, LOCK_CLASS);
+            statement.setString(2, key);
+            try (ResultSet result = statement.executeQuery()) {
+                if (result.next() && result.getBoolean(1)) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            // falls through: logged below
+        }
+        log.warn("Sperre des Mailversands nicht freigegeben ({}, billingRunId={})", unlockFunction, billingRunId);
+        return false;
+    }
+
+    /** Returns the mail run's connection to the pool; without released locks it is evicted first. */
+    private void close(Connection connection, boolean released, UUID billingRunId) {
+        try {
+            if (!released && dataSource.isWrapperFor(HikariDataSource.class)) {
+                dataSource.unwrap(HikariDataSource.class).evictConnection(connection);
+            }
+        } catch (Exception e) {
+            log.warn("Verbindung des Mailversands nicht verworfen (billingRunId={})", billingRunId);
+        }
+        try {
+            connection.close();
+        } catch (Exception e) {
+            log.warn("Verbindung des Mailversands nicht geschlossen (billingRunId={})", billingRunId);
+        }
     }
 
     /** Takes one advisory lock without waiting; {@code lockFunction} is one of the fixed names above. */

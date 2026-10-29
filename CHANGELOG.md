@@ -22,8 +22,9 @@ this changelog highlights the changes relevant for overview and operations.
   run during a deletion are refused. **What callers see (eegfaktura-web):** those requests get **409** at once
   (before: they waited until the first had finished). Requests for different runs of a community no longer wait for
   each other. Answers are otherwise unchanged (sendmail still answers 500 with the text for its own refusals, e.g.
-  mails already sent). The mail run keeps committing its status steps one by one (the locks are held on a connection
-  of its own).
+  mails already sent). The mail run keeps committing its status steps one by one: its locks are session locks on a
+  connection of its own (not idle in a transaction), released explicitly; a failure while releasing them is logged and
+  does not replace the mail run's answer.
 - **Logo and footer images stored before 1.2.0 get the community as owner** (eegfaktura-dev tracking billing 32, data
   part). Migration `V1_20` sets `file_data.tenant_id` for images without one, from the billing configuration that
   references them as logo or footer image — only when the configurations of exactly one community reference the
