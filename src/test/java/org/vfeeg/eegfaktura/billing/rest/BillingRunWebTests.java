@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
@@ -171,7 +170,7 @@ class BillingRunWebTests extends EndpointMatrix {
     @Test
     void anActionOnABusyRunIsRefusedWith409() throws Exception {
         stubRecordsOf(OWN);
-        ResponseStatusException busy = new ResponseStatusException(HttpStatus.CONFLICT, "busy");
+        ResponseStatusException busy = new BillingRunActionLock.BusyException();
         doThrow(busy).when(billingRunActionLock).export(any(), any());
         doThrow(busy).when(billingRunActionLock).delete(any(), any());
         doThrow(busy).when(billingRunActionLock).mailRun(any(), any());
@@ -179,7 +178,10 @@ class BillingRunWebTests extends EndpointMatrix {
         for (String path : List.of("/{id}/billingDocuments/xlsx", "/{id}/billingDocuments/archive",
                 "/{id}/billingDocuments/sendmail")) {
             mvc.perform(row(HttpMethod.GET, path).request(OWN, OWN, TestTokens.admin()))
-                    .andExpect(status().isConflict());
+                    .andExpect(status().isConflict())
+                    // the web shows the field "error" (base.service.ts handleErrors)
+                    .andExpect(jsonPath("$.error").value(BillingRunActionLock.BUSY_MESSAGE))
+                    .andExpect(jsonPath("$.httpStatus").value(409));
         }
         mvc.perform(row(HttpMethod.DELETE, "/{id}").request(OWN, OWN, TestTokens.admin()))
                 .andExpect(status().isConflict());

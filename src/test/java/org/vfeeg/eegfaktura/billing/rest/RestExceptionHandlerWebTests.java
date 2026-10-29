@@ -78,7 +78,8 @@ class RestExceptionHandlerWebTests extends WebSliceTest {
                 .andExpect(jsonPath("$.httpStatus").value(404))
                 .andExpect(jsonPath("$.exception").value("NotFoundException"))
                 .andExpect(jsonPath("$.message").value("probe record missing"))
-                .andExpect(jsonPath("$.fieldErrors").value(nullValue()));
+                .andExpect(jsonPath("$.fieldErrors").value(nullValue()))
+                .andExpect(jsonPath("$.error").doesNotExist()); // only the run lock's 409 sets it
     }
 
     @Test

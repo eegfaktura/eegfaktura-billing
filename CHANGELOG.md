@@ -20,7 +20,10 @@ this changelog highlights the changes relevant for overview and operations.
   `…/sendmail` and `DELETE /api/billingRuns/{id}`: exports only read and run next to each other and next to a mail run;
   a second mail run of the same run, a deletion while an export or mail run of the run is busy, and an export or mail
   run during a deletion are refused. **What callers see (eegfaktura-web):** those requests get **409** at once
-  (before: they waited until the first had finished). Requests for different runs of a community no longer wait for
+  (before: they waited until the first had finished). **Contract (additive):** this 409 body (`ErrorResponse`) carries
+  the new field `error` with the German text („Dieser Abrechnungslauf wird gerade bearbeitet …“), which the web's
+  `handleErrors` shows; every other error body is unchanged (`error` is left out when not set; eegfaktura-v3's
+  `LegacyErrorResponse` ignores unknown fields). Requests for different runs of a community no longer wait for
   each other. Answers are otherwise unchanged (sendmail still answers 500 with the text for its own refusals, e.g.
   mails already sent). The mail run keeps committing its status steps one by one: its locks are session locks on a
   connection of its own (not idle in a transaction), released explicitly; a failure while releasing them is logged and
