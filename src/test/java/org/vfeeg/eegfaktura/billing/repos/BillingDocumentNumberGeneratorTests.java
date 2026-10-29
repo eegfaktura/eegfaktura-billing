@@ -1,7 +1,6 @@
 package org.vfeeg.eegfaktura.billing.repos;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -144,11 +143,10 @@ class BillingDocumentNumberGeneratorTests {
     }
 
     /**
-     * F4: " R" and "R" print the same number, so they must share one sequence. Today " R" starts its own
-     * sequence at the start value and prints a number that "R" already issued.
+     * F4 (known-errors #15): " R" and "R" print the same number, so they share one sequence: the trimmed
+     * prefix is looked up and stored.
      */
     @Test
-    @Disabled("known-errors #15")
     void prefixWithBlankContinuesTheSequenceOfTheTrimmedPrefix() {
         lenient().when(repository.getMaxSequenceNumber(TENANT, 2024, "R")).thenReturn(41L);
 
@@ -156,5 +154,6 @@ class BillingDocumentNumberGeneratorTests {
 
         assertThat(next.getDocumentNumber(), is("R202400042"));
         assertThat(next.getSequenceNumber(), is(42L));
+        assertThat(next.getPrefix(), is("R"));
     }
 }

@@ -28,6 +28,12 @@ this changelog highlights the changes relevant for overview and operations.
   mails already sent). The mail run keeps committing its status steps one by one: its locks are session locks on a
   connection of its own (not idle in a transaction), released explicitly; a failure while releasing them is logged and
   does not replace the mail run's answer.
+- **Document number prefixes with blanks: " R" and "R" are one sequence** (eegfaktura-dev tracking billing 15). The prefix
+  was used untrimmed to find the last number but printed trimmed, so a prefix saved with a leading or trailing blank
+  started its own sequence and could print a number that was already issued (the run then failed on the unique
+  document number). The prefix is now trimmed when the billing configuration is saved and when the last number is
+  read (numbers stored earlier with the untrimmed prefix count too), so both spellings continue one sequence. Where
+  a community already has numbers under both spellings, the next number follows the higher of the two.
 - **Logo and footer images stored before 1.2.0 get the community as owner** (eegfaktura-dev tracking billing 32, data
   part). Migration `V1_20` sets `file_data.tenant_id` for images without one, from the billing configuration that
   references them as logo or footer image — only when the configurations of exactly one community reference the
