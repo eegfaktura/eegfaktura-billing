@@ -91,11 +91,13 @@ class LogFormatTests {
     void textFormatIsNotJson(CapturedOutput output) {
         System.clearProperty("CONSOLE_LOG_STRUCTURED_FORMAT");
         try (ConfigurableApplicationContext ignored = start("--LOG_FORMAT=text")) {
-            LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample").info("plain line");
+            LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample").atInfo()
+                    .addKeyValue("event.outcome", "refused").log("plain line");
         }
         String line = Arrays.stream(output.getOut().split("\\R"))
                 .filter(l -> l.contains("plain line")).findFirst().orElseThrow();
         assertFalse(line.startsWith("{"), line);
+        assertTrue(line.contains("event.outcome=\"refused\""), "key-value pairs in the text line: " + line);
     }
 
     /** ECS field by its dotted name, whether the encoder writes it flat ("a.b") or nested ({"a":{"b"}}). */

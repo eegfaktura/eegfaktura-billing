@@ -42,8 +42,8 @@ public class LogSettings implements EnvironmentPostProcessor {
     static Map<String, Object> resolve(String format, String level) {
         Map<String, Object> properties = new HashMap<>();
         properties.put(SERVICE_NAME_PROPERTY, "eegfaktura-billing");
-        // text format only: request and tenant of the line
-        properties.put("logging.pattern.correlation", "[%X{request.id:-} %X{tenant.id:-}] ");
+        // text format only: request and tenant of the line, and its key-value pairs (error.type, outcome, duration)
+        properties.put("logging.pattern.correlation", "[%X{request.id:-} %X{tenant.id:-}] %kvp ");
         String f = normalize(format, "json");
         switch (f) {
             case "json" -> {
