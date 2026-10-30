@@ -56,6 +56,37 @@ class BillingRunLauncherTests {
         verify(billingService).markBillingRunFailed(RUN, TECHNICAL);
     }
 
+    /** A constraint error quotes the whole row: the ERROR line keeps the type and the frames, not the values. */
+    @Test
+    void rowValuesOfADatabaseFailureAreNotLogged() {
+        doThrow(new DataIntegrityViolationException("could not execute statement",
+                new SQLException("ERROR: null value in column \"iban\" violates not-null constraint\n"
+                        + "  Detail: Failing row contains (anna@example.at, AT611904300234573201)")))
+                .when(billingService).executeBillingRun(eq(RUN), any());
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(BillingRunLauncher.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            launcher.launch(RUN, params);
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        ch.qos.logback.classic.spi.ILoggingEvent line = appender.list.get(0);
+        String all = line.getFormattedMessage() + " " + line.getKeyValuePairs() + " "
+                + ch.qos.logback.classic.spi.ThrowableProxyUtil.asString(line.getThrowableProxy());
+        org.hamcrest.MatcherAssert.assertThat(all, org.hamcrest.Matchers.not(
+                org.hamcrest.Matchers.containsString("AT611904300234573201")));
+        org.hamcrest.MatcherAssert.assertThat(all, org.hamcrest.Matchers.not(
+                org.hamcrest.Matchers.containsString("anna@example.at")));
+        org.hamcrest.MatcherAssert.assertThat(all, org.hamcrest.Matchers.containsString("BillingRunLauncherTests"));
+        org.hamcrest.MatcherAssert.assertThat(line.getKeyValuePairs().get(0).value,
+                org.hamcrest.Matchers.is((Object) DataIntegrityViolationException.class.getName()));
+    }
+
     @Test
     void aPersistenceFailureIsSummarisedGenerically() {
         doThrow(new PersistenceException("could not execute statement")).when(billingService).executeBillingRun(eq(RUN), any());

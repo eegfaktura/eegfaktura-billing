@@ -63,7 +63,8 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
         }
         IThrowableProxy error = event.getThrowableProxy();
         if (error != null) {
-            line.put("error.type", error.getClassName());
+            // an explicit error.type wins (the original type of an exception logged without its messages)
+            line.putIfAbsent("error.type", error.getClassName());
             line.put("error.message", error.getMessage());
             line.put("error.stack_trace", ThrowableProxyUtil.asString(error));
         }
