@@ -71,6 +71,12 @@ public final class TestTokens {
                 .withClaim("azp", azp).withClaim("email", email).sign(ALGORITHM));
     }
 
+    /** "Bearer …" of an EEG_ADMIN of the own community with the realm role "superuser" (operator/support). */
+    public static String superuserAdmin() {
+        return bearer(claims(List.of(OWN), List.of(ADMIN_GROUP))
+                .withClaim("realm_access", java.util.Map.of("roles", List.of("superuser"))).sign(ALGORITHM));
+    }
+
     public static String bearer(String token) {
         return "Bearer " + token;
     }

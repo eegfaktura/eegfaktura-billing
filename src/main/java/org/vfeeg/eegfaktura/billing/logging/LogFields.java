@@ -10,6 +10,7 @@ public final class LogFields {
     public static final String SPAN_ID = "span.id";
     public static final String TENANT_ID = "tenant.id";
     public static final String CLIENT_ID = "client.id";
+    public static final String SUPPORT_ACCESS = "support.access";
     public static final String EVENT_ACTION = "event.action";
 
     private LogFields() {
@@ -21,5 +22,6 @@ public final class LogFields {
         MDC.remove(SPAN_ID);
         MDC.remove(TENANT_ID);
         MDC.remove(CLIENT_ID);
+        MDC.remove(SUPPORT_ACCESS);
     }
 }

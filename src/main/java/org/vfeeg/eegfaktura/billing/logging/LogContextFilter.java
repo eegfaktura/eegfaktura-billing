@@ -14,8 +14,9 @@ import java.util.Locale;
 
 /**
  * Runs in the security chain right after {@code JwtRequestFilter}: once the token is valid and the requested tenant
- * was checked against it, puts {@code tenant.id} (the tenant the request works on) and {@code client.id} (the token's
- * {@code azp}, the Keycloak client — not a person) into the MDC. Without a valid token both stay empty.
+ * was checked against it, puts {@code tenant.id} (the tenant the request works on, when the token grants it) and
+ * {@code client.id} (the token's {@code azp}, the Keycloak client — not a person) into the MDC. A superuser on a
+ * tenant its token does not name gets {@code tenant.id} plus {@code support.access=true}. Without a valid token both stay empty.
  * Not a {@code @Component}, so it runs only inside the security chain; {@link RequestLogFilter} clears the MDC.
  */
 public class LogContextFilter extends OncePerRequestFilter {
@@ -26,7 +27,13 @@ public class LogContextFilter extends OncePerRequestFilter {
         if (SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthentication auth) {
             String tenant = request.getHeader("Tenant");
             if (tenant != null && !tenant.isBlank()) {
-                MDC.put(LogFields.TENANT_ID, tenant.strip().toUpperCase(Locale.ROOT));
+                if (auth.hasTenant(tenant)) {
+                    MDC.put(LogFields.TENANT_ID, tenant.strip().toUpperCase(Locale.ROOT));
+                } else if (auth.isSuperuser()) {
+                    // operator/support working on a community the token does not name: visible as such
+                    MDC.put(LogFields.TENANT_ID, tenant.strip().toUpperCase(Locale.ROOT));
+                    MDC.put(LogFields.SUPPORT_ACCESS, "true");
+                }
             }
             if (auth.getClientId() != null) {
                 MDC.put(LogFields.CLIENT_ID, auth.getClientId());

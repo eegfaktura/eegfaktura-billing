@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.logging;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,12 +11,12 @@ import org.slf4j.MDC;
 import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.boot.autoconfigure.security.SecurityProperties;
 import org.springframework.core.annotation.Order;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerMapping;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -24,7 +25,8 @@ import java.util.regex.Pattern;
 /**
  * Outermost filter (before the security chain): sets {@code request.id} (from {@code X-Request-Id} or generated)
  * and {@code trace.id}/{@code span.id} (from W3C {@code traceparent}) in the MDC for every log line of the request,
- * and writes one access line per request when it ends (logging concept point 6).
+ * and writes one access line per request when it ends (logging concept point 6). When an exception leaves the chain,
+ * the line is written after the container's error dispatch, with the status the client actually gets.
  *
  * <p>Fields as in every eegfaktura service (logging alignment 2026-10-30): {@code event.duration} in nanoseconds,
  * {@code event.outcome} success/refused/failure, {@code http.*} ECS names. The access line carries the route template, never the raw path or query; {@code tenant.id} and
@@ -36,7 +38,10 @@ import java.util.regex.Pattern;
 public class RequestLogFilter extends OncePerRequestFilter {
 
     public static final String REQUEST_ID_HEADER = "X-Request-Id";
-    static final Logger ACCESS = LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.access");
+    static final String ACCESS_LOGGER = "org.vfeeg.eegfaktura.billing.access";
+    static final Logger ACCESS = LoggerFactory.getLogger(ACCESS_LOGGER);
+    /** Set when an exception left the chain: the line is written on the container's error dispatch. */
+    static final String PENDING = RequestLogFilter.class.getName() + ".pending";
     private static final Set<String> SKIPPED = Set.of("/healthz", "/readyz");
     // a caller's id is kept only when it is short and harmless; otherwise a new one is generated
     private static final Pattern REQUEST_ID = Pattern.compile("[A-Za-z0-9._:-]{1,128}");
@@ -44,9 +49,22 @@ public class RequestLogFilter extends OncePerRequestFilter {
     private static final Pattern TRACEPARENT = Pattern.compile(
             "(?!ff)[0-9a-f]{2}-(?!0{32})([0-9a-f]{32})-(?!0{16})([0-9a-f]{16})-[0-9a-f]{2}");
 
+    /** What the error dispatch needs to write the line of the original request. */
+    record Pending(long start, Map<String, String> mdc, Object route, String errorType) {
+    }
+
+    @Override
+    protected boolean shouldNotFilterErrorDispatch() {
+        return false;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        if (request.getDispatcherType() == DispatcherType.ERROR) {
+            errorDispatch(request, response, chain);
+            return;
+        }
         String requestId = request.getHeader(REQUEST_ID_HEADER);
         if (requestId == null || !REQUEST_ID.matcher(requestId).matches()) {
             requestId = UUID.randomUUID().toString().replace("-", "");
@@ -70,8 +88,17 @@ public class RequestLogFilter extends OncePerRequestFilter {
             throw e;
         } finally {
             try {
-                if (!SKIPPED.contains(request.getRequestURI())) {
-                    access(request, response, failure, System.nanoTime() - start);
+                Object route = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+                if (SKIPPED.contains(request.getRequestURI())) {
+                    // no line
+                } else if (failure != null && !response.isCommitted()) {
+                    // the status the client gets is set by the container's error dispatch (e.g. 403 for the tenant
+                    // refusal JwtRequestFilter throws, private known-errors.md #35): written there
+                    request.setAttribute(PENDING, new Pending(start, MDC.getCopyOfContextMap(), route,
+                            failure.getClass().getName()));
+                } else {
+                    access(request, response.getStatus(), route, failure == null ? null : failure.getClass().getName(),
+                            System.nanoTime() - start);
                 }
             } finally {
                 LogFields.clear();
@@ -79,27 +106,48 @@ public class RequestLogFilter extends OncePerRequestFilter {
         }
     }
 
-    private static void access(HttpServletRequest request, HttpServletResponse response, Throwable failure,
+    private void errorDispatch(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+        Object pending = request.getAttribute(PENDING);
+        if (!(pending instanceof Pending p)) {
+            chain.doFilter(request, response); // e.g. sendError(403): its line was written on the request dispatch
+            return;
+        }
+        request.removeAttribute(PENDING);
+        if (p.mdc() != null) {
+            p.mdc().forEach(MDC::put);
+        }
+        boolean failed = true;
+        try {
+            chain.doFilter(request, response);
+            failed = false;
+        } finally {
+            try {
+                // the status the client gets; 500 if the error page itself failed
+                access(request, failed ? 500 : response.getStatus(), p.route(), p.errorType(),
+                        System.nanoTime() - p.start());
+            } finally {
+                LogFields.clear();
+            }
+        }
+    }
+
+    private static void access(HttpServletRequest request, int status, Object route, String errorType,
                                long durationNanos) {
-        // an exception that leaves the chain is answered by the container's error path: 403 for the tenant refusal
-        // that JwtRequestFilter throws (private known-errors.md #35), 500 for anything else
-        int status = failure == null ? response.getStatus() : failure instanceof AccessDeniedException ? 403 : 500;
-        Object pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         String outcome = status == 401 || status == 403 ? "refused"
-                : status >= 400 || failure != null ? "failure" : "success";
+                : status >= 400 || errorType != null ? "failure" : "success";
         LoggingEventBuilder line = ACCESS.atInfo()
                 .addKeyValue(LogFields.EVENT_ACTION, "http.access")
                 .addKeyValue("event.outcome", outcome)
                 .addKeyValue("http.request.method", request.getMethod())
                 .addKeyValue("http.response.status_code", status)
                 .addKeyValue("event.duration", durationNanos);
-        if (pattern != null) { // unmatched requests (e.g. refused before the router) carry no route
-            line = line.addKeyValue("http.route", pattern.toString());
+        if (route != null) { // unmatched requests (e.g. refused before the router) carry no route
+            line = line.addKeyValue("http.route", route.toString());
         }
-        if (failure != null) {
-            line = line.addKeyValue("error.type", failure.getClass().getName());
+        if (errorType != null) {
+            line = line.addKeyValue("error.type", errorType);
         }
-        line.log("{} {} {} {} ms", request.getMethod(), pattern == null ? "-" : pattern, status,
-                durationNanos / 1_000_000);
+        line.log("{} {} {}", request.getMethod(), route == null ? "-" : route, status);
     }
 }

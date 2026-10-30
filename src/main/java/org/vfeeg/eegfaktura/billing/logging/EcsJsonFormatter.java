@@ -27,7 +27,7 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
     /** Request and event fields taken from the MDC or the key-value pairs of a line. */
     static final Set<String> FIELDS = Set.of("event.action", "event.outcome", "event.duration",
             "http.request.method", "http.route", "http.response.status_code", "request.id", "trace.id", "span.id",
-            "tenant.id", "client.id", "error.type");
+            "tenant.id", "client.id", "support.access", "error.type");
 
     private static final DateTimeFormatter MILLIS =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);

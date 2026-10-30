@@ -49,10 +49,8 @@ import static org.vfeeg.eegfaktura.billing.rest.TestTokens.OWN;
 @WebMvcTest(controllers = FileDataResource.class)
 class AccessLogWebTests extends WebSliceTest {
 
-    /** Every field the access line may carry (key-value pairs and MDC); anything else fails the never-log test. */
-    private static final Set<String> ALLOWED = Set.of("event.action", "event.outcome", "http.request.method",
-            "http.route", "http.response.status_code", "event.duration", "error.type",
-            "request.id", "trace.id", "span.id", "tenant.id", "client.id");
+    /** Every field the JSON line may carry from MDC or key-value pairs; anything else fails the never-log test. */
+    private static final Set<String> ALLOWED = EcsJsonFormatter.FIELDS;
     private static final String EMAIL = "kassier@example.org";
     private static final String CLIENT = "eegfaktura-web";
     private static final String TRACE = "4bf92f3577b34da6a3ce929d0e0e4736";
@@ -129,6 +127,8 @@ class AccessLogWebTests extends WebSliceTest {
         assertEquals("00f067aa0ba902b7", f.get("span.id"));
         assertEquals(OWN, f.get("tenant.id"));
         assertEquals(CLIENT, f.get("client.id"));
+        assertNull(f.get("support.access"));
+        assertEquals("GET /api/fileData/{id} 200", line.message());
         assertTrue(f.get("event.duration") instanceof Long d && d > 0, "duration in nanoseconds");
 
         // never-log: only known fields, and none carries the person, the token, the id in the path, the query,
@@ -155,16 +155,44 @@ class AccessLogWebTests extends WebSliceTest {
         assertNull(f.get("client.id"));
     }
 
+    /**
+     * The tenant refusal leaves the chain as an exception: MockMvc has no error dispatch, so no line yet — it is written
+     * on the container's error dispatch with the status the client gets (RequestLogFilterTests, AccessLogTomcatTests).
+     */
     @Test
-    void foreignTenantIsLoggedAsRefusedWithoutThatTenant() {
+    void foreignTenantLineWaitsForTheErrorDispatch() {
         assertThrows(AccessDeniedException.class, () -> mvc.perform(get("/api/fileData/" + Endpoint.ID)
                 .header("Tenant", FOREIGN).header(HttpHeaders.AUTHORIZATION, TestTokens.admin())));
 
+        assertTrue(lines.isEmpty(), "no line before the error dispatch: " + lines);
+    }
+
+    @Test
+    void superuserOnAForeignTenantIsMarkedAsSupportAccess() throws Exception {
+        FileDataDTO foreignFile = new FileDataDTO();
+        foreignFile.setTenantId(FOREIGN);
+        foreignFile.setName("b.pdf");
+        foreignFile.setMimeType("application/pdf");
+        foreignFile.setData(new byte[]{1});
+        when(fileDataService.get(Endpoint.ID)).thenReturn(foreignFile);
+        mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", FOREIGN.toLowerCase())
+                        .header(HttpHeaders.AUTHORIZATION, TestTokens.superuserAdmin()))
+                .andExpect(status().isOk());
+
         Map<String, Object> f = onlyLine().fields();
-        assertEquals("refused", f.get("event.outcome"));
-        assertEquals(403, f.get("http.response.status_code"));
-        assertEquals(AccessDeniedException.class.getName(), f.get("error.type"));
-        assertNull(f.get("tenant.id"), "a refused tenant is not the tenant the request worked on");
+        assertEquals(FOREIGN, f.get("tenant.id"));
+        assertEquals("true", f.get("support.access"));
+    }
+
+    @Test
+    void superuserOnItsOwnTenantIsNoSupportAccess() throws Exception {
+        mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", OWN)
+                        .header(HttpHeaders.AUTHORIZATION, TestTokens.superuserAdmin()))
+                .andExpect(status().isOk());
+
+        Map<String, Object> f = onlyLine().fields();
+        assertEquals(OWN, f.get("tenant.id"));
+        assertNull(f.get("support.access"));
     }
 
     /** The refusal warning of JwtRequestFilter names the tenant, never the user (no user tracking). */
