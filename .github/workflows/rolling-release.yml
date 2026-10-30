@@ -97,9 +97,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags || 'latest' }}
           labels: ${{ steps.meta.outputs.labels || '' }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          # service.version in the log: the release (1.7.0) for a tag, else the commit
+          # service.version in the log, as in the other services: metadata-action's version (the release for a
+          # tag, the branch name for a branch build)
           build-args: |
-            SERVICE_VERSION=${{ github.ref_type == 'tag' && steps.meta.outputs.version || github.sha }}
+            SERVICE_VERSION=${{ steps.meta.outputs.version }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1.4.4
