@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingMailTemplate;
 import org.vfeeg.eegfaktura.billing.domain.BillingMailTemplateFile;
+import org.vfeeg.eegfaktura.billing.logging.LogText;
 import org.vfeeg.eegfaktura.billing.model.MailTemplateModels.MailFile;
 import org.vfeeg.eegfaktura.billing.model.MailTemplateModels.MailTemplate;
 import org.vfeeg.eegfaktura.billing.model.MailTemplateModels.MailTemplateSummary;
@@ -343,7 +344,8 @@ public class MailTemplateService {
             emailService.sendEmail(appProperties.getNoReplyTo(), to, null, "[Test] " + mail.subject(),
                     mail.html(), mail.inlineImages(), Map.of());
         } catch (MessagingException | org.springframework.mail.MailException e) {
-            log.warn("Test mail for {} not sent: {}", tenant, e.getMessage());
+            // the SMTP error names the recipient (the logged-in user's address): masked
+            log.warn("Test mail for {} not sent: {}", tenant, LogText.withoutEmails(e.getMessage()));
             throw new TestMailFailedException(e);
         }
         return new TestResult(to);

@@ -7,6 +7,7 @@ import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.FileData;
+import org.vfeeg.eegfaktura.billing.logging.LogText;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
@@ -154,7 +155,10 @@ public class BillingDocumentMailService {
                 }
                 sendProtocolStringBuilder.append(",");
             } catch (Exception e) {
-                log.error("Failed to send mail: {}", e.getMessage(), e);
+                // SMTP errors name the recipient: no address and no stack trace (its message repeats it) in the log
+                log.atError().addKeyValue("error.type", e.getClass().getName())
+                        .log("Failed to send mail (billingDocumentId={}): {}", billingDocument.getId(),
+                                LogText.withoutEmails(e.getMessage()));
                 // Identify the member behind the failed address — with a
                 // blank/garbage address the bare e-mail ("  FEHLER") is
                 // impossible to attribute for the tenant admin.

@@ -176,6 +176,33 @@ class BillingDocumentMailServiceTests {
         assertThat(run.getMailStatus(), is("SENT"));
     }
 
+    /** The SMTP error names the recipient; the log line keeps the error but not the address (never-log list). */
+    @Test
+    void failedSendIsLoggedWithoutTheAddress() throws Exception {
+        BillingDocument anna = document("anna@example.at", "Anna Muster", "001");
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of(anna));
+        when(emailService.sendEmail(anyString(), eq("anna@example.at"), anyString(), anyString(), anyString(),
+                anyList(), anyMap()))
+                .thenThrow(new MessagingException("550 5.1.1 <anna@example.at>: Recipient address rejected"));
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(BillingDocumentMailService.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            service.sendAllBillingDocuments(RUN_ID);
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        ch.qos.logback.classic.spi.ILoggingEvent line = appender.list.stream()
+                .filter(e -> e.getFormattedMessage().startsWith("Failed to send mail")).findFirst().orElseThrow();
+        assertThat(line.getFormattedMessage(), containsString("550 5.1.1 <<email>>: Recipient address rejected"));
+        assertThat(line.getFormattedMessage(), not(containsString("anna@example.at")));
+        assertThat(line.getThrowableProxy(), is((Object) null));
+    }
+
     @Test
     void documentWithoutFileIsAFailureWithPlaceholders() throws Exception {
         BillingDocument nobody = BillingDocument.builder().id(UUID.randomUUID()).recipientEmail(" ")
