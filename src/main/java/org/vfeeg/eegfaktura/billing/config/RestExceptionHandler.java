@@ -1,6 +1,7 @@
 package org.vfeeg.eegfaktura.billing.config;
 
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import org.vfeeg.eegfaktura.billing.model.FieldError;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
 
+@Slf4j
 @RestControllerAdvice(annotations = RestController.class)
 public class RestExceptionHandler {
 
@@ -64,7 +66,8 @@ public class RestExceptionHandler {
     @ExceptionHandler(Throwable.class)
     @ApiResponse(responseCode = "4xx/5xx", description = "Error")
     public ResponseEntity<ErrorResponse> handleThrowable(final Throwable exception) {
-        exception.printStackTrace();
+        // through the logging module (JSON, request.id/tenant.id), not stderr (#28)
+        log.error("Unhandled exception", exception);
         final ErrorResponse errorResponse = new ErrorResponse();
         errorResponse.setHttpStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
         errorResponse.setException(exception.getClass().getSimpleName());
