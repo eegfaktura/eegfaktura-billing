@@ -14,6 +14,12 @@ class LogTextTests {
     }
 
     @Test
+    void internationalAddressesAndLocalPartsAreMasked() {
+        assertEquals("<email> and <email> and <email>",
+                LogText.withoutEmails("jürgen.müller@bäckerei.at and o'neil@example.org and anna@"));
+    }
+
+    @Test
     void textWithoutAddressStays() {
         assertEquals("smtp down (connect timed out)", LogText.withoutEmails("smtp down (connect timed out)"));
         assertNull(LogText.withoutEmails(null));

@@ -1,7 +1,9 @@
 package org.vfeeg.eegfaktura.billing.service;
 
+import jakarta.mail.MessagingException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.MailException;
 import org.springframework.stereotype.Service;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentFile;
@@ -107,9 +109,25 @@ public class BillingDocumentMailService {
                     from, to, cc, mail.subject(), mail.html(), mail.inlineImages(), attachments));
             return fellBack;
         } catch (Exception e) {
-            throw new RuntimeException("Mailversand ("+billingDocument.getRecipientEmail()+") fehlgeschlagen aufgrund: "+e.getMessage(), e);
+            // no address and no cause message here: SMTP errors name the recipient (never-log list); the cause stays
+            throw new RuntimeException("Mailversand fuer Beleg " + billingDocument.getId() + " fehlgeschlagen", e);
         }
 
+    }
+
+    /**
+     * One ERROR per failed mail with the root cause's type. An SMTP error names the recipient: its message is logged
+     * masked and without the stack trace (which repeats it); any other failure (NPE, Jasper, ...) keeps the stack.
+     */
+    private static void logSendFailure(BillingDocument billingDocument, Exception e) {
+        Throwable cause = e.getCause() != null ? e.getCause() : e;
+        if (cause instanceof MessagingException || cause instanceof MailException) {
+            log.atError().addKeyValue("error.type", cause.getClass().getName())
+                    .log("Failed to send mail (billingDocumentId={}): {}", billingDocument.getId(),
+                            LogText.withoutEmails(cause.getMessage()));
+        } else {
+            log.error("Failed to send mail (billingDocumentId={})", billingDocument.getId(), cause);
+        }
     }
 
     public String sendAllBillingDocuments(UUID billingRunId) {
@@ -155,10 +173,7 @@ public class BillingDocumentMailService {
                 }
                 sendProtocolStringBuilder.append(",");
             } catch (Exception e) {
-                // SMTP errors name the recipient: no address and no stack trace (its message repeats it) in the log
-                log.atError().addKeyValue("error.type", e.getClass().getName())
-                        .log("Failed to send mail (billingDocumentId={}): {}", billingDocument.getId(),
-                                LogText.withoutEmails(e.getMessage()));
+                logSendFailure(billingDocument, e);
                 // Identify the member behind the failed address — with a
                 // blank/garbage address the bare e-mail ("  FEHLER") is
                 // impossible to attribute for the tenant admin.
