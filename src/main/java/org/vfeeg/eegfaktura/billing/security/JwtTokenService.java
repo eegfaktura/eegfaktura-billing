@@ -68,7 +68,9 @@ public class JwtTokenService {
             jwtAuthentication = new JwtAuthentication(username, authorities, hasRealmRole(payload, "superuser"), email,
                     clientId);
         } catch (Exception e) {
-            log.warn("Failed to validate JWT token: {}", e.getMessage(), e);
+            // expired or invalid tokens are routine (the access line shows the refusal): one debug line, type only -
+            // the message of a decode error can quote the token's decoded content
+            log.atDebug().addKeyValue("error.type", e.getClass().getName()).log("Token rejected");
         }
         return jwtAuthentication;
     }
