@@ -2,8 +2,12 @@ package org.vfeeg.eegfaktura.billing.config;
 
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import java.sql.SQLException;
 import java.util.List;
+import org.springframework.beans.TypeMismatchException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -63,11 +67,35 @@ public class RestExceptionHandler {
         return new ResponseEntity<>(errorResponse, exception.getStatusCode());
     }
 
+    /** Exceptions whose message quotes input values: request body, parameter or database row. */
+    private static final List<Class<? extends Throwable>> QUOTING_INPUT = List.of(
+            HttpMessageNotReadableException.class, DataIntegrityViolationException.class, TypeMismatchException.class,
+            jakarta.validation.ConstraintViolationException.class,
+            org.hibernate.exception.ConstraintViolationException.class, SQLException.class);
+
+    static boolean quotesInput(Throwable exception) {
+        for (Throwable t = exception; t != null; t = t.getCause() == t ? null : t.getCause()) {
+            for (Class<? extends Throwable> type : QUOTING_INPUT) {
+                if (type.isInstance(t)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @ExceptionHandler(Throwable.class)
     @ApiResponse(responseCode = "4xx/5xx", description = "Error")
     public ResponseEntity<ErrorResponse> handleThrowable(final Throwable exception) {
         // through the logging module (JSON, request.id/tenant.id), not stderr (#28)
-        log.error("Unhandled exception", exception);
+        if (quotesInput(exception)) {
+            // the message (and the stack trace, which repeats it) may carry request or row values: type only
+            log.atError().addKeyValue("error.type", exception.getClass().getName())
+                    .log("Unhandled exception (message not logged, it may quote input values)");
+            log.debug("Unhandled exception", exception);
+        } else {
+            log.error("Unhandled exception", exception);
+        }
         final ErrorResponse errorResponse = new ErrorResponse();
         errorResponse.setHttpStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
         errorResponse.setException(exception.getClass().getSimpleName());
