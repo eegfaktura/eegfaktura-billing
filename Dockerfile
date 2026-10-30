@@ -44,4 +44,8 @@ WORKDIR /opt/app
 # numerischer USER-Direktive verifizieren (CreateContainerConfigError sonst).
 USER 1001:1001
 
+# service.version of every log line; CI passes the release tag (or the commit for branch builds)
+ARG SERVICE_VERSION=dev
+ENV SERVICE_VERSION=${SERVICE_VERSION}
+
 ENTRYPOINT ["java","-jar","/opt/app/eegfaktura-billing.jar"]

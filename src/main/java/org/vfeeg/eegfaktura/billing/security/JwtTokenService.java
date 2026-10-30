@@ -62,7 +62,11 @@ public class JwtTokenService {
             // email: Empfaenger der Testmail "an mich" (Mail-Texte); fehlt der Claim, bleibt er leer.
             String email = payload.optString("email", null);
 
-            jwtAuthentication = new JwtAuthentication(username, authorities, hasRealmRole(payload, "superuser"), email);
+            // azp: the Keycloak client that requested the token, only for the log (client.id)
+            String clientId = payload.optString("azp", null);
+
+            jwtAuthentication = new JwtAuthentication(username, authorities, hasRealmRole(payload, "superuser"), email,
+                    clientId);
         } catch (Exception e) {
             log.warn("Failed to validate JWT token: {}", e.getMessage(), e);
         }
