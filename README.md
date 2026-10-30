@@ -96,6 +96,10 @@ The container is accepting the following environment variables as configuration:
 * `MAIL_SMTP_STARTTLS_ENABLE` (default = false)
 * `MAIL_NO_REPLY_TO` e-mail address to use as sender for automated mails (default = no-reply@eegfaktura.at)
 * `JWT_PUBLICKEYFILE` full path to the JWT public key file, used to decrypt JWT tokens from header (default = /billing/zertifikat-pub.pem)
+* `LOG_FORMAT` `json` (default: one JSON object per line on stdout, flat ECS field names) or `text` (Spring's plain console lines)
+* `LOG_LEVEL` `trace`, `debug`, `info` (default), `warn` or `error`; any other value stops the start. Per package:
+  Spring's `LOGGING_LEVEL_<PACKAGE>` (e.g. `LOGGING_LEVEL_ORG_VFEEG=debug`)
+* `SERVICE_VERSION` written as `service.version` into every log line; set by the image build (release tag or commit), default `dev`
 
 ## Contributing
 
