@@ -19,6 +19,7 @@ import org.vfeeg.eegfaktura.billing.rest.Endpoint;
 import org.vfeeg.eegfaktura.billing.rest.FileDataResource;
 import org.vfeeg.eegfaktura.billing.rest.TestTokens;
 import org.vfeeg.eegfaktura.billing.rest.WebSliceTest;
+import org.vfeeg.eegfaktura.billing.security.JwtRequestFilter;
 import org.vfeeg.eegfaktura.billing.service.FileDataService;
 
 import java.util.ArrayList;
@@ -164,6 +165,21 @@ class AccessLogWebTests extends WebSliceTest {
         assertEquals(403, f.get("http.response.status_code"));
         assertEquals(AccessDeniedException.class.getName(), f.get("error.type"));
         assertNull(f.get("tenant.id"), "a refused tenant is not the tenant the request worked on");
+    }
+
+    /** The refusal warning of JwtRequestFilter names the tenant, never the user (no user tracking). */
+    @Test
+    void foreignTenantWarningNamesNoUser() {
+        Logger filterLog = (Logger) org.slf4j.LoggerFactory.getLogger(JwtRequestFilter.class);
+        filterLog.addAppender(appender);
+        try {
+            assertThrows(AccessDeniedException.class, () -> mvc.perform(get("/api/fileData/" + Endpoint.ID)
+                    .header("Tenant", FOREIGN).header(HttpHeaders.AUTHORIZATION, TestTokens.admin())));
+        } finally {
+            filterLog.detachAppender(appender);
+        }
+        String warning = lines.stream().map(Line::message).filter(m -> m.contains(FOREIGN)).findFirst().orElseThrow();
+        assertFalse(warning.contains("test-admin"), warning);
     }
 
     @Test
