@@ -56,7 +56,8 @@ public class EmailService {
         List<String> validTo = toParts.stream().filter(EmailAddressUtil::isValid).toList();
         rejected.addAll(toParts.stream().filter(p -> !EmailAddressUtil.isValid(p)).toList());
         if (validTo.isEmpty()) {
-            throw new MessagingException("invalid email (" + to + ")");
+            // without the address: the message reaches the log, the send protocol names the member
+            throw new MessagingException("invalid email (no valid recipient address)");
         }
 
         List<String> ccParts = EmailAddressUtil.normalize(cc);
