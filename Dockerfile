@@ -44,7 +44,8 @@ WORKDIR /opt/app
 # numerischer USER-Direktive verifizieren (CreateContainerConfigError sonst).
 USER 1001:1001
 
-# service.version of every log line; CI passes metadata-action's version (release tag, or branch name)
+# service.version of every log line: identifies the build (CI passes the version of a tag build, else the commit).
+# A promoted prod/pilot image is the same digest re-tagged; its release version is the image tag.
 ARG SERVICE_VERSION=dev
 ENV SERVICE_VERSION=${SERVICE_VERSION}
 

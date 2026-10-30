@@ -17,8 +17,9 @@ this changelog highlights the changes relevant for overview and operations.
   record. Other MDC entries and Spring's `process.*`/`ecs.version` are not written (whitelist). New environment
   variables: `LOG_FORMAT=json|text` (default `json`; JSON mode also switches the start banner off),
   `LOG_LEVEL=trace|debug|info|warn|error` (default `info`, an unknown value stops the start; the access lines stay at
-  every level), `SERVICE_VERSION` (set by the image build from metadata-action's version: the release for a tag, the
-  branch name for a branch build; default `dev`). Text lines from parse rules on the old format no longer match.
+  every level), `SERVICE_VERSION` (identifies the build: set by the image build to the commit SHA, or the version for a
+  tag build; default `dev` — a promoted prod/pilot image is a re-tagged dev build, so its release version is the image
+  tag, visible in Dynatrace as container metadata, not `service.version`). Text lines from parse rules on the old format no longer match.
 - **One access line per HTTP request** (`event.action=http.access`, logger `org.vfeeg.eegfaktura.billing.access`):
   `http.request.method`, `http.route` (the route template, never the path with ids, no query; missing when the router
   never saw the request), `http.response.status_code`, `event.outcome` (`success`/`refused` for 401 and 403/
@@ -26,7 +27,9 @@ this changelog highlights the changes relevant for overview and operations.
   tenant, when the token grants it) and `client.id` (the token's `azp`, the Keycloak client, not a person). **A
   superuser (operator/support) on a tenant its token does not name is logged with that `tenant.id` plus
   `support.access=true`.** Message text `<METHOD> <route> <status>`. A request refused by an exception (foreign tenant)
-  is logged after the container's error dispatch with the status the client gets. No user, e-mail,
+  is logged after the container's error dispatch with the status the client gets. Known limit: when the client
+  aborts before the response is committed (`ClientAbortException`) and Tomcat skips the error dispatch, that request
+  has no access line. No user, e-mail,
   IP or user agent (no user tracking, decided 2026-10-29). `X-Request-Id` is taken over when it matches
   `[A-Za-z0-9._:-]{1,128}`, otherwise generated (32 hex), and returned as response header; `traceparent` only when
   valid. Billing had no access log before, so nothing with IP or user agent was switched off.
@@ -38,8 +41,10 @@ this changelog highlights the changes relevant for overview and operations.
   stack trace of the invoice mail and of the test mail; tracking billing 261008-ca3): the exception of a failed send
   names the billing document, an SMTP failure is logged with its type and the masked message, other failures keep the
   stack trace. Unhandled exceptions are logged as one ERROR line instead of `printStackTrace` on stderr (#28); those
-  that quote input values (unreadable body, constraint/SQL errors, type mismatch) only with their type (full text at
-  DEBUG). A rejected token (expired, invalid) is one DEBUG line with its type instead of a WARN with message and stack
+  that quote input values (unreadable body, constraint/SQL errors, type mismatch) only with their type (at DEBUG the
+  stack frames, still without the messages). A mail without a valid recipient no longer quotes the address in its
+  error. Failed billing run log line: billing 261030-mm1 — security relevant, details not published. Text format
+  (`LOG_FORMAT=text`) shows the key-value pairs of a line. A rejected token (expired, invalid) is one DEBUG line with its type instead of a WARN with message and stack
   trace per request.
 - **Test: a failed billing run leaves nothing behind, checked through the launcher** (eegfaktura-dev tracking billing 12).
   The code was fixed in 1.0.8 (the calculation rolls back, `BillingRunLauncher` records the run as FAILED); the scenario
