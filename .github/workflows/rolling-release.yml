@@ -97,6 +97,11 @@ jobs:
           tags: ${{ steps.meta.outputs.tags || 'latest' }}
           labels: ${{ steps.meta.outputs.labels || '' }}
           annotations: ${{ steps.meta.outputs.annotations }}
+          # service.version in the log identifies the BUILD: the version for a tag build, else the commit (a branch
+          # name cannot tell builds apart). Prod/pilot images are re-tagged dev-tier digests (gitops promote-image.yml,
+          # no rebuild), so the release version of a running image is its tag, not this value.
+          build-args: |
+            SERVICE_VERSION=${{ github.ref_type == 'tag' && steps.meta.outputs.version || github.sha }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1.4.4

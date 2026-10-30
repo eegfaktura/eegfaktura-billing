@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.vfeeg.eegfaktura.billing.config.AsyncConfig;
+import org.vfeeg.eegfaktura.billing.logging.LogText;
 import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
 
 import java.util.UUID;
@@ -30,7 +31,13 @@ public class BillingRunLauncher {
         try {
             billingService.executeBillingRun(billingRunId, doBillingParams);
         } catch (Exception e) {
-            log.error("Abrechnung fehlgeschlagen (billingRunId={})", billingRunId, e);
+            if (LogText.quotesInput(e)) {
+                // e.g. PSQLException "Failing row contains (...)": the row's values stay out of the log, the frames stay
+                log.atError().addKeyValue("error.type", e.getClass().getName()).setCause(LogText.withoutMessages(e))
+                        .log("Abrechnung fehlgeschlagen (billingRunId={})", billingRunId);
+            } else {
+                log.error("Abrechnung fehlgeschlagen (billingRunId={})", billingRunId, e);
+            }
             billingService.markBillingRunFailed(billingRunId, toErrorSummary(e));
         }
     }

@@ -62,9 +62,15 @@ public class JwtTokenService {
             // email: Empfaenger der Testmail "an mich" (Mail-Texte); fehlt der Claim, bleibt er leer.
             String email = payload.optString("email", null);
 
-            jwtAuthentication = new JwtAuthentication(username, authorities, hasRealmRole(payload, "superuser"), email);
+            // azp: the Keycloak client that requested the token, only for the log (client.id)
+            String clientId = payload.optString("azp", null);
+
+            jwtAuthentication = new JwtAuthentication(username, authorities, hasRealmRole(payload, "superuser"), email,
+                    clientId);
         } catch (Exception e) {
-            log.warn("Failed to validate JWT token: {}", e.getMessage(), e);
+            // expired or invalid tokens are routine (the access line shows the refusal): one debug line, type only -
+            // the message of a decode error can quote the token's decoded content
+            log.atDebug().addKeyValue("error.type", e.getClass().getName()).log("Token rejected");
         }
         return jwtAuthentication;
     }

@@ -12,6 +12,8 @@ import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -102,6 +104,16 @@ class EmailServiceTests {
 
         assertThat(error.getMessage(), containsString("invalid email"));
         verify(mailSender, never()).send(any(MimeMessage.class));
+    }
+
+    /** The error reaches the log: it names no part of an invalid address, whatever its form (never-log list). */
+    @ParameterizedTest
+    @ValueSource(strings = {"anna.huber(at)gmx.at", "Anna Huber <anna@x.at>", "anna huber@gmx.at"})
+    void invalidRecipientIsNotQuotedInTheError(String to) {
+        MessagingException error = assertThrows(MessagingException.class,
+                () -> emailService.sendEmail(FROM, to, null, "S", "<p/>", Map.of()));
+
+        assertThat(error.getMessage(), is("invalid email (no valid recipient address)"));
     }
 
     @Test

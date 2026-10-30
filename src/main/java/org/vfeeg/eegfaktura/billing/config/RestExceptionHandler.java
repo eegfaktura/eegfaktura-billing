@@ -1,6 +1,7 @@
 package org.vfeeg.eegfaktura.billing.config;
 
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,12 +11,14 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.vfeeg.eegfaktura.billing.logging.LogText;
 import org.vfeeg.eegfaktura.billing.service.BillingRunActionLock;
 import org.vfeeg.eegfaktura.billing.model.ErrorResponse;
 import org.vfeeg.eegfaktura.billing.model.FieldError;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
 
+@Slf4j
 @RestControllerAdvice(annotations = RestController.class)
 public class RestExceptionHandler {
 
@@ -64,7 +67,16 @@ public class RestExceptionHandler {
     @ExceptionHandler(Throwable.class)
     @ApiResponse(responseCode = "4xx/5xx", description = "Error")
     public ResponseEntity<ErrorResponse> handleThrowable(final Throwable exception) {
-        exception.printStackTrace();
+        // through the logging module (JSON, request.id/tenant.id), not stderr (#28)
+        if (LogText.quotesInput(exception)) {
+            // the message (and the stack trace, which repeats it) may carry request or row values: type only
+            log.atError().addKeyValue("error.type", exception.getClass().getName())
+                    .log("Unhandled exception (message not logged, it may quote input values)");
+            // stack frames at debug, still without the messages
+            log.debug("Unhandled exception", LogText.withoutMessages(exception));
+        } else {
+            log.error("Unhandled exception", exception);
+        }
         final ErrorResponse errorResponse = new ErrorResponse();
         errorResponse.setHttpStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
         errorResponse.setException(exception.getClass().getSimpleName());

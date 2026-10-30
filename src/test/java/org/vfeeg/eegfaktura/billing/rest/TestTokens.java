@@ -65,6 +65,18 @@ public final class TestTokens {
         return bearer(token(List.of(OWN), List.of("EEG_USER")));
     }
 
+    /** "Bearer …" of an EEG_ADMIN of the own community, issued to the Keycloak client {@code azp}, with an e-mail. */
+    public static String adminOfClient(String azp, String email) {
+        return bearer(claims(List.of(OWN), List.of(ADMIN_GROUP))
+                .withClaim("azp", azp).withClaim("email", email).sign(ALGORITHM));
+    }
+
+    /** "Bearer …" of an EEG_ADMIN of the own community with the realm role "superuser" (operator/support). */
+    public static String superuserAdmin() {
+        return bearer(claims(List.of(OWN), List.of(ADMIN_GROUP))
+                .withClaim("realm_access", java.util.Map.of("roles", List.of("superuser"))).sign(ALGORITHM));
+    }
+
     public static String bearer(String token) {
         return "Bearer " + token;
     }
