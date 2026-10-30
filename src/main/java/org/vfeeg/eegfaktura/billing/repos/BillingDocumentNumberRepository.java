@@ -11,10 +11,10 @@ import java.util.UUID;
 @Repository
 public interface BillingDocumentNumberRepository extends JpaRepository<BillingDocumentNumber, UUID> {
 
+    /** {@code prefix} trimmed; rows written before #15 may carry it with blanks and count for the same sequence. */
     @Query(value = "SELECT max(b.sequenceNumber) AS maxSequenceNumber" +
             " FROM BillingDocumentNumber b" +
-            " WHERE b.tenantId = ?1 and b.year = ?2 and b.prefix = ?3" +
-            " GROUP BY b.tenantId, b.year, b.prefix")
+            " WHERE b.tenantId = ?1 and b.year = ?2 and trim(b.prefix) = ?3")
     public Long getMaxSequenceNumber(String tenantId, int year, String prefix);
 
 }

@@ -3,6 +3,7 @@ package org.vfeeg.eegfaktura.billing.contract;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
@@ -43,10 +44,12 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -117,17 +120,28 @@ class CallerRequestContractTests extends WebSliceTest {
     }
 
     /**
-     * The JSON key is {@code preview} (Lombok's {@code isPreview} field). A caller sending {@code
-     * isPreview} is not refused: the key is ignored and the run is FINAL — the trap v3 documents in
-     * {@code LegacyDoBillingParams}. Pinned as the code decides today.
+     * known-errors #34 (decided 2026-10-29): the JSON key {@code preview} is required. A request without it -
+     * missing, {@code null}, or misspelt as {@code isPreview} (the trap v3 documents in {@code
+     * LegacyDoBillingParams}) - is refused with 400 and nothing is started; before, it ran as a FINAL run.
      */
-    @Test
-    void keyIsPreviewIsIgnoredAndTheRunIsFinal() throws Exception {
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"missing", "null", "isPreview"})
+    void aRequestWithoutPreviewIsRefusedAndNothingStarts(String variant) throws Exception {
         JsonNode fixture = ContractFixtures.read("v3/post-billing.json");
         ObjectNode body = fixture.get("body").deepCopy();
         body.remove("preview");
-        body.put("isPreview", true);
-        assertThat(postBilling(fixture, body).isPreview(), is(false));
+        switch (variant) {
+            case "null" -> body.putNull("preview");
+            case "isPreview" -> body.put("isPreview", true);
+            default -> { }
+        }
+
+        mvc.perform(ContractFixtures.request(fixture, body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("preview"));
+
+        verify(billingService, never()).acceptBillingRun(any());
+        verify(billingRunLauncher, never()).launch(any(), any());
     }
 
     @Test

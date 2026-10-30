@@ -1,11 +1,15 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
+import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
+import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
+import org.vfeeg.eegfaktura.billing.service.BillingRunLauncher;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
 import org.vfeeg.eegfaktura.billing.support.BillingScenarioBase;
@@ -28,6 +32,9 @@ import static org.vfeeg.eegfaktura.billing.domain.BillingDocumentType.INVOICE;
 
 /** Scenarios S1, S3, S4, S5: VAT rates on one invoice. Amounts are computed by hand in the comments. */
 class BillingScenarioVatTests extends BillingScenarioBase {
+
+    @Autowired
+    private BillingRunRepository billingRunRepository;
 
     /**
      * S1 — two consumers, one VAT rate (20 %), final run.
@@ -94,16 +101,23 @@ class BillingScenarioVatTests extends BillingScenarioBase {
     /**
      * S4 — a third VAT rate (producer meter-point fee at 13 %) is not supported. The run must fail and leave
      * nothing behind: no documents, no items, no consumed numbers, no completed run — also for the healthy
-     * second participant (known-errors #12, F1: today the partial data are committed).
+     * second participant (known-errors #12, F1). Since 1.0.8 through the launcher path of the start endpoint
+     * (accept, claim, launch - the calculation in this thread): the calculation rolls back, the launcher records
+     * the run as FAILED.
      */
     @Test
-    @Disabled("known-errors #12")
     void s04_threeVatRatesFailAndLeaveNothingBehind() {
         BillingRunFixture world = insert(threeRateWorld(), false);
+        DoBillingParams params = world.params(PERIOD_TYPE, PERIOD, false);
+        params.setClearingDocumentDate(REFERENCE_DATE);
+        BillingRun run = billingService.acceptBillingRun(params);
+        assertThat(billingService.claimBillingRun(run.getId()), is(true));
 
-        DoBillingResults results = bill(world, false);
+        new BillingRunLauncher(billingService).launch(run.getId(), params);
 
-        assertThat(results.getAbstractText(), startsWith(RESULT_FAILED));
+        BillingRun failed = billingRunRepository.findById(run.getId()).orElseThrow();
+        assertThat(failed.getRunStatus(), is(BillingRunStatus.FAILED));
+        assertThat(failed.getErrorSummary(), startsWith(RESULT_FAILED));
         assertThat(count("billing_document where tenant_id = ?"), is(0));
         assertThat(count("billing_document_item i join billing_document d on d.id = i.billing_document_id"
                 + " where d.tenant_id = ?"), is(0));

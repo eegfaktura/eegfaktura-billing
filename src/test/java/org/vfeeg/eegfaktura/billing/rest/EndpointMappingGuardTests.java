@@ -14,6 +14,7 @@ import org.vfeeg.eegfaktura.billing.service.BillingDocumentMailService;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentNumberService;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentService;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentXlsxService;
+import org.vfeeg.eegfaktura.billing.service.BillingRunActionLock;
 import org.vfeeg.eegfaktura.billing.service.BillingRunService;
 import org.vfeeg.eegfaktura.billing.service.BillingRunLauncher;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
@@ -51,6 +52,7 @@ class EndpointMappingGuardTests extends WebSliceTest {
     @MockitoBean BillingDocumentService billingDocumentService;
     @MockitoBean BillingDocumentXlsxService billingDocumentXlsxService;
     @MockitoBean BillingRunService billingRunService;
+    @MockitoBean BillingRunActionLock billingRunActionLock;
     @MockitoBean BillingService billingService;
     @MockitoBean BillingRunLauncher billingRunLauncher;
     @MockitoBean FileDataService fileDataService;

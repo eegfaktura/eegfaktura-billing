@@ -4,7 +4,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.vfeeg.eegfaktura.billing.repos.InMemoryLockRepository;
 import org.vfeeg.eegfaktura.billing.security.JwtSecurityConfig;
 import org.vfeeg.eegfaktura.billing.security.JwtTokenService;
 import org.vfeeg.eegfaktura.billing.util.AppProperties;
@@ -15,12 +14,11 @@ import org.vfeeg.eegfaktura.billing.util.AppProperties;
  *
  * <p>Imported for real: the security chain of production ({@code JwtSecurityConfig}, profile
  * {@code !dev}; never activate {@code dev}), {@code JwtTokenService} with the test-only certificate
- * that {@link TestTokens} generates ({@code @DynamicPropertySource}), {@code AppProperties}, and the
- * concrete {@code InMemoryLockRepository} (the resources synchronize on its lock objects).
+ * that {@link TestTokens} generates ({@code @DynamicPropertySource}) and {@code AppProperties}.
  * {@code JwtRequestFilter}, {@code TenantFilter} and {@code RestExceptionHandler} are picked up by the
  * slice and run in their real order (security chain, then {@code TenantFilter}).
  */
-@Import({JwtSecurityConfig.class, JwtTokenService.class, InMemoryLockRepository.class})
+@Import({JwtSecurityConfig.class, JwtTokenService.class})
 @EnableConfigurationProperties(AppProperties.class)
 public abstract class WebSliceTest {
 

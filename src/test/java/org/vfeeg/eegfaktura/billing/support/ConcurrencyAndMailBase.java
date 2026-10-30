@@ -14,7 +14,6 @@ import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentNumberRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
-import org.vfeeg.eegfaktura.billing.repos.InMemoryLockRepository;
 import org.vfeeg.eegfaktura.billing.security.Authority;
 import org.vfeeg.eegfaktura.billing.security.TenantContext;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentMailService;
@@ -46,8 +45,6 @@ public abstract class ConcurrencyAndMailBase extends BillingScenarioBase {
 
     @MockitoSpyBean
     protected org.vfeeg.eegfaktura.billing.service.BillingService billingServiceSpy;
-    @MockitoSpyBean
-    protected InMemoryLockRepository lockSpy;
     @MockitoSpyBean
     protected EmailService emailServiceSpy;
     @MockitoSpyBean

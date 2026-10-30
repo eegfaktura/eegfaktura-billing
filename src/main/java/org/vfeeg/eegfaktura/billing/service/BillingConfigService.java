@@ -198,12 +198,17 @@ public class BillingConfigService {
         billingConfig.setFooterText(billingConfigDTO.getFooterText());
         billingConfig.setDocumentNumberSequenceLength(billingConfigDTO.getDocumentNumberSequenceLength());
 
-        billingConfig.setInvoiceNumberPrefix(billingConfigDTO.getInvoiceNumberPrefix());
-        billingConfig.setCreditNoteNumberPrefix(billingConfigDTO.getCreditNoteNumberPrefix());
+        // trimmed (known-errors #15): " R" and "R" print the same number, so they are one prefix
+        billingConfig.setInvoiceNumberPrefix(trimmed(billingConfigDTO.getInvoiceNumberPrefix()));
+        billingConfig.setCreditNoteNumberPrefix(trimmed(billingConfigDTO.getCreditNoteNumberPrefix()));
         billingConfig.setInvoiceNumberStart(billingConfigDTO.getInvoiceNumberStart());
         billingConfig.setCreditNoteNumberStart(billingConfigDTO.getCreditNoteNumberStart());
 
         return billingConfig;
+    }
+
+    private static String trimmed(String prefix) {
+        return prefix == null ? null : prefix.trim();
     }
 
 }

@@ -8,6 +8,44 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Fixed
+- **Test: a failed billing run leaves nothing behind, checked through the launcher** (eegfaktura-dev tracking billing 12).
+  The code was fixed in 1.0.8 (the calculation rolls back, `BillingRunLauncher` records the run as FAILED); the scenario
+  test `s04_threeVatRatesFailAndLeaveNothingBehind` was still disabled and called the old synchronous path. It now
+  accepts, claims and launches the run like the start endpoint and is enabled. No change in behaviour.
+- **Export, mail run and deletion of a billing run: database locks per run, refused instead of waiting** (eegfaktura-dev
+  tracking billing 14). The in-memory lock per community (`InMemoryLockRepository`) let a third request in next to a
+  waiting second one, expired after 15 minutes and did not hold across replicas. Now PostgreSQL advisory locks per
+  billing run (like the final-run lock) guard `GET /api/billingRuns/{id}/billingDocuments/xlsx`, `…/archive`,
+  `…/sendmail` and `DELETE /api/billingRuns/{id}`: exports only read and run next to each other and next to a mail run;
+  a second mail run of the same run, a deletion while an export or mail run of the run is busy, and an export or mail
+  run during a deletion are refused. **What callers see (eegfaktura-web):** those requests get **409** at once
+  (before: they waited until the first had finished). **Contract (additive):** this 409 body (`ErrorResponse`) carries
+  the new field `error` with the German text („Dieser Abrechnungslauf wird gerade bearbeitet …“), which the web's
+  `handleErrors` shows; every other error body is unchanged (`error` is left out when not set; eegfaktura-v3's
+  `LegacyErrorResponse` ignores unknown fields). Requests for different runs of a community no longer wait for
+  each other. Answers are otherwise unchanged (sendmail still answers 500 with the text for its own refusals, e.g.
+  mails already sent). The mail run keeps committing its status steps one by one: its locks are session locks on a
+  connection of its own (not idle in a transaction), released explicitly; a failure while releasing them is logged and
+  does not replace the mail run's answer.
+- **A billing run request without `preview` is refused instead of running as a final run** (eegfaktura-dev tracking
+  billing 34, decided 2026-10-29). **Contract (callers eegfaktura-web, eegfaktura-v3 `BillingClient`):** `POST /api/billing`
+  now requires the key `preview` (true or false). Without it — missing, `null`, or misspelt such as `isPreview` — the
+  answer is **400** (`ErrorResponse` with the field error `preview`) and no run is created or started; before, the
+  request silently ran as a **final** run (document numbers consumed, run closed). Both callers always send `preview`
+  (web: `ParticipantPane` `onDoBilling`; v3: `LegacyDoBillingParams`), so their requests are unchanged.
+- **Document number prefixes with blanks: " R" and "R" are one sequence** (eegfaktura-dev tracking billing 15). The prefix
+  was used untrimmed to find the last number but printed trimmed, so a prefix saved with a leading or trailing blank
+  started its own sequence and could print a number that was already issued (the run then failed on the unique
+  document number). The prefix is now trimmed when the billing configuration is saved and when the last number is
+  read (numbers stored earlier with the untrimmed prefix count too), so both spellings continue one sequence. Where
+  a community already has numbers under both spellings, the next number follows the higher of the two.
+- **Logo and footer images stored before 1.2.0 get the community as owner** (eegfaktura-dev tracking billing 32, data
+  part). Migration `V1_20` sets `file_data.tenant_id` for images without one, from the billing configuration that
+  references them as logo or footer image — only when the configurations of exactly one community reference the
+  row and nothing else does (no document PDF, no custom template, no mail-text image). `GET /api/fileData/{id}` then
+  returns these images to their community (before: refused); every other row stays unchanged.
+
 ### Security
 - **CI: the release workflow pins its actions by commit SHA** (eegfaktura-dev tracking W-261028-mm6). `rolling-release.yml`
   builds and pushes the shipped image, but used floating tags (`@v4`, `@v3`, …); a moved tag ran in the job that holds
