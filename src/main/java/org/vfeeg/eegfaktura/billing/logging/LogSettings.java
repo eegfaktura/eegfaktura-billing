@@ -16,7 +16,8 @@ import java.util.Set;
  * <ul>
  *   <li>{@code LOG_FORMAT=json} (default) → Boot's structured console logging with {@link EcsJsonFormatter}: one
  *       JSON object per line on stdout, flat ECS names; {@code LOG_FORMAT=text} → Boot's plain console pattern.</li>
- *   <li>{@code LOG_LEVEL=trace|debug|info|warn|error} (default {@code info}) → {@code logging.level.root}.</li>
+ *   <li>{@code LOG_LEVEL=trace|debug|info|warn|error} (default {@code info}) → {@code logging.level.root}; the
+ *       access logger stays at {@code info}, so {@code warn}/{@code error} keep the access lines.</li>
  *   <li>{@code SERVICE_VERSION} (set in the image, default {@code dev}) → {@code service.version};
  *       {@code service.name} is {@code eegfaktura-billing}.</li>
  * </ul>
@@ -45,7 +46,11 @@ public class LogSettings implements EnvironmentPostProcessor {
         properties.put("logging.pattern.correlation", "[%X{request.id:-} %X{tenant.id:-}] ");
         String f = normalize(format, "json");
         switch (f) {
-            case "json" -> properties.put("logging.structured.format.console", EcsJsonFormatter.class.getName());
+            case "json" -> {
+                properties.put("logging.structured.format.console", EcsJsonFormatter.class.getName());
+                // the banner is plain text on stdout and would break "one JSON object per line"
+                properties.put("spring.main.banner-mode", "off");
+            }
             case "text" -> { /* Boot's plain console pattern */ }
             default -> throw new IllegalStateException("LOG_FORMAT must be json or text, not '" + format + "'");
         }
@@ -54,6 +59,8 @@ public class LogSettings implements EnvironmentPostProcessor {
             throw new IllegalStateException("LOG_LEVEL must be one of " + LEVELS + ", not '" + level + "'");
         }
         properties.put("logging.level.root", l);
+        // the access line stays at every LOG_LEVEL (warn/error would drop it otherwise)
+        properties.put("logging.level." + RequestLogFilter.ACCESS_LOGGER, "info");
         return properties;
     }
 

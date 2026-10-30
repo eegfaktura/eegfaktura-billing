@@ -24,6 +24,14 @@ class LogSettingsTests {
     }
 
     @Test
+    void jsonSwitchesTheBannerOffAndAccessLinesStayAtEveryLevel() {
+        assertEquals("off", LogSettings.resolve("json", null).get("spring.main.banner-mode"));
+        assertFalse(LogSettings.resolve("text", null).containsKey("spring.main.banner-mode"));
+        assertEquals("info", LogSettings.resolve(null, "error")
+                .get("logging.level." + RequestLogFilter.ACCESS_LOGGER));
+    }
+
+    @Test
     void textSwitchesStructuredLoggingOff() {
         assertFalse(LogSettings.resolve("TEXT", null).containsKey(STRUCTURED));
         assertEquals(EcsJsonFormatter.class.getName(), LogSettings.resolve(" Json ", null).get(STRUCTURED));
