@@ -3,6 +3,7 @@ package org.vfeeg.eegfaktura.billing.config;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.ThrowableProxyUtil;
 import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.http.MockHttpInputMessage;
+import org.vfeeg.eegfaktura.billing.logging.LogText;
 
 import java.sql.SQLException;
 
@@ -77,7 +79,23 @@ class RestExceptionHandlerLogTests {
 
     @Test
     void causeChainIsChecked() {
-        assertTrue(RestExceptionHandler.quotesInput(new RuntimeException(new SQLException("x"))));
-        assertFalse(RestExceptionHandler.quotesInput(new RuntimeException(new IllegalStateException())));
+        assertTrue(LogText.quotesInput(new RuntimeException(new SQLException("x"))));
+        assertFalse(LogText.quotesInput(new RuntimeException(new IllegalStateException())));
+    }
+
+    /** At debug the stack frames are there, the values still are not. */
+    @Test
+    void debugLineHasTheFramesButNoValues() {
+        logger.setLevel(Level.DEBUG);
+        DataIntegrityViolationException exception = new DataIntegrityViolationException("insert failed",
+                new SQLException("Failing row contains (anna@example.at, AT611904300234573201)"));
+        new RestExceptionHandler().handleThrowable(exception);
+
+        ILoggingEvent debug = appender.list.stream().filter(e -> e.getLevel() == Level.DEBUG).findFirst().orElseThrow();
+        String trace = ThrowableProxyUtil.asString(debug.getThrowableProxy());
+        assertFalse(trace.contains("anna@example.at") || trace.contains("AT611904300234573201"), trace);
+        assertTrue(trace.contains(DataIntegrityViolationException.class.getName()), trace);
+        assertTrue(trace.contains(SQLException.class.getName()), trace);
+        assertTrue(trace.contains("RestExceptionHandlerLogTests"), "frames kept: " + trace);
     }
 }
