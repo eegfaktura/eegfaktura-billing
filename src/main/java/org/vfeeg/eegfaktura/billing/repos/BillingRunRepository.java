@@ -23,6 +23,8 @@ public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
                                                                                                 String billingPeriodIdentifier,
                                                                                                 BillingRunStatus runStatus);
 
+    List<BillingRun> findByTenantIdIgnoreCaseAndRunStatus(String tenantId, BillingRunStatus runStatus);
+
     List<BillingRun> findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(String tenantId,
                                                                                     String clearingPeriodType,
                                                                                     String clearingPeriodIdentifier);

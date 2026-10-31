@@ -8,6 +8,15 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Fixed
+- **A final run that overlaps a final run is refused** (eegfaktura-dev tracking billing 261031-mm5). The check on a run
+  compared type and identifier only, so a final run of March and one of the first quarter both went through and the energy
+  of March stood on two documents. `POST /api/billing` now answers **409** with the period in `abstractText`, and
+  no run is created. Periods side by side, a change of the interval between periods, previews and runs without documents
+  are not refused. **Known limit:** final runs cannot be deleted, so a community that wants to replace months by a quarter
+  needs support. Existing documents are not changed. **Contract:** new reason for the existing 409, callers
+  eegfaktura-web and eegfaktura-v3 (`BillingClient`) treat it as a refused start.
+
 ## [1.8.0] – 2026-10-31
 
 ### Changed
