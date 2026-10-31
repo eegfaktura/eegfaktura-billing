@@ -38,7 +38,7 @@ public class BillingDocumentMailService {
     static final String STATUS_IN_PROGRESS = "IN PROGRESS";
     /** At least one mail went out, or there was nothing to send; failures are in the run protocol. */
     static final String STATUS_SENT = "SENT";
-    /** No mail went out although there were documents. The only status that allows a further mail run. */
+    /** No send reported success although there were documents. Unlike the others it allows a further mail run. */
     static final String STATUS_FAILED = "FAILED";
 
     private final EmailService emailService;

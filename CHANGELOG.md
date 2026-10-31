@@ -18,8 +18,9 @@ this changelog highlights the changes relevant for overview and operations.
   in `billing_run.mail_status` / `BillingRunDTO.mailStatus`:** documents existed and no mail went out. Before, such a
   run ended `SENT`. An exception outside the per-document handling no longer leaves `IN PROGRESS`: the run ends
   `FAILED`, or `SENT` when mails went out, with a note in the protocol. Two simultaneous mail runs: one conditional
-  update has one winner, the other call is refused. **A `FAILED` run can be sent again** (decision 2026-10-31): none
-  of its mails went out, so nobody gets one twice; the new run replaces the protocol. Every other status refuses a
+  update has one winner, the other call is refused. **A `FAILED` run can be sent again** (decision 2026-10-31): no send
+  reported success; the new run replaces the protocol. A mail the relay took although the send reported an error (a
+  timeout after the data) would go out a second time. Every other status refuses a
   further mail run, and a run with some failed mails stays `SENT` (the protocol lists them). **Web:** the button
   „Erneut senden“ comes with web; an older web shows a `FAILED` run as „Wird versendet …“. eegfaktura-v3
   (`BillingMapper.mailStatus`) maps an unknown value to `PARTIAL` until it knows `FAILED`. A process killed during a mail run still
