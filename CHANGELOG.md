@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.8.0] – 2026-10-31
+
 ### Changed
 - **Logs are JSON now — this changes what operators and Dynatrace receive from billing** (logging concept
   W-261008-ca2, alignment 2026-10-30). Every log line is one JSON object on stdout with flat ECS names, the same as
