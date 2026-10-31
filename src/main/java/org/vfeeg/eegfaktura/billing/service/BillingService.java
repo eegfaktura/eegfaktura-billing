@@ -12,6 +12,9 @@ import org.vfeeg.eegfaktura.billing.util.StringTools;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import org.vfeeg.eegfaktura.billing.util.ClearingPeriodIdentifierTool;
+import org.vfeeg.eegfaktura.billing.util.ClearingPeriodMonths;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -108,6 +111,7 @@ public class BillingService {
         // Kein passender Abrechnungslauf gefunden: Neuen erstellen!
         BillingRun billingRun;
         if (billingRunList.isEmpty()) {
+            refuseOverlappingFinalRun(doBillingParams);
             billingRun = new BillingRun();
             billingRun.setClearingPeriodIdentifier(doBillingParams.getClearingPeriodIdentifier());
             billingRun.setClearingPeriodType(doBillingParams.getClearingPeriodType());
@@ -139,13 +143,41 @@ public class BillingService {
                         doBillingParams.getClearingPeriodIdentifier()
                 ));
             }
+            refuseOverlappingFinalRun(doBillingParams);
         }
         return billingRun;
+    }
+
+    /**
+     * Ein endgueltiger Lauf ueberschneidet sich nicht mit einem endgueltigen Lauf mit Belegen, egal welcher Art:
+     * Maerz und 1. Quartal haetten sonst dieselbe Energie auf zwei Belegen (tracking billing 261031-mm5). Ein
+     * Lauf ohne Belege (platform#189) hat nichts abgerechnet und sperrt nicht.
+     */
+    private void refuseOverlappingFinalRun(DoBillingParams doBillingParams) {
+        Optional<ClearingPeriodMonths> months = ClearingPeriodMonths.of(doBillingParams.getClearingPeriodIdentifier());
+        if (months.isEmpty() || doBillingParams.isPreview()) {
+            return;
+        }
+        for (BillingRun run : billingRunRepository.findByTenantIdIgnoreCaseAndRunStatus(
+                doBillingParams.getTenantId(), BillingRunStatus.DONE)) {
+            boolean overlaps = ClearingPeriodMonths.of(run.getClearingPeriodIdentifier())
+                    .filter(months.get()::overlaps).isPresent();
+            if (overlaps && billingDocumentRepository.existsByBillingRunId(run.getId())) {
+                throw new BillingPeriodOverlapException(String.format("Für den Zeitraum %s ist schon eine"
+                                + " Abrechnung abgeschlossen. Ein weiterer Lauf würde dieselbe Energie doppelt abrechnen.",
+                        ClearingPeriodIdentifierTool.asText(run.getClearingPeriodIdentifier())));
+            }
+        }
     }
 
     /** Bereits abgeschlossener/stornierter Lauf - vom Aufrufer als Konflikt zu behandeln. */
     public static class BillingRunAlreadyClosedException extends RuntimeException {
         public BillingRunAlreadyClosedException(String message) { super(message); }
+    }
+
+    /** Zeitraum ueberschneidet sich mit einem endgueltigen Lauf - ebenfalls ein Konflikt. */
+    public static class BillingPeriodOverlapException extends BillingRunAlreadyClosedException {
+        public BillingPeriodOverlapException(String message) { super(message); }
     }
 
     /** Keine uebergebene Energiemenge passt zu einem Mitglied/Zaehlpunkt - fuehrt zum Lauf-Abbruch (FAILED). */
@@ -207,6 +239,8 @@ public class BillingService {
         if (!doBillingParams.isPreview()) {
             finalRunLock.lock(doBillingParams.getTenantId());
         }
+        // unter der Sperre wiederholt: die Pruefung bei der Annahme kann ein paralleler Lauf ueberholen
+        refuseOverlappingFinalRun(doBillingParams);
 
         DoBillingResults doBillingResults = new DoBillingResults();
 
