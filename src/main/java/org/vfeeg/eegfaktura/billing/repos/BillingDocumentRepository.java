@@ -14,7 +14,10 @@ import org.vfeeg.eegfaktura.billing.domain.BillingDocumentType;
 
 public interface BillingDocumentRepository extends JpaRepository<BillingDocument, UUID> {
 
-    List<BillingDocument> findByTenantIdAndDocumentDateBetween(String tenantId, LocalDate startDate, LocalDate endDate);
+    /** Without the rows older releases left without a run (known-errors #13): they are no issued documents. */
+    List<BillingDocument> findByTenantIdAndDocumentDateBetweenAndBillingRunIsNotNull(String tenantId,
+                                                                                     LocalDate startDate,
+                                                                                     LocalDate endDate);
     List<BillingDocument> findByBillingRunId(UUID billingRundId);
     Integer deleteByBillingRunId(UUID billingRunId);
 

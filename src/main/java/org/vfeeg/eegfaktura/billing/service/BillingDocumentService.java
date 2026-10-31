@@ -44,7 +44,8 @@ public class BillingDocumentService {
         LocalDate dateEnd = instance.with(lastDayOfYear());
 
         final List<BillingDocument> billingDocuments =
-                billingDocumentRepository.findByTenantIdAndDocumentDateBetween(tenantId, dateStart, dateEnd);
+                billingDocumentRepository.findByTenantIdAndDocumentDateBetweenAndBillingRunIsNotNull(
+                        tenantId, dateStart, dateEnd);
         return billingDocuments.stream()
                 .map((billingDocument) -> mapToDTO(billingDocument, new BillingDocumentDTO()))
                 .toList();

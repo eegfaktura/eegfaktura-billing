@@ -379,12 +379,11 @@ public class BillingService {
             // Wir erstellen nur Rechnungen mit Beträgen > 0 und keine Nullrechnungen
             if (!BigDecimalTools.isNullOrZero(invoice.getGrossAmountInEuro())) {
                 createAndAddDocumentNumber(invoice, firstBillingMasterdata, doBillingParams);
+                saveInRun(invoice, invoiceItems, billingRun);
                 billingPdfService.createAndSavePDF(invoice, invoiceItems, meteringPointNames,
                         doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
                         doBillingParams.getBillingConfig().getFooterImageFileDataId(),
                         doBillingParams.isPreview());
-                invoice.setBillingRun(billingRun);
-                billingDocumentRepository.save(invoice);
             }
             participantAmountService.addParticipantAmountData(participantAmount, invoice, invoiceItems);
         }
@@ -395,11 +394,10 @@ public class BillingService {
 
             if (!BigDecimalTools.isNullOrZero(producerDocument.getGrossAmountInEuro())) {
                 createAndAddDocumentNumber(producerDocument, firstBillingMasterdata, doBillingParams);
+                saveInRun(producerDocument, creditNotesItems, billingRun);
                 billingPdfService.createAndSavePDF(producerDocument, creditNotesItems, meteringPointNames,
                         doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
                         doBillingParams.getBillingConfig().getFooterImageFileDataId(), doBillingParams.isPreview());
-                producerDocument.setBillingRun(billingRun);
-                billingDocumentRepository.save(producerDocument);
             }
             participantAmountService.addParticipantAmountData(participantAmount, producerDocument,
                     creditNotesItems);
@@ -488,7 +486,18 @@ public class BillingService {
         billingDocument.setRecipientAddressLine2(StringTools.nullSafeJoin(" ",
                 billingMasterdata.getParticipantZipCode(), billingMasterdata.getParticipantCity()));
 
-        return billingDocumentRepository.save(billingDocument);
+        return billingDocument;
+    }
+
+    /**
+     * Speichert einen Beleg, der tatsaechlich ausgestellt wird, mit seinen Positionen im Lauf. Davor existiert er nur
+     * im Speicher: ein Beleg mit Betrag 0 hinterlaesst so keine Zeile in der Datenbank (known-errors #13).
+     */
+    private void saveInRun(BillingDocument billingDocument, List<BillingDocumentItem> billingDocumentItems,
+                           BillingRun billingRun) {
+        billingDocument.setBillingRun(billingRun);
+        billingDocumentRepository.save(billingDocument);
+        billingDocumentItemRepository.saveAll(billingDocumentItems);
     }
 
     private void createAndAddDocumentNumber(BillingDocument billingDocument,
@@ -799,8 +808,7 @@ public class BillingService {
         newBillingDocumentItem.setGrossValue(grossValue);
         newBillingDocumentItem.setBillingDocument(billingDocument);
 
-        billingDocumentItems.add(
-                billingDocumentItemRepository.save(newBillingDocumentItem));
+        billingDocumentItems.add(newBillingDocumentItem);
 
     }
 
@@ -850,8 +858,7 @@ public class BillingService {
         newBillingDocumentItem.setGrossValue(grossValue);
         newBillingDocumentItem.setBillingDocument(billingDocument);
 
-        billingDocumentItems.add(
-                billingDocumentItemRepository.save(newBillingDocumentItem));
+        billingDocumentItems.add(newBillingDocumentItem);
 
     }
 
@@ -911,8 +918,7 @@ public class BillingService {
         newBillingDocumentItem.setGrossValue(grossValue);
         newBillingDocumentItem.setBillingDocument(billingDocument);
 
-        billingDocumentItems.add(
-                billingDocumentItemRepository.save(newBillingDocumentItem));
+        billingDocumentItems.add(newBillingDocumentItem);
 
     }
 
@@ -967,12 +973,11 @@ public class BillingService {
         createJoiningFeeItem(invoice, invoiceItems, firstBillingMasterdata);
         calculateGrossValues(invoice, invoiceItems);
         createAndAddDocumentNumber(invoice, firstBillingMasterdata, doBillingParams);
+        saveInRun(invoice, invoiceItems, billingRun);
         billingPdfService.createAndSavePDF(invoice, invoiceItems, Map.of(),
                 doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
                 doBillingParams.getBillingConfig().getFooterImageFileDataId(),
                 doBillingParams.isPreview());
-        invoice.setBillingRun(billingRun);
-        billingDocumentRepository.save(invoice);
         participantAmountService.addParticipantAmountData(participantAmount, invoice, invoiceItems);
         doBillingResults.getParticipantAmounts().add(participantAmount);
     }
