@@ -1,7 +1,9 @@
 package org.vfeeg.eegfaktura.billing.repos;
 
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,6 +12,7 @@ import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -46,6 +49,11 @@ public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
             + "where b.id = :id and b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.RUNNING")
     int releaseClaim(@Param("id") UUID id, @Param("to") BillingRunStatus to,
                      @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
+
+    /** The run with its row locked until the transaction ends: its status cannot change under a deletion. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from BillingRun b where b.id = :id")
+    Optional<BillingRun> findForDeletion(@Param("id") UUID id);
 
     /** Atomic claim of the mail run: sets the status only when the run has none yet (exactly one winner). */
     @Modifying

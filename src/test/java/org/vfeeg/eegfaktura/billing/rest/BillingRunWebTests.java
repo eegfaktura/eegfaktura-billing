@@ -188,6 +188,18 @@ class BillingRunWebTests extends EndpointMatrix {
         verify(billingRunService, never()).delete(any());
     }
 
+    /** known-errors #22: a run that may not be deleted is 409, not the 500 of the foreign key. */
+    @Test
+    void aRunThatMayNotBeDeletedIsRefusedWith409() throws Exception {
+        stubRecordsOf(OWN);
+        doThrow(new BillingRunService.RunNotDeletableException()).when(billingRunService).delete(ID);
+
+        mvc.perform(row(HttpMethod.DELETE, "/{id}").request(OWN, OWN, TestTokens.admin()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value(BillingRunService.RunNotDeletableException.MESSAGE))
+                .andExpect(jsonPath("$.httpStatus").value(409));
+    }
+
     @Test
     void deleteRemovesTheRun() throws Exception {
         stubRecordsOf(OWN);

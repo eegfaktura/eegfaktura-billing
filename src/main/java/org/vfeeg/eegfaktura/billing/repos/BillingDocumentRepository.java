@@ -20,6 +20,8 @@ public interface BillingDocumentRepository extends JpaRepository<BillingDocument
                                                                                      LocalDate endDate);
     List<BillingDocument> findByBillingRunId(UUID billingRundId);
     Integer deleteByBillingRunId(UUID billingRunId);
+    boolean existsByBillingRunId(UUID billingRunId);
+    boolean existsByBillingRunIdAndDocumentNumberIsNotNullAndDocumentNumberNot(UUID billingRunId, String documentNumber);
 
     // ---- joining fee: history of a community from its final documents (runs DONE) only ----
 
