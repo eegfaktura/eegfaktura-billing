@@ -359,6 +359,33 @@ class BillingDocumentMailServiceTests {
         assertThat(run.getSendMailProtocol(), containsString(BillingDocumentMailService.ABORTED_NOTE));
     }
 
+    /** F7: nothing to send is no failed mail run, also when the first status write fails; one "finished" line. */
+    @Test
+    void statusWriteFailureOnAnEmptyRunStaysSentWithOneFinishedLine() {
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of());
+        when(billingRunRepository.save(any(BillingRun.class)))
+                .thenThrow(new IllegalStateException("write failed"))
+                .thenAnswer(invocation -> {
+                    savedStatuses.add("save:" + run.getMailStatus());
+                    return run;
+                });
+
+        assertThrows(IllegalStateException.class, () -> service.sendAllBillingDocuments(RUN_ID));
+
+        assertThat(savedStatuses, contains("claim:IN PROGRESS", "save:SENT"));
+        assertThat(run.getSendMailProtocol().split("Send mail finished at ", -1).length - 1, is(1));
+    }
+
+    /** F7: an Error (out of memory in a large run) passes the per-document handling, the status is still final. */
+    @Test
+    void errorInTheMailRunLeavesAFinalStatus() {
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenThrow(new OutOfMemoryError("heap"));
+
+        assertThrows(OutOfMemoryError.class, () -> service.sendAllBillingDocuments(RUN_ID));
+
+        assertThat(savedStatuses, contains("claim:IN PROGRESS", "save:FAILED"));
+    }
+
     /** F7: when the status cannot be written at all the original error reaches the caller. */
     @Test
     void statusWriteFailureKeepsTheOriginalError() {

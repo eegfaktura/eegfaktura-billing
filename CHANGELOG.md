@@ -21,8 +21,9 @@ this changelog highlights the changes relevant for overview and operations.
   update has one winner, the other call is refused. **Who gets a mail does not change:** every status refuses a
   further mail run, `FAILED` too, and a run with some failed mails stays `SENT` (the protocol lists them). The web
   checks `mailStatus === "SENT"`, so a `FAILED` run shows „Abgerechnet“ instead of „Versand gestartet“;
-  eegfaktura-v3 (`BillingMapper.mailStatus`) maps an unknown value to `PARTIAL` until it knows `FAILED`. A process
-  killed during a mail run still leaves `IN PROGRESS`.
+  eegfaktura-v3 (`BillingMapper.mailStatus`) maps an unknown value to `PARTIAL` until it knows `FAILED`, which keeps
+  such a run in its pending mails although a further mail run is refused. A process killed during a mail run still
+  leaves `IN PROGRESS`.
 - **`DELETE /api/billingRuns/{id}` works on a run with preview documents and refuses final ones** (eegfaktura-dev
   tracking billing 22). It failed with a 500 on the foreign key for every run with documents. A run in status NEW or
   FAILED now goes with its preview documents, items, files and PDFs. **Refused with 409** (`ErrorResponse` with the

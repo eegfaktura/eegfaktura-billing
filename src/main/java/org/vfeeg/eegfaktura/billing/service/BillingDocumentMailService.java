@@ -160,8 +160,10 @@ public class BillingDocumentMailService {
                 .append(OffsetDateTime.now())
                 .append(": ");
         int sent = 0;
+        boolean nothingToSend = false;
         try {
             List<BillingDocument> billingDocuments = billingDocumentRepository.findByBillingRunId(billingRunId);
+            nothingToSend = billingDocuments.isEmpty();
             // the EEG's mail text is loaded once per run (also: a change during the run does not apply)
             MailTemplateService.Prepared prepared = mailTemplateService.prepareForSend(billingRun.getTenantId());
             boolean templateFallbackNoted = false;
@@ -196,12 +198,11 @@ public class BillingDocumentMailService {
                             .append(" FEHLER,");
                 }
             }
-            String status = sent == 0 && !billingDocuments.isEmpty() ? STATUS_FAILED : STATUS_SENT;
-            return finishMailRun(billingRun, status, sendProtocolStringBuilder);
-        } catch (RuntimeException e) {
+            return finishMailRun(billingRun, sent > 0 || nothingToSend, sendProtocolStringBuilder);
+        } catch (RuntimeException | Error e) {
             sendProtocolStringBuilder.append(ABORTED_NOTE);
             try {
-                finishMailRun(billingRun, sent == 0 ? STATUS_FAILED : STATUS_SENT, sendProtocolStringBuilder);
+                finishMailRun(billingRun, sent > 0 || nothingToSend, sendProtocolStringBuilder);
             } catch (RuntimeException statusNotSaved) {
                 e.addSuppressed(statusNotSaved);
             }
@@ -210,11 +211,11 @@ public class BillingDocumentMailService {
     }
 
     /** Writes the final status and the protocol; the run never ends "IN PROGRESS" while the database answers. */
-    private String finishMailRun(BillingRun billingRun, String status, StringBuilder sendProtocolStringBuilder) {
-        billingRun.setMailStatus(status);
+    private String finishMailRun(BillingRun billingRun, boolean sent, StringBuilder sendProtocolStringBuilder) {
+        billingRun.setMailStatus(sent ? STATUS_SENT : STATUS_FAILED);
         billingRun.setMailStatusDateTime(LocalDateTime.now());
-        sendProtocolStringBuilder.append("Send mail finished at ").append(OffsetDateTime.now());
-        var sendMailProtocol = sendProtocolStringBuilder.toString();
+        // not appended to the builder: a second attempt after a failed write adds its line only once
+        var sendMailProtocol = sendProtocolStringBuilder + "Send mail finished at " + OffsetDateTime.now();
         billingRun.setSendMailProtocol(sendMailProtocol);
         billingRunRepository.save(billingRun);
         return sendMailProtocol;
