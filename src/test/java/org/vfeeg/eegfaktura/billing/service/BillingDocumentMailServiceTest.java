@@ -75,6 +75,7 @@ class BillingDocumentMailServiceTest {
         run = BillingRun.builder().id(UUID.randomUUID()).tenantId(TENANT)
                 .clearingPeriodIdentifier("Abr_YQ-2026-3").build();
         when(runRepository.findById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.claimMailRun(run.getId(), "IN PROGRESS")).thenReturn(1);
 
         document = new BillingDocument();
         document.setId(UUID.randomUUID());
