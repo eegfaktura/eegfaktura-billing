@@ -18,6 +18,7 @@ import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -69,5 +70,21 @@ class MailSendRaceTests extends ConcurrencyAndMailBase {
             assertThat(receivedBy(MEMBER_2), arrayWithSize(1));
             assertThat(run(runId).getMailStatus(), is("SENT"));
         });
+    }
+
+    /** The claim itself lets a FAILED run through, once: afterwards it is SENT and refused like any other. */
+    @Test
+    void aFailedRunIsSentAgainOnce() {
+        UUID runId = finalRun(members(MEMBER_1));
+        var failed = billingRunRepositorySpy.findById(runId).orElseThrow();
+        failed.setMailStatus("FAILED");
+        billingRunRepositorySpy.save(failed);
+
+        mailService.sendAllBillingDocuments(runId);
+
+        assertThat(receivedBy(MEMBER_1), arrayWithSize(1));
+        assertThat(run(runId).getMailStatus(), is("SENT"));
+        assertThrows(RuntimeException.class, () -> mailService.sendAllBillingDocuments(runId));
+        assertThat(receivedBy(MEMBER_1), arrayWithSize(1));
     }
 }

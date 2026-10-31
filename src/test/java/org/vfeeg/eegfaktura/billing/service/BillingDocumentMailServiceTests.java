@@ -265,14 +265,27 @@ class BillingDocumentMailServiceTests {
         verifyNoInteractions(emailService, billingDocumentRepository);
     }
 
-    /** A run that ended FAILED is refused like a SENT one: who gets a mail stays as it was (known-errors #18). */
+    /** FAILED means no mail went out: unlike SENT it can be sent again, through the same claim. */
     @Test
-    void runWithFailedMailStatusIsNotSentAgain() {
+    void runWithFailedMailStatusIsSentAgain() {
         run.setMailStatus("FAILED");
+        when(billingRunRepository.claimMailRun(RUN_ID, "IN PROGRESS")).thenReturn(1);
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of());
 
-        RuntimeException error = assertThrows(RuntimeException.class, () -> service.sendAllBillingDocuments(RUN_ID));
+        service.sendAllBillingDocuments(RUN_ID);
 
-        assertThat(error.getMessage(), containsString("Status = FAILED"));
+        verify(billingRunRepository).claimMailRun(RUN_ID, "IN PROGRESS");
+        assertThat(run.getMailStatus(), is("SENT"));
+    }
+
+    /** A second click on a FAILED run that is sending again loses the claim. */
+    @Test
+    void failedRunThatLostTheClaimSendsNothing() {
+        run.setMailStatus("FAILED");
+        when(billingRunRepository.claimMailRun(RUN_ID, "IN PROGRESS")).thenReturn(0);
+
+        assertThrows(RuntimeException.class, () -> service.sendAllBillingDocuments(RUN_ID));
+
         verifyNoInteractions(emailService, billingDocumentRepository);
     }
 

@@ -55,11 +55,11 @@ public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
     @Query("select b from BillingRun b where b.id = :id")
     Optional<BillingRun> findForDeletion(@Param("id") UUID id);
 
-    /** Atomic claim of the mail run: sets the status only when the run has none yet (exactly one winner). */
+    /** Atomic claim of the mail run: only a run without a status or one that sent nothing (exactly one winner). */
     @Modifying
     @Transactional
     @Query("update BillingRun b set b.mailStatus = :status "
-            + "where b.id = :id and (b.mailStatus is null or b.mailStatus = '')")
+            + "where b.id = :id and (b.mailStatus is null or b.mailStatus = '' or b.mailStatus = 'FAILED')")
     int claimMailRun(@Param("id") UUID id, @Param("status") String status);
 
 }

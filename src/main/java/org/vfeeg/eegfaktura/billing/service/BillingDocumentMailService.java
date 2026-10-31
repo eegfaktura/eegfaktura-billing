@@ -38,7 +38,7 @@ public class BillingDocumentMailService {
     static final String STATUS_IN_PROGRESS = "IN PROGRESS";
     /** At least one mail went out, or there was nothing to send; failures are in the run protocol. */
     static final String STATUS_SENT = "SENT";
-    /** No mail went out although there were documents. Like every status it blocks a further mail run. */
+    /** No mail went out although there were documents. The only status that allows a further mail run. */
     static final String STATUS_FAILED = "FAILED";
 
     private final EmailService emailService;
@@ -144,7 +144,7 @@ public class BillingDocumentMailService {
                         .orElseThrow(() -> new EntityNotFoundException(billingRunId.toString()));
 
         var mailStatus = billingRun.getMailStatus();
-        if (mailStatus!=null && !mailStatus.isEmpty()) {
+        if (mailStatus!=null && !mailStatus.isEmpty() && !STATUS_FAILED.equals(mailStatus)) {
             var errorText = "Mailversand fuer "+billingRun.getClearingPeriodIdentifier()+" ("
                     +billingRun.getId()+") nicht moeglich. Status = "+mailStatus;
             throw new RuntimeException(errorText);
