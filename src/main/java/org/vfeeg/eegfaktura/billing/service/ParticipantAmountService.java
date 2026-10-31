@@ -88,8 +88,9 @@ public class ParticipantAmountService {
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
         participantAmount.setMeteringPointFeeSum(participantAmount.getMeteringPointFeeSum().add(meteringPointFeeSum));
 
-        List<BillingDocumentFileDTO> billingDocumentList = billingDocumentFileService
-                .findByBillingDocumentId(billingDocument.getId());
+        // a document with amount 0 is never saved: it has no id and no file (known-errors #13)
+        List<BillingDocumentFileDTO> billingDocumentList = billingDocument.getId() == null ? List.of()
+                : billingDocumentFileService.findByBillingDocumentId(billingDocument.getId());
 
         if (!billingDocumentList.isEmpty()) {
             participantAmount.getBillingDocumentFileDTOs().add(billingDocumentList.get(0));

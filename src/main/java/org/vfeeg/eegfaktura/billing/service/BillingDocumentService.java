@@ -44,7 +44,8 @@ public class BillingDocumentService {
         LocalDate dateEnd = instance.with(lastDayOfYear());
 
         final List<BillingDocument> billingDocuments =
-                billingDocumentRepository.findByTenantIdAndDocumentDateBetween(tenantId, dateStart, dateEnd);
+                billingDocumentRepository.findByTenantIdAndDocumentDateBetweenAndBillingRunIsNotNull(
+                        tenantId, dateStart, dateEnd);
         return billingDocuments.stream()
                 .map((billingDocument) -> mapToDTO(billingDocument, new BillingDocumentDTO()))
                 .toList();
@@ -131,7 +132,9 @@ public class BillingDocumentService {
         billingDocumentDTO.setGrossAmountInEuro(billingDocument.getGrossAmountInEuro());
         billingDocumentDTO.setClearingPeriodIdentifier(billingDocument.getClearingPeriodIdentifier());
         billingDocumentDTO.setBillingDocumentType(billingDocument.getBillingDocumentType());
-        billingDocumentDTO.setBillingRunId(billingDocument.getBillingRun().getId());
+        // rows older releases left without a run (known-errors #13)
+        billingDocumentDTO.setBillingRunId(billingDocument.getBillingRun() == null ? null
+                : billingDocument.getBillingRun().getId());
         return billingDocumentDTO;
     }
 

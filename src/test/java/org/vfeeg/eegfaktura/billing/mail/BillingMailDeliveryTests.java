@@ -5,7 +5,6 @@ import jakarta.mail.Multipart;
 import jakarta.mail.Part;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentMailService;
@@ -20,7 +19,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.arrayContaining;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.containsString;
@@ -103,7 +101,7 @@ class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
 
     /**
      * The SMTP server goes away after the first mail: the first member got the mail, the second is an error
-     * line, and the run does not stay "IN PROGRESS" (part of #18 that holds today).
+     * line, and the run does not stay "IN PROGRESS" (#18).
      */
     @Test
     void smtpFailureMidBatchIsReportedAndTheStatusIsFinal() throws Exception {
@@ -124,17 +122,16 @@ class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
         assertThat(countOf(protocol, " FEHLER,"), is(1));
         assertThat(receivedBy(MEMBER_1).length + receivedBy(MEMBER_2).length, is(1));
         BillingRunDTO run = run(runId);
-        assertThat(run.getMailStatus(), is(not("IN PROGRESS")));
+        assertThat("one mail went out", run.getMailStatus(), is("SENT"));
         assertThat(run.getSendMailProtocol(), is(protocol));
     }
 
     /**
      * F7 (#18): the SMTP server is down for the whole batch, every mail fails. Correct: the run is not
-     * marked "SENT" (nothing was sent) and not left "IN PROGRESS"; today it is "SENT", which also blocks
-     * a second attempt.
+     * marked "SENT" (nothing was sent) and not left "IN PROGRESS", but "FAILED". A further mail run stays
+     * refused as after "SENT": re-sending is a user decision.
      */
     @Test
-    @Disabled("known-errors #18")
     void runWhereEverySmtpDeliveryFailedIsNotMarkedSent() {
         UUID runId = finalRun(members(MEMBER_1, MEMBER_2));
         mailSender.setPort(closedPort());
@@ -143,7 +140,8 @@ class BillingMailDeliveryTests extends ConcurrencyAndMailBase {
 
         assertThat(countOf(protocol, " FEHLER,"), is(2));
         assertThat(allReceived(), is(0));
-        assertThat(run(runId).getMailStatus(), is(not(anyOf(is("SENT"), is("IN PROGRESS")))));
+        assertThat(run(runId).getMailStatus(), is("FAILED"));
+        assertThat(run(runId).getSendMailProtocol(), is(protocol));
     }
 
     // ---- helpers ---------------------------------------------------------------------------------

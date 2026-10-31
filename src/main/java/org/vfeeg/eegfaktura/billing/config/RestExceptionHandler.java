@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 import org.vfeeg.eegfaktura.billing.logging.LogText;
 import org.vfeeg.eegfaktura.billing.service.BillingRunActionLock;
+import org.vfeeg.eegfaktura.billing.service.BillingRunService;
 import org.vfeeg.eegfaktura.billing.model.ErrorResponse;
 import org.vfeeg.eegfaktura.billing.model.FieldError;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
@@ -58,7 +59,8 @@ public class RestExceptionHandler {
         errorResponse.setHttpStatus(exception.getStatusCode().value());
         errorResponse.setException(exception.getClass().getSimpleName());
         errorResponse.setMessage(exception.getMessage());
-        if (exception instanceof BillingRunActionLock.BusyException) {
+        if (exception instanceof BillingRunActionLock.BusyException
+                || exception instanceof BillingRunService.RunNotDeletableException) {
             errorResponse.setError(exception.getReason()); // shown by the web as it is
         }
         return new ResponseEntity<>(errorResponse, exception.getStatusCode());

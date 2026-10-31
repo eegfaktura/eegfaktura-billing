@@ -1,14 +1,21 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
+import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
+import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
+import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
+import org.vfeeg.eegfaktura.billing.service.BillingRunService;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
 import org.vfeeg.eegfaktura.billing.support.BillingScenarioBase;
 
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -38,12 +45,9 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
 
     /**
      * S8 — a participant whose amount is 0 (0 kWh, no fee) gets no document, and no document of the
-     * community exists without a run; the year list of the community answers.
-     * Known-errors #13 (F2): every participant's documents are saved before their amounts are known and stay
-     * without a run; the year list then fails with an NPE.
+     * community exists without a run; the year list of the community answers (known-errors #13).
      */
     @Test
-    @Disabled("known-errors #13")
     void s08_participantWithAmountZeroLeavesNoDocumentWithoutRun() {
         BillingRunFixture world = insert(world()
                 .master(consumer(1, "C1"), "100")
@@ -54,9 +58,70 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
         assertThat(results.getAbstractText(), is(RESULT_FINAL_OK));
         assertThat(documents(results.getBillingRunId()), hasSize(1));
         assertThat(count("billing_document where tenant_id = ? and billing_run_id is null"), is(0));
+        assertThat("nothing unused is stored", count("billing_document where tenant_id = ?"), is(1));
         List<BillingDocumentDTO> year = assertDoesNotThrow(
                 () -> billingDocumentService.findByTenantIdAndYear(tenant, REFERENCE_DATE.getYear()));
         assertThat(year, hasSize(1));
+    }
+
+    /** #13, same for a preview: the rows of a repeated preview are all replaced, nothing piles up without a run. */
+    @Test
+    void s08_repeatedPreviewLeavesNoDocumentWithoutRun() {
+        BillingRunFixture world = insert(world()
+                .master(consumer(1, "C1"), "100")
+                .master(producer(2, "P2"), "50")
+                .master(consumer(3, "C3"), "0"), false);
+
+        bill(world, true);
+        DoBillingResults second = bill(world, true);
+
+        assertThat(count("billing_document where tenant_id = ? and billing_run_id is null"), is(0));
+        assertThat(documents(second.getBillingRunId()), hasSize(2));
+        assertThat(count("billing_document where tenant_id = ?"), is(2));
+    }
+
+    /** #13, an issued document keeps its item and PDF; the run's result stays the same for both participants. */
+    @Test
+    void s08_issuedDocumentKeepsItemsPdfAndParticipantAmount() {
+        BillingRunFixture world = insert(world()
+                .master(consumer(1, "C1"), "100")
+                .master(producer(1, "P1"), "50")
+                .master(consumer(2, "C2"), "0"), false);
+
+        DoBillingResults results = bill(world, false);
+
+        List<BillingDocumentDTO> docs = documents(results.getBillingRunId());
+        assertThat(docs, hasSize(2));
+        for (BillingDocumentDTO doc : docs) {
+            assertThat(items(doc.getId()), hasSize(1));
+            assertThat(documentFileRepository.findByBillingDocumentId(doc.getId()), hasSize(1));
+        }
+        assertThat(results.getParticipantAmounts(), hasSize(2));
+        ParticipantAmount billed = results.getParticipantAmounts().stream()
+                .filter(amount -> amount.getId().toString().equals(participant(1))).findFirst().orElseThrow();
+        assertThat(billed.getAmount().compareTo(new BigDecimal("14.00")), is(0));
+        assertThat(billed.getBillingDocumentFileDTOs(), hasSize(2));
+    }
+
+    /**
+     * #13, a row that an older release left behind stays untouched (no data change) and the year list answers
+     * without it; issued documents stay in the list.
+     */
+    @Test
+    void s08_rowWithoutRunFromAnOlderReleaseStaysAndIsNotInTheYearList() {
+        BillingRunFixture world = oneConsumer("100");
+        bill(world, false);
+        UUID leftOver = UUID.randomUUID();
+        jdbc.update("insert into billing_document (id, tenant_id, document_date, date_created, last_updated)"
+                + " values (?, ?, ?, now(), now())", leftOver, tenant, REFERENCE_DATE);
+
+        List<BillingDocumentDTO> year = assertDoesNotThrow(
+                () -> billingDocumentService.findByTenantIdAndYear(tenant, REFERENCE_DATE.getYear()));
+
+        assertThat(year, hasSize(1));
+        assertThat(year.get(0).getDocumentNumber(), is("TRECH202400042"));
+        assertThat(count("billing_document where tenant_id = ? and billing_run_id is null"), is(1));
+        assertThat(assertDoesNotThrow(() -> billingDocumentService.get(leftOver)).getBillingRunId(), nullValue());
     }
 
     /** S8 without the defect part: the zero participant gets no document in the run (holds today). */
@@ -164,20 +229,134 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
     }
 
     /**
-     * S12 — deleting a run after the final billing removes the run with its documents.
-     * Known-errors #22 (F11): the foreign key has no cascade, the delete fails.
+     * S12 — known-errors #22 (F11): final documents are never deleted (decided 2026-10-31, this replaces the
+     * original expectation that a delete removes them): a completed run with documents is refused with 409, not
+     * 500, and every row of it stays.
      */
     @Test
-    @Disabled("known-errors #22")
-    void s12_deletingACompletedRunRemovesItWithItsDocuments() {
+    void s12_deletingACompletedRunIsRefusedAndChangesNothing() {
         BillingRunFixture world = oneConsumer("100");
         DoBillingResults results = bill(world, false);
+        UUID runId = results.getBillingRunId();
         assertThat(results.getAbstractText(), is(RESULT_FINAL_OK));
+        BillingDocumentDTO invoice = single(runId);
+        byte[] pdfBefore = pdf(invoice.getId());
+        int files = count("file_data where tenant_id = ?");
 
-        assertDoesNotThrow(() -> billingRunService.delete(results.getBillingRunId()));
+        assertRefused(runId);
+
+        assertThat(billingRunService.get(runId).getRunStatus(), is(BillingRunStatus.DONE));
+        assertThat(single(runId).getId(), is(invoice.getId()));
+        assertThat(single(runId).getDocumentNumber(), is("TRECH202400042"));
+        assertThat(items(invoice.getId()), hasSize(1));
+        assertThat(documentFileRepository.findByBillingRunId(runId), hasSize(1));
+        assertThat(pdf(invoice.getId()), is(pdfBefore));
+        assertThat(count("file_data where tenant_id = ?"), is(files));
+        assertThat(documentNumbers(), contains("TRECH202400042"));
+    }
+
+    /** S12 — a preview run goes with everything hanging on it, and with nothing else of the community. */
+    @Test
+    void s12_deletingAPreviewRunRemovesItsDocumentsAndNothingElse() {
+        BillingRunFixture world = oneConsumer("100");
+        DoBillingResults done = billingService.doBilling(params(world, "Abr_YQ-2024-1", false));
+        UUID previewRun = bill(world, true).getBillingRunId();
+        int files = count("file_data where tenant_id = ?");
+        assertThat(documents(previewRun), hasSize(1));
+
+        billingRunService.delete(previewRun);
+
+        assertThat(jdbc.queryForObject("select count(*) from billing_run where id = ?", Integer.class, previewRun), is(0));
+        assertThat(count("billing_document where tenant_id = ?"), is(1));
+        assertThat(count("billing_document_item bdi join billing_document bd on bdi.billing_document_id = bd.id"
+                + " where bd.tenant_id = ?"), is(1));
+        assertThat(count("billing_document_file where tenant_id = ?"), is(1));
+        assertThat(count("file_data where tenant_id = ?"), is(files - 1));
+        assertThat(single(done.getBillingRunId()).getDocumentNumber(), is("TRECH202400042"));
+        assertThat(documentNumbers(), contains("TRECH202400042"));
+    }
+
+    /** S12 — the INFO document of a preview carries "-" as its number: that is no final number. */
+    @Test
+    void s12_deletingAPreviewRunWithAnInfoDocumentWorks() {
+        BillingRunFixture world = insert(world()
+                .master(producer(1, "P1").column("participant_vat_id", "ATU12345678"), "50"), false);
+        UUID runId = bill(world, true).getBillingRunId();
+        assertThat(documents(runId).get(0).getDocumentNumber(), is("-"));
+
+        billingRunService.delete(runId);
 
         assertThat(count("billing_run where tenant_id = ?"), is(0));
-        assertThat(documents(results.getBillingRunId()), is(empty()));
+        assertThat(count("billing_document where tenant_id = ?"), is(0));
+    }
+
+    /** S12 — a failed run only holds preview documents of an earlier attempt, like a preview run. */
+    @Test
+    void s12_deletingAFailedRunRemovesItsPreviewDocuments() {
+        BillingRunFixture world = oneConsumer("100");
+        UUID runId = bill(world, true).getBillingRunId();
+        jdbc.update("update billing_run set run_status = ? where id = ?", BillingRunStatus.FAILED.ordinal(), runId);
+
+        billingRunService.delete(runId);
+
+        assertThat(count("billing_run where tenant_id = ?"), is(0));
+        assertThat(count("billing_document where tenant_id = ?"), is(0));
+    }
+
+    /** S12 — final numbers protect the documents whatever the run status says. */
+    @Test
+    void s12_runWithAFinalNumberIsRefusedInAnyStatus() {
+        BillingRunFixture world = oneConsumer("100");
+        UUID runId = bill(world, false).getBillingRunId();
+        jdbc.update("update billing_run set run_status = ? where id = ?", BillingRunStatus.NEW.ordinal(), runId);
+
+        assertRefused(runId);
+
+        assertThat(single(runId).getDocumentNumber(), is("TRECH202400042"));
+    }
+
+    /** S12 — a RUNNING run is never deleted, with or without documents. */
+    @Test
+    void s12_runningRunIsRefused() {
+        UUID runId = billingRunService.create(run(BillingRunStatus.RUNNING));
+
+        assertRefused(runId);
+
+        assertThat(billingRunService.get(runId).getRunStatus(), is(BillingRunStatus.RUNNING));
+    }
+
+    /**
+     * S12 — a completed run without documents (platform#189) stays deletable as before: nothing final is lost, and
+     * it would otherwise block its period for good.
+     */
+    @Test
+    void s12_completedRunWithoutDocumentsIsDeleted() {
+        UUID runId = billingRunService.create(run(BillingRunStatus.DONE));
+
+        billingRunService.delete(runId);
+
+        assertThat(count("billing_run where tenant_id = ?"), is(0));
+    }
+
+    private void assertRefused(UUID runId) {
+        ResponseStatusException refused = assertThrows(BillingRunService.RunNotDeletableException.class,
+                () -> billingRunService.delete(runId));
+        assertThat(refused.getStatusCode(), is(HttpStatus.CONFLICT));
+    }
+
+    private BillingRunDTO run(BillingRunStatus status) {
+        BillingRunDTO run = new BillingRunDTO();
+        run.setTenantId(tenant);
+        run.setClearingPeriodType(PERIOD_TYPE);
+        run.setClearingPeriodIdentifier(PERIOD);
+        run.setRunStatus(status);
+        return run;
+    }
+
+    private DoBillingParams params(BillingRunFixture world, String period, boolean preview) {
+        DoBillingParams params = world.params(PERIOD_TYPE, period, preview);
+        params.setClearingDocumentDate(REFERENCE_DATE);
+        return params;
     }
 
     private BillingDocumentDTO single(UUID runId) {

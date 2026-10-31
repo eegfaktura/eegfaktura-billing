@@ -3,7 +3,6 @@ package org.vfeeg.eegfaktura.billing.service;
 import jakarta.mail.MessagingException;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -87,9 +86,9 @@ class BillingDocumentMailServiceTests {
         run = BillingRun.builder().id(RUN_ID).tenantId("TE100100").clearingPeriodIdentifier("Abr_YQ-2024-3")
                 .build();
         lenient().when(billingRunRepository.findById(RUN_ID)).thenReturn(Optional.of(run));
-        lenient().when(billingRunRepository.saveAndFlush(any(BillingRun.class))).thenAnswer(invocation -> {
-            savedStatuses.add("flush:" + run.getMailStatus());
-            return run;
+        lenient().when(billingRunRepository.claimMailRun(RUN_ID, "IN PROGRESS")).thenAnswer(invocation -> {
+            savedStatuses.add("claim:IN PROGRESS");
+            return 1;
         });
         lenient().when(billingRunRepository.save(any(BillingRun.class))).thenAnswer(invocation -> {
             savedStatuses.add("save:" + run.getMailStatus());
@@ -106,7 +105,7 @@ class BillingDocumentMailServiceTests {
 
         String protocol = service.sendAllBillingDocuments(RUN_ID);
 
-        assertThat(savedStatuses, contains("flush:IN PROGRESS", "save:SENT"));
+        assertThat(savedStatuses, contains("claim:IN PROGRESS", "save:SENT"));
         assertThat(run.getMailStatus(), is("SENT"));
         assertThat(run.getMailStatusDateTime(), is(notNullValue()));
         assertThat(run.getSendMailProtocol(), is(protocol));
@@ -262,8 +261,44 @@ class BillingDocumentMailServiceTests {
         RuntimeException error = assertThrows(RuntimeException.class, () -> service.sendAllBillingDocuments(RUN_ID));
 
         assertThat(error.getMessage(), containsString("Status = SENT"));
-        verify(billingRunRepository, never()).saveAndFlush(any());
+        verify(billingRunRepository, never()).claimMailRun(any(), any());
         verifyNoInteractions(emailService, billingDocumentRepository);
+    }
+
+    /** FAILED means no mail went out: unlike SENT it can be sent again, through the same claim. */
+    @Test
+    void runWithFailedMailStatusIsSentAgain() {
+        run.setMailStatus("FAILED");
+        when(billingRunRepository.claimMailRun(RUN_ID, "IN PROGRESS")).thenReturn(1);
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of());
+
+        service.sendAllBillingDocuments(RUN_ID);
+
+        verify(billingRunRepository).claimMailRun(RUN_ID, "IN PROGRESS");
+        assertThat(run.getMailStatus(), is("SENT"));
+    }
+
+    /** A second click on a FAILED run that is sending again loses the claim. */
+    @Test
+    void failedRunThatLostTheClaimSendsNothing() {
+        run.setMailStatus("FAILED");
+        when(billingRunRepository.claimMailRun(RUN_ID, "IN PROGRESS")).thenReturn(0);
+
+        assertThrows(RuntimeException.class, () -> service.sendAllBillingDocuments(RUN_ID));
+
+        verifyNoInteractions(emailService, billingDocumentRepository);
+    }
+
+    /** A call that loses the claim sends nothing and leaves the winner's status alone. */
+    @Test
+    void lostClaimIsRefusedAndSendsNothing() {
+        when(billingRunRepository.claimMailRun(RUN_ID, "IN PROGRESS")).thenReturn(0);
+
+        RuntimeException error = assertThrows(RuntimeException.class, () -> service.sendAllBillingDocuments(RUN_ID));
+
+        assertThat(error.getMessage(), containsString("nicht moeglich"));
+        verifyNoInteractions(emailService, billingDocumentRepository);
+        verify(billingRunRepository, never()).save(any());
     }
 
     @Test
@@ -272,7 +307,7 @@ class BillingDocumentMailServiceTests {
         when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of());
 
         assertThat(service.sendAllBillingDocuments(RUN_ID), containsString("Send mail finished at "));
-        assertThat(savedStatuses, contains("flush:IN PROGRESS", "save:SENT"));
+        assertThat(savedStatuses, contains("claim:IN PROGRESS", "save:SENT"));
     }
 
     @Test
@@ -285,11 +320,10 @@ class BillingDocumentMailServiceTests {
     }
 
     /**
-     * F7: a sender that throws for every document still ends with "SENT", which blocks a re-send although
-     * no mail went out. The correct status is anything but "SENT" (name left to the fix).
+     * F7: a sender that throws for every document must not end with "SENT": no mail went out. The protocol
+     * stays the record of what failed.
      */
     @Test
-    @Disabled("known-errors #18")
     void runWhereEveryMailFailedIsNotMarkedSent() throws Exception {
         BillingDocument anna = document("anna@example.at", "Anna Muster", "001");
         BillingDocument bert = document("bert@example.at", "Bert Beispiel", "002");
@@ -297,9 +331,85 @@ class BillingDocumentMailServiceTests {
         when(emailService.sendEmail(anyString(), anyString(), anyString(), anyString(), anyString(), anyList(), anyMap()))
                 .thenThrow(new MessagingException("smtp down"));
 
-        service.sendAllBillingDocuments(RUN_ID);
+        String protocol = service.sendAllBillingDocuments(RUN_ID);
 
-        assertThat(run.getMailStatus(), is(not("SENT")));
+        assertThat(run.getMailStatus(), is("FAILED"));
+        assertThat(run.getMailStatusDateTime(), is(notNullValue()));
+        assertThat(run.getSendMailProtocol(), is(protocol));
+        assertThat(protocol, containsString("Send mail finished at "));
+    }
+
+    /** F7: an exception before the first mail ends the run as FAILED, not stuck in "IN PROGRESS". */
+    @Test
+    void exceptionBeforeTheFirstMailLeavesFailedNotInProgress() {
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenThrow(new IllegalStateException("db gone"));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.sendAllBillingDocuments(RUN_ID));
+
+        assertThat(error.getMessage(), is("db gone"));
+        assertThat(savedStatuses, contains("claim:IN PROGRESS", "save:FAILED"));
+        assertThat(run.getSendMailProtocol(), containsString(BillingDocumentMailService.ABORTED_NOTE));
+        verifyNoInteractions(emailService);
+    }
+
+    /** F7: mails went out, then the status write fails once: the second write says SENT, the caller sees the error. */
+    @Test
+    void exceptionAfterMailsWentOutLeavesSent() throws Exception {
+        BillingDocument anna = document("anna@example.at", "Anna Muster", "001");
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of(anna));
+        when(billingRunRepository.save(any(BillingRun.class)))
+                .thenThrow(new IllegalStateException("write failed"))
+                .thenAnswer(invocation -> {
+                    savedStatuses.add("save:" + run.getMailStatus());
+                    return run;
+                });
+
+        assertThrows(IllegalStateException.class, () -> service.sendAllBillingDocuments(RUN_ID));
+
+        assertThat(savedStatuses, contains("claim:IN PROGRESS", "save:SENT"));
+        assertThat(run.getSendMailProtocol(), containsString("anna@example.at OK,"));
+        assertThat(run.getSendMailProtocol(), containsString(BillingDocumentMailService.ABORTED_NOTE));
+    }
+
+    /** F7: nothing to send is no failed mail run, also when the first status write fails; one "finished" line. */
+    @Test
+    void statusWriteFailureOnAnEmptyRunStaysSentWithOneFinishedLine() {
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenReturn(List.of());
+        when(billingRunRepository.save(any(BillingRun.class)))
+                .thenThrow(new IllegalStateException("write failed"))
+                .thenAnswer(invocation -> {
+                    savedStatuses.add("save:" + run.getMailStatus());
+                    return run;
+                });
+
+        assertThrows(IllegalStateException.class, () -> service.sendAllBillingDocuments(RUN_ID));
+
+        assertThat(savedStatuses, contains("claim:IN PROGRESS", "save:SENT"));
+        assertThat(run.getSendMailProtocol().split("Send mail finished at ", -1).length - 1, is(1));
+    }
+
+    /** F7: an Error (out of memory in a large run) passes the per-document handling, the status is still final. */
+    @Test
+    void errorInTheMailRunLeavesAFinalStatus() {
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenThrow(new OutOfMemoryError("heap"));
+
+        assertThrows(OutOfMemoryError.class, () -> service.sendAllBillingDocuments(RUN_ID));
+
+        assertThat(savedStatuses, contains("claim:IN PROGRESS", "save:FAILED"));
+    }
+
+    /** F7: when the status cannot be written at all the original error reaches the caller. */
+    @Test
+    void statusWriteFailureKeepsTheOriginalError() {
+        when(billingDocumentRepository.findByBillingRunId(RUN_ID)).thenThrow(new IllegalStateException("db gone"));
+        when(billingRunRepository.save(any(BillingRun.class))).thenThrow(new IllegalStateException("write failed"));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.sendAllBillingDocuments(RUN_ID));
+
+        assertThat(error.getMessage(), is("db gone"));
+        assertThat(error.getSuppressed()[0].getMessage(), is("write failed"));
     }
 
     private BillingDocument document(String email, String name, String participantNumber) {
