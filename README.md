@@ -102,8 +102,8 @@ The container is accepting the following environment variables as configuration:
   `LOGGING_LEVEL_<PACKAGE>` (e.g. `LOGGING_LEVEL_ORG_VFEEG=debug`)
 * `SERVICE_VERSION` written as `service.version` into every log line; it identifies the build and is set by the image
   build (the commit SHA for a branch build, the version for a tag build), default `dev`. Prod and pilot run dev-tier
-  images re-tagged by the gitops promote workflow (no rebuild), so their release version is the image tag (in Dynatrace:
-  the container image metadata), not `service.version`
+  images re-tagged by the gitops promote workflow (no rebuild), so their release version is the image tag (the
+  deployment's `image:`; Dynatrace log records do not carry it), not `service.version`
 
 ## Contributing
 

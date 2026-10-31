@@ -19,7 +19,7 @@ this changelog highlights the changes relevant for overview and operations.
   `LOG_LEVEL=trace|debug|info|warn|error` (default `info`, an unknown value stops the start; the access lines stay at
   every level), `SERVICE_VERSION` (identifies the build: set by the image build to the commit SHA, or the version for a
   tag build; default `dev` — a promoted prod/pilot image is a re-tagged dev build, so its release version is the image
-  tag, visible in Dynatrace as container metadata, not `service.version`). Text lines from parse rules on the old format no longer match.
+  tag (the deployment's `image:`), not `service.version`). Text lines from parse rules on the old format no longer match.
 - **One access line per HTTP request** (`event.action=http.access`, logger `org.vfeeg.eegfaktura.billing.access`):
   `http.request.method`, `http.route` (the route template, never the path with ids, no query; missing when the router
   never saw the request), `http.response.status_code`, `event.outcome` (`success`/`refused` for 401 and 403/
