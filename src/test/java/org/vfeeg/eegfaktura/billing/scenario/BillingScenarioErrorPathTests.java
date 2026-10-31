@@ -111,8 +111,9 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
     void s08_rowWithoutRunFromAnOlderReleaseStaysAndIsNotInTheYearList() {
         BillingRunFixture world = oneConsumer("100");
         bill(world, false);
+        UUID leftOver = UUID.randomUUID();
         jdbc.update("insert into billing_document (id, tenant_id, document_date, date_created, last_updated)"
-                + " values (gen_random_uuid(), ?, ?, now(), now())", tenant, REFERENCE_DATE);
+                + " values (?, ?, ?, now(), now())", leftOver, tenant, REFERENCE_DATE);
 
         List<BillingDocumentDTO> year = assertDoesNotThrow(
                 () -> billingDocumentService.findByTenantIdAndYear(tenant, REFERENCE_DATE.getYear()));
@@ -120,6 +121,7 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
         assertThat(year, hasSize(1));
         assertThat(year.get(0).getDocumentNumber(), is("TRECH202400042"));
         assertThat(count("billing_document where tenant_id = ? and billing_run_id is null"), is(1));
+        assertThat(assertDoesNotThrow(() -> billingDocumentService.get(leftOver)).getBillingRunId(), nullValue());
     }
 
     /** S8 without the defect part: the zero participant gets no document in the run (holds today). */

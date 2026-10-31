@@ -132,7 +132,9 @@ public class BillingDocumentService {
         billingDocumentDTO.setGrossAmountInEuro(billingDocument.getGrossAmountInEuro());
         billingDocumentDTO.setClearingPeriodIdentifier(billingDocument.getClearingPeriodIdentifier());
         billingDocumentDTO.setBillingDocumentType(billingDocument.getBillingDocumentType());
-        billingDocumentDTO.setBillingRunId(billingDocument.getBillingRun().getId());
+        // rows older releases left without a run (known-errors #13)
+        billingDocumentDTO.setBillingRunId(billingDocument.getBillingRun() == null ? null
+                : billingDocument.getBillingRun().getId());
         return billingDocumentDTO;
     }
 
