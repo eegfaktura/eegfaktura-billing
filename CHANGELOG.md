@@ -20,7 +20,8 @@ this changelog highlights the changes relevant for overview and operations.
   `FAILED`, or `SENT` when mails went out, with a note in the protocol. Two simultaneous mail runs: one conditional
   update has one winner, the other call is refused. **Who gets a mail does not change:** every status refuses a
   further mail run, `FAILED` too, and a run with some failed mails stays `SENT` (the protocol lists them). The web
-  checks `mailStatus === "SENT"`, so a `FAILED` run shows „Abgerechnet“ instead of „Versand gestartet“;
+  (`sendMailState`) treats every other status as a running send, so a `FAILED` run shows the disabled button „Wird
+  versendet …“ with the hint to contact support, instead of „Bereits versendet“;
   eegfaktura-v3 (`BillingMapper.mailStatus`) maps an unknown value to `PARTIAL` until it knows `FAILED`, which keeps
   such a run in its pending mails although a further mail run is refused. A process killed during a mail run still
   leaves `IN PROGRESS`.
@@ -30,6 +31,10 @@ this changelog highlights the changes relevant for overview and operations.
   German text in `error`), nothing changes: a RUNNING run, a run with a document that has a final number in any
   status, and a run with documents in any other status. **Contract:** new 409 refusal; a run without documents goes as
   before, in any status except RUNNING. No schema change, no cascade. eegfaktura-web does not call this endpoint.
+  **Known limit:** this protects the delete API only. A new calculation of a NEW or FAILED run still replaces the
+  run's documents without looking at their numbers. A failed final run rolls back with its numbers, so this needs a
+  run that already holds numbered documents, which only an older release can have left; such documents would be
+  deleted and leave gaps in the number sequence.
 
 ## [1.8.0] – 2026-10-31
 
