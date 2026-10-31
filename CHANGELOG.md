@@ -8,34 +8,6 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
-### Fixed
-- **Documents with amount 0 are no longer stored** (eegfaktura-dev tracking billing 13). Every participant's invoice
-  and producer document, with items, was saved before the amounts were known; one with amount 0 stayed behind without
-  a run. Documents and items are now saved only when the document is issued. No amount, number, PDF, Excel or ZIP
-  changes: a document with amount 0 was never part of a run. **Existing rows without a run stay as they are**;
-  `GET /api/billingDocuments/tenant/{tenantId}/{year}`, which failed on them with a 500, skips them and answers.
-- **The mail status of a billing run tells what happened** (eegfaktura-dev tracking billing 18). **New value `FAILED`
-  in `billing_run.mail_status` / `BillingRunDTO.mailStatus`:** documents existed and no mail went out. Before, such a
-  run ended `SENT`. An exception outside the per-document handling no longer leaves `IN PROGRESS`: the run ends
-  `FAILED`, or `SENT` when mails went out, with a note in the protocol. Two simultaneous mail runs: one conditional
-  update has one winner, the other call is refused. **A `FAILED` run can be sent again** (decision 2026-10-31): no send
-  reported success; the new run replaces the protocol. A mail the relay took although the send reported an error (a
-  timeout after the data) would go out a second time. Every other status refuses a
-  further mail run, and a run with some failed mails stays `SENT` (the protocol lists them). **Web:** the button
-  „Erneut senden“ comes with web; an older web shows a `FAILED` run as „Wird versendet …“. eegfaktura-v3
-  (`BillingMapper.mailStatus`) maps an unknown value to `PARTIAL` until it knows `FAILED`. A process killed during a mail run still
-  leaves `IN PROGRESS`.
-- **`DELETE /api/billingRuns/{id}` works on a run with preview documents and refuses final ones** (eegfaktura-dev
-  tracking billing 22). It failed with a 500 on the foreign key for every run with documents. A run in status NEW or
-  FAILED now goes with its preview documents, items, files and PDFs. **Refused with 409** (`ErrorResponse` with the
-  German text in `error`), nothing changes: a RUNNING run, a run with a document that has a final number in any
-  status, and a run with documents in any other status. **Contract:** new 409 refusal; a run without documents goes as
-  before, in any status except RUNNING. No schema change, no cascade. eegfaktura-web does not call this endpoint.
-  **Known limit:** this protects the delete API only. A new calculation of a NEW or FAILED run still replaces the
-  run's documents without looking at their numbers. A failed final run rolls back with its numbers, so this needs a
-  run that already holds numbered documents, which only an older release can have left; such documents would be
-  deleted and leave gaps in the number sequence.
-
 ## [1.8.0] – 2026-10-31
 
 ### Changed
@@ -66,6 +38,32 @@ this changelog highlights the changes relevant for overview and operations.
 - A billing run started in the background logs with the `request.id`/`tenant.id` of the request that started it.
 
 ### Fixed
+- **Documents with amount 0 are no longer stored** (eegfaktura-dev tracking billing 13). Every participant's invoice
+  and producer document, with items, was saved before the amounts were known; one with amount 0 stayed behind without
+  a run. Documents and items are now saved only when the document is issued. No amount, number, PDF, Excel or ZIP
+  changes: a document with amount 0 was never part of a run. **Existing rows without a run stay as they are**;
+  `GET /api/billingDocuments/tenant/{tenantId}/{year}`, which failed on them with a 500, skips them and answers.
+- **The mail status of a billing run tells what happened** (eegfaktura-dev tracking billing 18). **New value `FAILED`
+  in `billing_run.mail_status` / `BillingRunDTO.mailStatus`:** documents existed and no mail went out. Before, such a
+  run ended `SENT`. An exception outside the per-document handling no longer leaves `IN PROGRESS`: the run ends
+  `FAILED`, or `SENT` when mails went out, with a note in the protocol. Two simultaneous mail runs: one conditional
+  update has one winner, the other call is refused. **A `FAILED` run can be sent again** (decision 2026-10-31): no send
+  reported success; the new run replaces the protocol. A mail the relay took although the send reported an error (a
+  timeout after the data) would go out a second time. Every other status refuses a
+  further mail run, and a run with some failed mails stays `SENT` (the protocol lists them). **Web:** the button
+  „Erneut senden“ comes with web; an older web shows a `FAILED` run as „Wird versendet …“. eegfaktura-v3
+  (`BillingMapper.mailStatus`) maps an unknown value to `PARTIAL` until it knows `FAILED`. A process killed during a mail run still
+  leaves `IN PROGRESS`.
+- **`DELETE /api/billingRuns/{id}` works on a run with preview documents and refuses final ones** (eegfaktura-dev
+  tracking billing 22). It failed with a 500 on the foreign key for every run with documents. A run in status NEW or
+  FAILED now goes with its preview documents, items, files and PDFs. **Refused with 409** (`ErrorResponse` with the
+  German text in `error`), nothing changes: a RUNNING run, a run with a document that has a final number in any
+  status, and a run with documents in any other status. **Contract:** new 409 refusal; a run without documents goes as
+  before, in any status except RUNNING. No schema change, no cascade. eegfaktura-web does not call this endpoint.
+  **Known limit:** this protects the delete API only. A new calculation of a NEW or FAILED run still replaces the
+  run's documents without looking at their numbers. A failed final run rolls back with its numbers, so this needs a
+  run that already holds numbered documents, which only an older release can have left; such documents would be
+  deleted and leave gaps in the number sequence.
 - **The log no longer contains the user name of a refused tenant request** (`JwtRequestFilter` wrote
   `preferred_username`, often an e-mail address) **nor the recipient address of a failed mail** (error message and
   stack trace of the invoice mail and of the test mail; tracking billing 261008-ca3): the exception of a failed send
