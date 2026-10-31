@@ -1,8 +1,6 @@
 package org.vfeeg.eegfaktura.billing.concurrency;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.support.ConcurrencyAndMailBase;
 import org.vfeeg.eegfaktura.billing.support.Gate;
 
@@ -26,8 +24,8 @@ import static org.mockito.Mockito.doAnswer;
 
 /**
  * F7 (#18), status race: two simultaneous sends of one run, called on the service (through the resource
- * the per-run lock would refuse the second and hide the race). The check "status empty" and the write
- * "IN PROGRESS" are separate statements without a lock.
+ * the per-run lock would refuse the second and hide the race). The check "status empty" and the claim
+ * of the mail run are separate statements; the claim is the one with a single winner.
  */
 class MailSendRaceTests extends ConcurrencyAndMailBase {
 
@@ -35,23 +33,19 @@ class MailSendRaceTests extends ConcurrencyAndMailBase {
     private static final String MEMBER_2 = "member2@example.org";
 
     /**
-     * Both calls are held where they write "IN PROGRESS" until the other one arrived there too (bounded:
-     * with a fix the second call does not get that far, and the first goes on after
+     * Both calls are held where they claim the mail run until the other one arrived there too, so both have
+     * passed the check (bounded: a call that was refused earlier lets the first go on after
      * {@link Gate#NOT_EXPECTED}). Correct: exactly one call sends, the other is refused, every member gets
-     * one mail. Today both pass the check and every member gets two mails.
+     * one mail.
      */
     @Test
-    @Disabled("known-errors #18")
     void onlyOneOfTwoSimultaneousSendsSends() {
         UUID runId = finalRun(members(MEMBER_1, MEMBER_2));
         CyclicBarrier bothChecked = new CyclicBarrier(2);
         doAnswer(invocation -> {
-            BillingRun run = invocation.getArgument(0);
-            if ("IN PROGRESS".equals(run.getMailStatus())) {
-                Gate.meet(bothChecked, Gate.NOT_EXPECTED);
-            }
+            Gate.meet(bothChecked, Gate.NOT_EXPECTED);
             return proceed(billingRunRepositorySpy, invocation);
-        }).when(billingRunRepositorySpy).saveAndFlush(any(BillingRun.class));
+        }).when(billingRunRepositorySpy).claimMailRun(any(), any());
 
         assertTimeoutPreemptively(Duration.ofSeconds(60), () -> {
             List<Future<String>> sends = List.of(

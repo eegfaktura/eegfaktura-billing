@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.repos;
 
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -45,5 +46,12 @@ public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
             + "where b.id = :id and b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.RUNNING")
     int releaseClaim(@Param("id") UUID id, @Param("to") BillingRunStatus to,
                      @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
+
+    /** Atomic claim of the mail run: sets the status only when the run has none yet (exactly one winner). */
+    @Modifying
+    @Transactional
+    @Query("update BillingRun b set b.mailStatus = :status "
+            + "where b.id = :id and (b.mailStatus is null or b.mailStatus = '')")
+    int claimMailRun(@Param("id") UUID id, @Param("status") String status);
 
 }
