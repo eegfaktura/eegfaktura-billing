@@ -78,6 +78,41 @@ class FinalRunOverlapTests extends BillingScenarioBase {
         assertThat(count("billing_run where tenant_id = ?"), is(1));
     }
 
+    /** The unique index and the closed-run lookup see case; the run must still be refused. */
+    @Test
+    void theSamePeriodUnderAnotherSpellingOfTheTenantIsRefused() {
+        billFinal(MARCH);
+        DoBillingParams sameMonth = params(MARCH, false);
+        sameMonth.setTenantId(tenant.toLowerCase());
+
+        assertThrows(BillingService.BillingPeriodOverlapException.class,
+                () -> billingService.acceptBillingRun(sameMonth));
+    }
+
+    @Test
+    void aFinalRunWithoutAnIdentifierDoesNotBreakTheCheck() {
+        BillingRun noIdentifier = new BillingRun();
+        noIdentifier.setTenantId(tenant);
+        noIdentifier.setClearingPeriodType(PERIOD_TYPE);
+        noIdentifier.setRunStatus(BillingRunStatus.DONE);
+        noIdentifier.setRunStatusDateTime(LocalDateTime.now());
+        billingRunRepository.save(noIdentifier);
+
+        billFinal(MARCH);
+
+        assertThat(count("billing_document where tenant_id = ?") > 0, is(true));
+    }
+
+    @Test
+    void aClosedRunKeepsItsAnswer() {
+        billFinal(MARCH);
+
+        ResponseEntity<DoBillingResults> response = billingResource.startBilling(params(MARCH, false));
+
+        assertThat(response.getStatusCode(), is(HttpStatus.CONFLICT));
+        assertThat(response.getBody().getAbstractText(), containsString("bereits abgeschlossen"));
+    }
+
     @Test
     void aFinalMonthInsideAFinalQuarterIsRefused() {
         billFinal(FIRST_QUARTER);
