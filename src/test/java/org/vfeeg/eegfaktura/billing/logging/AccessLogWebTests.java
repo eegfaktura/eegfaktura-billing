@@ -185,6 +185,29 @@ class AccessLogWebTests extends WebSliceTest {
     }
 
     @Test
+    void superuserHeaderThatIsNoTenantStaysOutButSupportAccessStays() throws Exception {
+        for (String header : List.of("kassier@example.org", "AT61 1904", "RC1\"}", "A".repeat(65))) {
+            lines.clear();
+            mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", header)
+                    .header(HttpHeaders.AUTHORIZATION, TestTokens.superuserAdmin()));
+
+            Map<String, Object> f = onlyLine().fields();
+            assertFalse(f.containsKey("tenant.id"), header + " in " + f);
+            assertEquals("true", f.get("support.access"), header);
+        }
+    }
+
+    @Test
+    void superuserOnAGeaTenantKeepsIt() throws Exception {
+        mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", " gc100123-001 ")
+                .header(HttpHeaders.AUTHORIZATION, TestTokens.superuserAdmin()));
+
+        Map<String, Object> f = onlyLine().fields();
+        assertEquals("GC100123-001", f.get("tenant.id"));
+        assertEquals("true", f.get("support.access"));
+    }
+
+    @Test
     void superuserOnItsOwnTenantIsNoSupportAccess() throws Exception {
         mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", OWN)
                         .header(HttpHeaders.AUTHORIZATION, TestTokens.superuserAdmin()))
