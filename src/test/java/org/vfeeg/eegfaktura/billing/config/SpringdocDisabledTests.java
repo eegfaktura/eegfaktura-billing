@@ -5,6 +5,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.net.http.HttpResponse;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
@@ -28,9 +29,9 @@ class SpringdocDisabledTests extends SpringdocAccessTestBase {
 
     @Test
     void apiStillServed() throws Exception {
-        // control: the token is accepted, so the refusals above are not an authentication failure
+        // control: the token is accepted, so the refusals above are not an authentication failure;
+        // the community has no billing config yet, which the API itself answers with 404
         HttpResponse<String> response = getWithToken("/api/billingConfigs/tenant/RC100100");
-        assertNotEquals(401, response.statusCode());
-        assertNotEquals(403, response.statusCode());
+        assertEquals(404, response.statusCode());
     }
 }
