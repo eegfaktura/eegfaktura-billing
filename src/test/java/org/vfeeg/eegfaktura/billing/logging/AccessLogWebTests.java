@@ -234,6 +234,28 @@ class AccessLogWebTests extends WebSliceTest {
     }
 
     @Test
+    void aLineOfTheApplicationCarriesRequestAndTenant() throws Exception {
+        Logger application = (Logger) org.slf4j.LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.service.Sample");
+        application.addAppender(appender);
+        FileDataDTO file = fileDataService.get(Endpoint.ID);
+        when(fileDataService.get(Endpoint.ID)).thenAnswer(call -> {
+            application.warn("inside the request");
+            return file;
+        });
+        try {
+            mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", OWN.toLowerCase())
+                    .header(HttpHeaders.AUTHORIZATION, TestTokens.admin()).header("X-Request-Id", "req-43"));
+        } finally {
+            application.detachAppender(appender);
+        }
+
+        Map<String, Object> f = lines.stream().filter(l -> l.message().equals("inside the request"))
+                .findFirst().orElseThrow().fields();
+        assertEquals("req-43", f.get("request.id"));
+        assertEquals(OWN, f.get("tenant.id"));
+    }
+
+    @Test
     void invalidTraceparentIsIgnored() throws Exception {
         for (String invalid : List.of("ff-" + TRACE + "-00f067aa0ba902b7-01", "00-" + "0".repeat(32) + "-00f067aa0ba902b7-01",
                 "00-" + TRACE + "-0000000000000000-01", "00-" + TRACE.toUpperCase() + "-00f067aa0ba902b7-01")) {

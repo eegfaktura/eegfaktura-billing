@@ -42,6 +42,8 @@ public class RequestLogFilter extends OncePerRequestFilter {
     static final Logger ACCESS = LoggerFactory.getLogger(ACCESS_LOGGER);
     /** Set when an exception left the chain: the line is written on the container's error dispatch. */
     static final String PENDING = RequestLogFilter.class.getName() + ".pending";
+    /** Set when the line is written: a {@code sendError} still comes back on the error dispatch. */
+    static final String CONTEXT = RequestLogFilter.class.getName() + ".context";
     private static final Set<String> SKIPPED = Set.of("/healthz", "/readyz");
     // a caller's id is kept only when it is short and harmless; otherwise a new one is generated
     private static final Pattern REQUEST_ID = Pattern.compile("[A-Za-z0-9._:-]{1,128}");
@@ -51,6 +53,10 @@ public class RequestLogFilter extends OncePerRequestFilter {
 
     /** What the error dispatch needs to write the line of the original request. */
     record Pending(long start, Map<String, String> mdc, Object route, String errorType) {
+    }
+
+    /** The ids of the request, for the lines of an error dispatch whose access line is already written. */
+    record Context(Map<String, String> mdc) {
     }
 
     @Override
@@ -99,6 +105,7 @@ public class RequestLogFilter extends OncePerRequestFilter {
                 } else {
                     access(request, response.getStatus(), route, failure == null ? null : failure.getClass().getName(),
                             System.nanoTime() - start);
+                    request.setAttribute(CONTEXT, new Context(MDC.getCopyOfContextMap()));
                 }
             } finally {
                 LogFields.clear();
@@ -110,7 +117,15 @@ public class RequestLogFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         Object pending = request.getAttribute(PENDING);
         if (!(pending instanceof Pending p)) {
-            chain.doFilter(request, response); // e.g. sendError(403): its line was written on the request dispatch
+            // e.g. sendError(403): its line was written on the request dispatch, this one only writes no second line
+            if (request.getAttribute(CONTEXT) instanceof Context context) {
+                context.mdc().forEach(MDC::put);
+            }
+            try {
+                chain.doFilter(request, response);
+            } finally {
+                LogFields.clear();
+            }
             return;
         }
         request.removeAttribute(PENDING);

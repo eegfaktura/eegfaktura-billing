@@ -94,6 +94,26 @@ class RequestLogFilterTests {
     }
 
     @Test
+    void linesOfTheErrorDispatchOfASendErrorKeepTheIdsOfTheRequest() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/fileData/42");
+        request.addHeader(RequestLogFilter.REQUEST_ID_HEADER, "req-8");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            MDC.put(LogFields.TENANT_ID, "RC100001");
+            ((MockHttpServletResponse) res).sendError(403);
+        });
+        assertNull(MDC.get(LogFields.REQUEST_ID), "MDC cleared between the dispatches");
+
+        request.setDispatcherType(DispatcherType.ERROR);
+        Map<String, String> onErrorDispatch = new HashMap<>();
+        filter.doFilter(request, response, (req, res) -> onErrorDispatch.putAll(MDC.getCopyOfContextMap()));
+
+        assertEquals("req-8", onErrorDispatch.get(LogFields.REQUEST_ID));
+        assertEquals("RC100001", onErrorDispatch.get(LogFields.TENANT_ID));
+        assertNull(MDC.get(LogFields.REQUEST_ID), "MDC cleared after the error dispatch");
+    }
+
+    @Test
     void exceptionAfterTheResponseWasCommittedIsLoggedAtOnce() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/fileData/42");
         MockHttpServletResponse response = new MockHttpServletResponse();
