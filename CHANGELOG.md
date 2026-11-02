@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.8.1] – 2026-11-02
+
 ### Fixed
 - **A final run that overlaps a final run is refused** (eegfaktura-dev tracking billing 261031-mm5). The check on a run
   compared type and identifier only, so a final run of March and one of the first quarter both went through and the energy
