@@ -31,8 +31,9 @@ public class StartupLog {
     public void started() {
         Level level = ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME))
                 .getEffectiveLevel();
+        String effective = level.toString().toLowerCase(Locale.ROOT);
         LOG.atInfo().addKeyValue(LogFields.EVENT_ACTION, "service.start")
-                .log("Service started: version {}, log level {}", version,
-                        level.toString().toLowerCase(Locale.ROOT));
+                .addKeyValue(LogFields.LOG_EFFECTIVE_LEVEL, effective)
+                .log("Service started: version {}, log level {}", version, effective);
     }
 }
