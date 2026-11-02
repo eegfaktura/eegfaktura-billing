@@ -69,8 +69,8 @@ You can deploy the container with docker or docker-compose as you wish.
 
 ## Rest API
 You can inspect and play with this services' API with the help of swagger. The API docs (/v3/api-docs) and the Swagger UI
-are off by default and are switched on with `SPRINGDOC_ENABLED=true` (default on only in the 'dev' profile, which has no
-authentication). Outside the 'dev' profile they then need a valid bearer token with the EEG_ADMIN role, like every other endpoint:
+are off by default and are switched on with `SPRINGDOC_ENABLED=true` (default on only in the 'dev' profile). They need a valid bearer
+token with the EEG_ADMIN role in every profile, like every other endpoint:
 http://youserver:8080/swagger-ui/index.html
 
 ## Features

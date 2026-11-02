@@ -77,7 +77,6 @@ class CallerResponseContractTests {
         assertThat(json.has("isCreateCreditNotesForAllProducers"), is(false));
     }
 
-    /** Field paths of a JSON tree; arrays of objects as {@code name[].field}. */
     /** What production writes (Jackson 3), as the tree the snapshots are read into. */
     private JsonNode tree(Object value) {
         try {
@@ -87,6 +86,7 @@ class CallerResponseContractTests {
         }
     }
 
+    /** Field paths of a JSON tree; arrays of objects as {@code name[].field}. */
     static Set<String> fieldPaths(JsonNode node) {
         Set<String> paths = new TreeSet<>();
         collect(node, "", paths);

@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing;
 
+import org.vfeeg.eegfaktura.billing.model.AllocationBucket;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
@@ -84,5 +85,11 @@ class JsonWireFormatTests {
         assertEquals(LocalDate.of(2026, 10, 15), params.getClearingDocumentDate());
         assertEquals(new BigDecimal("124.69"), params.getAllocations()[0].getAllocationKWh());
         assertEquals(new BigDecimal("1.5"), params.getAllocations()[0].getBuckets()[0].getKWh());
+    }
+
+    @Test
+    void allocationBucketReadsBothSpellingsOfKwh() throws Exception {
+        assertEquals(new BigDecimal("1.5"), jsonMapper.readValue("{\"key\":\"T1\",\"kWh\":1.5}", AllocationBucket.class).getKWh());
+        assertEquals(new BigDecimal("1.5"), jsonMapper.readValue("{\"key\":\"T1\",\"kwh\":1.5}", AllocationBucket.class).getKWh());
     }
 }
