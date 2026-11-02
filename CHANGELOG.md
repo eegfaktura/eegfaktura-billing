@@ -28,6 +28,388 @@ this changelog highlights the changes relevant for overview and operations.
   (default on only in the local `dev` profile). Before, `/v3/api-docs` failed with 500 on Boot 3.5
   (springdoc 2.3.0); enabled, it answers 200 for a valid EEG_ADMIN token and stays 403 without one.
 
+### Fixed
+- **A final run that overlaps a final run is refused** (eegfaktura-dev tracking billing 261031-mm5). The check on a run
+  compared type and identifier only, so a final run of March and one of the first quarter both went through and the energy
+  of March stood on two documents. `POST /api/billing` now answers **409** with the period in `abstractText`, and
+  no run is created; a final run accepted while an overlapping one was still running ends `FAILED` with the same text.
+  The check ignores the case of the tenant, so it also stops the same period under another spelling. Periods side by side, a change of the interval between periods, previews and runs without documents
+  are not refused. **Known limit:** final runs cannot be deleted, so a community that wants to replace months by a quarter
+  needs support. Existing documents are not changed. **Contract:** new reason for the existing 409, the text contains
+  „abgeschlossen“: eegfaktura-web shows it, eegfaktura-v3 (`BillingErrors.startRefusal`) maps it to a closed run and drops the text until it is changed.
+
+## [1.8.0] – 2026-10-31
+
+### Changed
+- **Logs are JSON now — this changes what operators and Dynatrace receive from billing** (logging concept
+  W-261008-ca2, alignment 2026-10-30). Every log line is one JSON object on stdout with flat ECS names, the same as
+  the other services: `@timestamp` (UTC, ms), `log.level` (lower case), `log.logger`, `service.name`
+  (`eegfaktura-billing`), `service.version`, `message`, and per request `request.id`, `trace.id`/`span.id`,
+  `tenant.id`, `client.id`, `event.action`; errors as `error.type`/`error.message`/`error.stack_trace` in the same
+  record. Other MDC entries and Spring's `process.*`/`ecs.version` are not written (whitelist). New environment
+  variables: `LOG_FORMAT=json|text` (default `json`; JSON mode also switches the start banner off),
+  `LOG_LEVEL=trace|debug|info|warn|error` (default `info`, an unknown value stops the start; the access lines stay at
+  every level), `SERVICE_VERSION` (identifies the build: set by the image build to the commit SHA, or the version for a
+  tag build; default `dev` — a promoted prod/pilot image is a re-tagged dev build, so its release version is the image
+  tag (the deployment's `image:`), not `service.version`). Text lines from parse rules on the old format no longer match.
+- **One access line per HTTP request** (`event.action=http.access`, logger `org.vfeeg.eegfaktura.billing.access`):
+  `http.request.method`, `http.route` (the route template, never the path with ids, no query; missing when the router
+  never saw the request), `http.response.status_code`, `event.outcome` (`success`/`refused` for 401 and 403/
+  `failure`), `event.duration` in nanoseconds, `request.id`, and after the token check `tenant.id` (the requested
+  tenant, when the token grants it) and `client.id` (the token's `azp`, the Keycloak client, not a person). **A
+  superuser (operator/support) on a tenant its token does not name is logged with that `tenant.id` plus
+  `support.access=true`.** Message text `<METHOD> <route> <status>`. A request refused by an exception (foreign tenant)
+  is logged after the container's error dispatch with the status the client gets. Known limit: when the client
+  aborts before the response is committed (`ClientAbortException`) and Tomcat skips the error dispatch, that request
+  has no access line. No user, e-mail,
+  IP or user agent (no user tracking, decided 2026-10-29). `X-Request-Id` is taken over when it matches
+  `[A-Za-z0-9._:-]{1,128}`, otherwise generated (32 hex), and returned as response header; `traceparent` only when
+  valid. Billing had no access log before, so nothing with IP or user agent was switched off.
+- A billing run started in the background logs with the `request.id`/`tenant.id` of the request that started it.
+
+### Fixed
+- **Documents with amount 0 are no longer stored** (eegfaktura-dev tracking billing 13). Every participant's invoice
+  and producer document, with items, was saved before the amounts were known; one with amount 0 stayed behind without
+  a run. Documents and items are now saved only when the document is issued. No amount, number, PDF, Excel or ZIP
+  changes: a document with amount 0 was never part of a run. **Existing rows without a run stay as they are**;
+  `GET /api/billingDocuments/tenant/{tenantId}/{year}`, which failed on them with a 500, skips them and answers.
+- **The mail status of a billing run tells what happened** (eegfaktura-dev tracking billing 18). **New value `FAILED`
+  in `billing_run.mail_status` / `BillingRunDTO.mailStatus`:** documents existed and no mail went out. Before, such a
+  run ended `SENT`. An exception outside the per-document handling no longer leaves `IN PROGRESS`: the run ends
+  `FAILED`, or `SENT` when mails went out, with a note in the protocol. Two simultaneous mail runs: one conditional
+  update has one winner, the other call is refused. **A `FAILED` run can be sent again** (decision 2026-10-31): no send
+  reported success; the new run replaces the protocol. A mail the relay took although the send reported an error (a
+  timeout after the data) would go out a second time. Every other status refuses a
+  further mail run, and a run with some failed mails stays `SENT` (the protocol lists them). **Web:** the button
+  „Erneut senden“ comes with web; an older web shows a `FAILED` run as „Wird versendet …“. eegfaktura-v3
+  (`BillingMapper.mailStatus`) maps an unknown value to `PARTIAL` until it knows `FAILED`. A process killed during a mail run still
+  leaves `IN PROGRESS`.
+- **`DELETE /api/billingRuns/{id}` works on a run with preview documents and refuses final ones** (eegfaktura-dev
+  tracking billing 22). It failed with a 500 on the foreign key for every run with documents. A run in status NEW or
+  FAILED now goes with its preview documents, items, files and PDFs. **Refused with 409** (`ErrorResponse` with the
+  German text in `error`), nothing changes: a RUNNING run, a run with a document that has a final number in any
+  status, and a run with documents in any other status. **Contract:** new 409 refusal; a run without documents goes as
+  before, in any status except RUNNING. No schema change, no cascade. eegfaktura-web does not call this endpoint.
+  **Known limit:** this protects the delete API only. A new calculation of a NEW or FAILED run still replaces the
+  run's documents without looking at their numbers. A failed final run rolls back with its numbers, so this needs a
+  run that already holds numbered documents, which only an older release can have left; such documents would be
+  deleted and leave gaps in the number sequence.
+- **The log no longer contains the user name of a refused tenant request** (`JwtRequestFilter` wrote
+  `preferred_username`, often an e-mail address) **nor the recipient address of a failed mail** (error message and
+  stack trace of the invoice mail and of the test mail; tracking billing 261008-ca3): the exception of a failed send
+  names the billing document, an SMTP failure is logged with its type and the masked message, other failures keep the
+  stack trace. Unhandled exceptions are logged as one ERROR line instead of `printStackTrace` on stderr (#28); those
+  that quote input values (unreadable body, constraint/SQL errors, type mismatch) only with their type (at DEBUG the
+  stack frames, still without the messages). A mail without a valid recipient no longer quotes the address in its
+  error. Failed billing run log line: billing 261030-mm1 — security relevant, details not published. Text format
+  (`LOG_FORMAT=text`) shows the key-value pairs of a line. A rejected token (expired, invalid) is one DEBUG line with its type instead of a WARN with message and stack
+  trace per request.
+- **Test: a failed billing run leaves nothing behind, checked through the launcher** (eegfaktura-dev tracking billing 12).
+  The code was fixed in 1.0.8 (the calculation rolls back, `BillingRunLauncher` records the run as FAILED); the scenario
+  test `s04_threeVatRatesFailAndLeaveNothingBehind` was still disabled and called the old synchronous path. It now
+  accepts, claims and launches the run like the start endpoint and is enabled. No change in behaviour.
+- **Export, mail run and deletion of a billing run: database locks per run, refused instead of waiting** (eegfaktura-dev
+  tracking billing 14). The in-memory lock per community (`InMemoryLockRepository`) let a third request in next to a
+  waiting second one, expired after 15 minutes and did not hold across replicas. Now PostgreSQL advisory locks per
+  billing run (like the final-run lock) guard `GET /api/billingRuns/{id}/billingDocuments/xlsx`, `…/archive`,
+  `…/sendmail` and `DELETE /api/billingRuns/{id}`: exports only read and run next to each other and next to a mail run;
+  a second mail run of the same run, a deletion while an export or mail run of the run is busy, and an export or mail
+  run during a deletion are refused. **What callers see (eegfaktura-web):** those requests get **409** at once
+  (before: they waited until the first had finished). **Contract (additive):** this 409 body (`ErrorResponse`) carries
+  the new field `error` with the German text („Dieser Abrechnungslauf wird gerade bearbeitet …“), which the web's
+  `handleErrors` shows; every other error body is unchanged (`error` is left out when not set; eegfaktura-v3's
+  `LegacyErrorResponse` ignores unknown fields). Requests for different runs of a community no longer wait for
+  each other. Answers are otherwise unchanged (sendmail still answers 500 with the text for its own refusals, e.g.
+  mails already sent). The mail run keeps committing its status steps one by one: its locks are session locks on a
+  connection of its own (not idle in a transaction), released explicitly; a failure while releasing them is logged and
+  does not replace the mail run's answer.
+- **A billing run request without `preview` is refused instead of running as a final run** (eegfaktura-dev tracking
+  billing 34, decided 2026-10-29). **Contract (callers eegfaktura-web, eegfaktura-v3 `BillingClient`):** `POST /api/billing`
+  now requires the key `preview` (true or false). Without it — missing, `null`, or misspelt such as `isPreview` — the
+  answer is **400** (`ErrorResponse` with the field error `preview`) and no run is created or started; before, the
+  request silently ran as a **final** run (document numbers consumed, run closed). Both callers always send `preview`
+  (web: `ParticipantPane` `onDoBilling`; v3: `LegacyDoBillingParams`), so their requests are unchanged.
+- **Document number prefixes with blanks: " R" and "R" are one sequence** (eegfaktura-dev tracking billing 15). The prefix
+  was used untrimmed to find the last number but printed trimmed, so a prefix saved with a leading or trailing blank
+  started its own sequence and could print a number that was already issued (the run then failed on the unique
+  document number). The prefix is now trimmed when the billing configuration is saved and when the last number is
+  read (numbers stored earlier with the untrimmed prefix count too), so both spellings continue one sequence. Where
+  a community already has numbers under both spellings, the next number follows the higher of the two.
+- **Logo and footer images stored before 1.2.0 get the community as owner** (eegfaktura-dev tracking billing 32, data
+  part). Migration `V1_20` sets `file_data.tenant_id` for images without one, from the billing configuration that
+  references them as logo or footer image — only when the configurations of exactly one community reference the
+  row and nothing else does (no document PDF, no custom template, no mail-text image). `GET /api/fileData/{id}` then
+  returns these images to their community (before: refused); every other row stays unchanged.
+
+### Security
+- **CI: the release workflow pins its actions by commit SHA** (eegfaktura-dev tracking W-261028-mm6). `rolling-release.yml`
+  builds and pushes the shipped image, but used floating tags (`@v4`, `@v3`, …); a moved tag ran in the job that holds
+  the push credentials. Now every action is pinned to a commit, the same SHAs `pr-checks.yml` and `security-scan.yml` already
+  use where the action is the same, otherwise the commit the floating tag pointed to on 2026-10-28.
+
+## [1.7.0] – 2026-10-28
+
+### Fixed
+- **A billing run without amounts, or whose amounts match no member, no longer ends as completed** (platform#189). **Contract (callers
+  eegfaktura-web, eegfaktura-v3 `BillingClient`):** `POST /api/billing` (preview and final) with an empty or missing
+  `allocations` list is now refused with **400** and `abstractText` „Keine Energiemengen für die Abrechnung übergeben
+  – bitte die Seite neu laden und die Energiedaten des Zeitraums laden.“; no billing run row is created (before: 202,
+  the run ended DONE, or NEW for a preview, with no document). When `allocations` are sent but none matches a
+  member/metering point of `base.billing_masterdata`, the run now ends **FAILED** with the `errorSummary`
+  „Abrechnung fehlgeschlagen: Keine der übergebenen Energiemengen passt zu einem Mitglied/Zählpunkt der Stammdaten –
+  es wurde kein Beleg erstellt.“ (nothing is written — documents of an earlier preview of the run stay, as with
+  every FAILED run; the run can be restarted). Runs where at least one amount
+  matches are unchanged. A period with no energy at all therefore gives no run, also when members are marked
+  „Beitrittsgebühr nachverrechnen“: their fee stays requested and is billed with the first run with energy (decided
+  28.10.2026; before, such a run wrote fee-only invoices).
+
+### Security
+- **Security: the Spring profile `dev` no longer opens the API.** `DevSecurityConfig` (profile `dev`) replaced the
+  JWT security chain with one that only disabled CSRF, so every endpoint answered without a token whenever the
+  profile was switched on. No deployment uses that profile (gitops, platform, docker-compose checked 28.10.2026); the
+  class is removed and the JWT chain applies in every profile. Found while assessing the Snyk Code alert
+  `java/DisablesCSRFProtection` (dismissed as false positive: bearer-only, stateless API).
+
+## [1.6.0] – 2026-10-28
+
+### Added
+- **One-time joining fee („Beitrittsgebühr“)** (konzept-beitrittsgebuehr.md, platform#217). **Deploy order: the
+  eegfaktura-backend migration `20261028130000_joining_fee` first** — billing reads three new columns of the view
+  `base.billing_masterdata` (`tariff_joining_fee`, `tariff_joining_fee_use_vat`, `tariff_joining_fee_vat_in_percent`,
+  from the member's EEG tariff); against the old view every run fails. Rules: the fee is due in the member's first
+  final run with an energy item (consumption or feed-in) when the EEG tariff has a fee > 0 and the community has no
+  final document (run DONE) with an energy item or a joining fee for the member yet — existing members count as
+  paid. It is billed once as the item „Beitrittsgebühr“ (1 × amount €, no discount, own VAT setting, 0 % with
+  „USt nein“) on the **invoice**, never on a credit note or INFO document; a pure producer gets an own invoice.
+  Previews show it without consuming it; deleting a final run makes it due again unless the member has another
+  final document with energy (then „Gebühr anfordern“ charges it in the next final run). **New item on printed invoices**
+  (rendered like the membership fee, after the metering-point blocks); invoices of tariffs without a fee are
+  unchanged.
+- Flyway `V1_18`: column `billing_document_item.item_type` (`ENERGY`, `PARTICIPANT_FEE`, `METERING_POINT_FEE`,
+  `JOINING_FEE`; every new item gets it, older items stay empty and their energy items are recognised by metering
+  point and a text not starting with „Zählpunktgebühr“) and index `billing_document(tenant_id, participant_id)`.
+  Rollback: older image, column and index may stay.
+- **Contract (caller eegfaktura-web):** `GET /api/billingDocuments/tenant/{tenantId}/joiningFeeState` (role
+  `EEG_ADMIN`, `Tenant` header, path tenant validated) →
+  `[{"participantId", "energyBilled", "joiningFee": {"documentNumber", "documentDate"} | null}]` for every member
+  with a final document of the community (others are absent).
+- **Contract (callers eegfaktura-web, eegfaktura-v3 `BillingClient` — additive):** `ParticipantAmount.joiningFee`
+  (gross, 0 when none) in `POST /api/billing` results and `GET /api/billingRuns/{id}/participantAmounts`; the joining
+  fee no longer ends up in `participantFee`.
+- **Joining fee per member: charge later, paid outside eegfaktura** (extension 27.10.2026 of the concept). Flyway
+  `V1_19`: table `billing_joining_fee_record`, one row per (tenant, member) with `kind` `CHARGE_REQUESTED` or
+  `PAID_EXTERNALLY`, `paid_on`, `note` (free text, at most 200 characters, never logged), `created_by` (user of the
+  token), `created_at`. Due rule now: fee > 0, no final document with the fee, not paid externally, and either the
+  first energy billing or a request. A requested member is charged in the next final run even when already billed
+  with energy; without a metering point in the run it gets an own invoice with only the fee (a member in the run
+  without energy gets the fee on its usual invoice). Previews do not consume a request; after deleting the run the
+  fee is due again and the request stays. **Rollback note:** an older image ignores the table (requests are not
+  charged, members paid externally get the automatic fee) — check rows `PAID_EXTERNALLY` without a fee document
+  before rolling back.
+- **Contract (caller eegfaktura-web):** `PUT /api/billingDocuments/tenant/{tenantId}/participants/{participantId}/joiningFee`
+  with `{"kind": "CHARGE_REQUESTED"}` or `{"kind": "PAID_EXTERNALLY", "paidOn": "YYYY-MM-DD", "note": "…"}` → 204
+  (creates or replaces the member's record, so the two kinds exclude each other); `DELETE` on the same path → 204
+  (idempotent). Both answer 409 once a final document with the fee exists; PUT answers 400 for a missing/unknown
+  kind, a missing, malformed or future `paidOn`, `paidOn`/`note` with `CHARGE_REQUESTED`, a note over 200 characters
+  or a member id that is no UUID. `joiningFeeState` gains `requested` (bool, request not billed yet) and
+  `paidExternally` (`{"paidOn", "note"}` or null) and also lists members that only have a record.
+- **Final runs of one community run one at a time** (PostgreSQL transaction advisory lock per tenant, two-key so it
+  does not meet other advisory locks, the first step of a final run; previews take no lock). A second final run of
+  the community does not wait (decided 28.10.2026, so no billing thread waits and other communities are never held
+  up): it ends FAILED at once with „Ein endgültiger Abrechnungslauf dieser Gemeinschaft läuft gerade – bitte nach
+  dessen Ende erneut starten“. The joining fee records (`PUT`/`DELETE …/joiningFee`) answer 409 while a final run
+  of the community runs, because the run reads them once. Records are stored with the tenant in upper case.
+
+### Changed
+- **Abort text for a third VAT rate** (callers eegfaktura-web and eegfaktura-v3 show the run's `errorSummary`; the
+  prefix „Abrechnung fehlgeschlagen: “ is unchanged): instead of „More than 2 VAT rates not supported. Rate 1=…“ the
+  run now reports „Mitglied <member number>: mehr als zwei verschiedene USt-Sätze über 0 % auf einem Beleg (20,00 %,
+  10,00 %, 13,00 %). Bitte die USt-Sätze der Tarife prüfen.“ — the member number, never the name (also logged).
+- Tests: `BillingScenarioFeeTests.s07` (participant fee with VAT on but no rate → billed with 0 %) runs again;
+  known-errors #17 was fixed by upstream #51 (`b373fcc`), the test stayed disabled. No change to the service.
+
+### Fixed
+- **CI: the Snyk Code scan fails visibly when it cannot run.** An invalid `SNYK_TOKEN` ended the weekly and
+  push scan green without any result (`continue-on-error`); now only „issues found“ keeps the run green (the
+  issues go to Code Scanning), an authentication or tool error fails it. The Snyk CLI is pinned to 1.1308.1
+  instead of the latest version.
+- Document numbers of two final runs of one community started at the same time (known-errors #15): the second
+  run is now refused at once while the first runs (see Added), so it never fails on the unique constraint
+  (tenant, document number) with a duplicate number.
+
+
+## [1.5.0] – 2026-10-27
+
+### Fixed
+- **Visible change on printed documents — VAT of items with „USt nein“** (261027-mm1, also known-errors #16):
+  energy items, the membership fee and the consumer meter-point fee of a tariff with „USt nein“ kept the VAT rate
+  stored in the tariff. The VAT column of these items now shows **0 %**; they no longer count as a VAT rate, so
+  the document no longer shows a sum line „USt 20,00 %: 0,00 €“ for them; the Excel export of the run shows 0 in
+  „Pos. UST %“ and no such rate in „UST Satz 1/2 (%)“ — for a document with only „USt nein“ items the columns „UST Satz 1/2 (%)“ and „UST Satz 1/2 Summe (Euro)“ are now empty (were: rate 20, sum 0). A rate left in a „USt nein“ tariff no longer causes the abort
+  „More than 2 VAT rates not supported“ or a second VAT column. VAT rates are compared numerically: `20` and `20.0`
+  are one rate (before: two sums or the abort). Net, VAT and gross amounts are unchanged; inform the
+  communities (pilot group first) before the rollout.
+
+## [1.4.0] – 2026-10-27
+
+### Changed
+- **Visible change — entry names in the document ZIP of a run** (`GET /api/billingRuns/{id}/billingDocuments/archive`,
+  platform#221): the number in front of each file name (a hash of the internal file id) is gone. Invoices and credit
+  notes keep their file name as stored (`Abr_YM-2025-6_Rechnung_RG202500304.pdf`, unique by the document number);
+  preview and INFO documents get the member number before `.pdf`
+  (`Abr_YM-2025-6_Rechnung_Vorschau_<member number>.pdf`; characters `/ \ : * ? " < > |` become `_`, no suffix
+  without a member number); a name that still occurs twice gets ` (2)`, ` (3)` (unlike `_<member number>`, so a counter never looks like a member number) … in a stable order (by name, then file
+  id). Communities that sort or match the unpacked files by the old names need to adapt. Unchanged: the response
+  shape of the endpoint, the stored file name, the PDF itself and the name of the single-document download.
+
+## [1.3.0] – 2026-10-26
+
+### Added
+- **Fixed footer in the `billing-document` mail**: every mail (send run, default and stored text, preview
+  and test mail) ends with `versandt durch EEG Faktura, ein Service des VFEEG - https://vfeeg.org/`,
+  appended by the server after the sanitized body (HTML and the derived plain-text part); it is not
+  editable and not part of the stored text. The list and GET of `/api/mailtemplates` return it as the new
+  field `fixedFooter` (additive contract change, same field as in eegfaktura-backend; the web shows it
+  below the editor and nothing when the field is missing, so the deploy order is not critical — billing
+  before or together with the web).
+- **Font size in mail texts**: `mail-html-policy.json` version 2 (identical copy in eegfaktura-backend)
+  allows `font-size` `13px` and `20px` in the `style` of `p`, `h1`–`h3` and `li`, also together with
+  `text-align`; other sizes and units are dropped. New cases in the shared `mail-html-policy-cases.json`.
+- **Link rules in the `billing-document` mail text** (Variante A, decided 2026-10-26, same rules as in
+  eegfaktura-backend): no links to IP addresses (IPv4, IPv6, numeric hosts), none to URL shorteners (list
+  `links.blockedHosts` in the shared `mail-html-policy.json`, also their subdomains), a link text that shows
+  an address (`https://…`, `www.…`, a bare domain, an e-mail address) must show the link's own host/address,
+  at most 3 links and links to at most 2 main domains per text (the last two labels, or three after a
+  `secondLevelSuffixes` entry such as `co.at`/`gv.at`, so subdomains of one main domain count once; mailto links
+  count as links, not as domains; the fixed footer is not counted). A link text that is a file name
+  (`fileExtensions`, e.g. `anleitung.pdf`) is not an address. Save, preview and test mail answer 400 in the existing error format with a
+  German message per broken rule. A stored text that breaks the rules is not changed; at send time it counts
+  as not renderable → the default text is sent and the send protocol carries the existing fallback note.
+  `limits` of the definition has the new fields `maxLinks` and `maxLinkDomains` (additive). Shared cases:
+  `mail-link-cases.json` (identical in eegfaktura-backend).
+  Link texts are read as the reader sees them, with the same algorithm as eegfaktura-backend: zero-width
+  characters are removed, every Unicode space (also NBSP) separates words, and every word that is an address
+  (`…://…`, `www.…`, an e-mail address, a bare domain; surrounding quotes and punctuation stripped) must match
+  the target — „Mehr unter https://eeg.at“ is fine, `a@b`, `office@eeg` and `z.B.` are no address, a `mailto:`
+  with `%40` matches its text. The host dots `。` `．` `｡` count as `.` (`bit。ly` is a shortener); a single hex
+  word like `cafe` is a host name, not an IP. **No placeholder inside a link** (new key `placeholder-in-link`,
+  „Platzhalter dürfen nicht in einem Link stehen: Name der EEG“): at send time `eeg.email` would show another
+  address than the target. The sanitizer now drops the links the backend drops, so both give the same verdict:
+  an https link whose host part has a backslash, `%`, `^`, `{`, `|`, `}` or a backtick, an unclosed IPv6
+  bracket or a port that is no number, and any URL with a space (e.g. `mailto: office@…`, before kept as `%20`);
+  the link text stays. Also dropped as in the backend: an https link with more than one port (`bit.ly:80:90`),
+  with user info outside Go's characters (e.g. `ü@`), with a bracket that holds no IPv6 address (`[abc]`,
+  `[1.2.3.4]`) or with a control character; Unicode spaces (also NBSP) around a URL are trimmed.
+  **Host characters:** a link whose host has other characters than ASCII letters, digits, `-` and `.` (fullwidth
+  letters or digits, soft hyphen, zero-width characters, umlauts) is refused (new key `bad-host`, „Die
+  Linkadresse enthält ungültige Zeichen: münchen.at“); an umlaut domain has to be written in its `xn--` form
+  (`xn--mnchen-3ya.at`). Link texts: invisible format characters (Unicode `Cf`, e.g. soft hyphen) are removed,
+  fullwidth ASCII counts as ASCII, a word also ends at a `:` not followed by `//` (`Website:bank.at`),
+  punctuation and symbols at both ends of a word are stripped (`»bank.at«`, `bank.at…`, `→bank.at`; a final `/`
+  stays), the alt text of an image inside a link counts as link text, and `www.eeg.at:443` shows the host
+  `eeg.at`. Hosts and `mailto` addresses are compared with ASCII-only lower-casing (`İnfo@` is not `info@`); a
+  `mailto` address is trimmed of Unicode spaces (also NBSP) after percent-decoding.
+
+### Security
+- **Uploaded mail images are re-encoded** (`/api/mailtemplates/{key}/files`, kind `image`): after the content
+  type check the dimensions are read without decoding (more than 1200 px wide, 4000 px high or 4.8 million
+  pixels → 400 „Das Bild ist zu groß …“), then the image is decoded and written again with JDK ImageIO in the
+  same format (PNG lossless, JPEG quality 0.8, RGB); only these bytes are stored — EXIF/GPS, comments and data
+  appended to the file are dropped. A file that does not decode → 400 „Das Bild kann nicht gelesen werden.“
+  (also e.g. CMYK JPEGs). The byte limits apply to the re-encoded image. Already stored images are unchanged.
+
+### Changed
+- Default text of `billing-document` without the eegfaktura logo on top (the fixed footer names the
+  sender); `defaultVersion` 1 → 2, so EEGs with an own text see the "default changed" notice. Stored texts
+  are not migrated; one that still contains `mailfile:eegfaktura-logo` keeps showing the built-in logo.
+
+## [1.2.0] – 2026-10-26
+
+### Added
+- **Editable member mail text (`billing-document`)** (konzept-mail-texte-editierbar.md): an EEG admin edits
+  subject and text of the invoice/credit note mail under `/api/mailtemplates` (same schema as the backend:
+  list, get, PUT with version stamp → 409 on a stale version, DELETE = back to the default, image upload,
+  preview, test mail). Text is sanitized server-side with OWASP java-html-sanitizer driven by the shared
+  `mail-html-policy.json`; placeholders (`{key}` in the subject, `span/div[data-ph]` in the text) are replaced
+  as escaped values only. Images: PNG/JPEG checked by content, at most 3, together ≤ 500 KB; no extra PDF
+  (the document PDF is always attached). Test mail goes only to the login's e-mail claim or the EEG address
+  from `base.billing_masterdata`, without cc, subject prefixed `[Test] ` (send failure: 502). The
+  eegfaktura logo is the built-in image `mailfile:eegfaktura-logo` (as in the backend; served under
+  `/files/eegfaktura-logo`, not counted against the limits, not deletable).
+  Uploads are drafts (`committed=false`, never sent) until a saved version uses them; PUT removes files the
+  version no longer uses and drafts older than 24 h (a referenced older draft is committed; an image in the
+  text whose file no longer exists is a 400), DELETE of a file the saved version uses answers 409.
+  Uploads, saves and deletes of one mail are serialized (advisory lock), so the limits hold. A block
+  placeholder is allowed only as a top-level `div`; in the subject only `{key}` with the catalog syntax is a
+  placeholder (`{EEG}` stays text). `billing.footerText` is HTML (as in the PDF) and goes through the same
+  sanitizer instead of being escaped. The test mail to the EEG goes to every valid address of a `;` list;
+  an EEG without participants has no address in `base.billing_masterdata` (400).
+- Flyway `V1_16`: tables `billing_mail_template` and `billing_mail_template_file` (additive; files in
+  `file_data`). `V1_17`: column `billing_mail_template_file.committed` (additive).
+- Coverage gate: JaCoCo reports coverage in `test.yml` (artifact `jacoco-report`) and `verify` fails if a
+  package falls below its floor; as `test.yml` gates the image (1.1.0), **coverage below a floor now blocks
+  the image and every deploy job** too. `./mvnw test` stays without the gate.
+- `lombok.config` (`lombok.addLombokGeneratedAnnotation = true`) so coverage ignores generated code.
+- Test builders under `src/test/.../support` (`PostgresContainerHolder`, `BillingMasterdataBuilder`,
+  `AllocationBuilder`, `BillingRunFixture`); no production code changed.
+- Billing scenario tests S1 – S12 (`src/test/.../scenario`, S11 waits for the rounding decision B-13): amounts,
+  VAT sums, document types and numbers, run status, result text, PDF text and XLSX sums; new test-only
+  dependency PDFBox 3.0.8. Five scenarios that expose known defects (#12, #13, #16, #17, #22) are
+  committed disabled. No production code changed.
+- `EXTERNAL_SOURCES.md` (every source of build, tests and service) and `scripts/dev/loc-check.sh`
+  (lines per file). The working agreement, the tracking files and the migration-concept template are
+  kept outside the repository.
+
+### Changed
+- **Billing run mail** uses the EEG's stored text, else the default. The default reproduces the former mail
+  (logo, greeting, text, signature, footer) in the same frame (grey background, white 595 px box);
+  layout differences inside the box: one column with even padding instead of the former table columns
+  (greeting and text were indented differently), the logo is a centered paragraph instead of a 205 px
+  header row, and the footer text is a normal paragraph instead of extra-small text at the bottom. **Subject:** same pattern
+  `<Belegart> <Zeitraum> - <EEG>`, but the period is now the readable date range (e.g.
+  `01.07.2026 - 30.09.2026` instead of `Abr_YQ-2026-3`), and with an empty EEG name the subject ends in ` -`. If a stored text cannot be rendered, the
+  default is sent and the run's send protocol says so.
+- `spring.servlet.multipart.max-file-size` 256KB → 512KB (image limit of the mail text; also applies to
+  logo/footer uploads).
+- Tests follow release 1.0.8 (asynchronous billing run, ZVT, mail): the concurrency tests exercise the claim
+  (`secondStartOfARunningPeriodIsRefused`, `simultaneousStartsOfOnePeriodAcceptExactlyOne`) instead of the removed
+  per-tenant lock, the two-periods case is disabled as the reproduction of the number race; the scenario tests expect
+  the exceptions the service throws now (the resource answers 400/409); the mail tests expect the issuer in the subject
+  and the plain-text alternative; the M3 masterdata table and the M6 legacy view (`legacy-base/06_…zvt_time_tariff`,
+  copied from eegfaktura-backend) carry the ZVT columns; `responses/BillingRunDTO.json` records `errorSummary`.
+  New: scenario S13 (`BillingScenarioZvtTests`, one position per window share and the ten contract refusals),
+  `BillingRunLauncherTests` (FAILED summaries), the web slice covers 202/409/503 of `POST /api/billing`.
+  `LegacyMasterdataViewContractTests.v3ViewHasEveryLegacyAndEntityColumnByName` is disabled: v3's cutover view
+  lacks the 11 ZVT columns (known error). No production code changed.
+- Mail text tests: without a Tenant header every handler of `/api/mailtemplates` is checked to answer 403,
+  the writing ones (PUT, DELETE, file upload and delete, test mail) included, with nothing stored and no mail
+  sent. No production code changed.
+
+### Fixed
+- Tests: the `rest` coverage gate (100 % lines) failed now and then, because the 409 for two simultaneous first
+  starts of a period was only reached when the race happened in the concurrency tests; a web test covers it
+  deterministically now (pre-existing, found on this PR's CI).
+- The plain-text part of the billing mail decodes all HTML entities (numeric ones such as `&#64;` showed).
+- Recipient and EEG name were inserted into the billing mail without HTML escaping (FreeMarker without
+  output format); the FreeMarker template and dependency are removed.
+- Logo/footer upload: `file_data.tenant_id` is set, and the type is checked from the content (PNG/JPEG/GIF);
+  an upload without Content-Type or with other content is rejected.
+- The integration tests run on Docker 29: `src/test/resources/docker-java.properties` sets the
+  Docker API version Testcontainers asks for (it asked for 1.32, Docker 29 refuses below 1.40).
+- `TEST_STORE_DOCUMENTS_PATH` also sets the directory for the generated PDFs and XLSX of the
+  integration tests (empty by default, as in 1.1.0).
+- The web-layer tests generate their JWT key pair and self-signed certificate at runtime (`TestTokens`,
+  JDK `keytool`, certificate in a temp file, handed to `WebSliceTest` via `@DynamicPropertySource`); no
+  private key is committed, so the secret scan stays green (known error 261009-ca1). No new dependency.
+- `.gitattributes` keeps `src/test/resources/legacy-base/**` and `src/test/resources/contracts/v3view/**`
+  on LF, so `LegacyMasterdataViewContractTests.copiedFilesAreUnchanged` also passes on Windows checkouts
+  with `core.autocrlf=true`.
+- `EXTERNAL_SOURCES.md` lists the OWASP java-html-sanitizer (20261011.1, Apache-2.0 and BSD-2-Clause) of the mail texts
+  instead of FreeMarker, whose dependency this release removes.
+- Mail texts: saving checks the image limits again (at most 3 images, together ≤ 500 KB) over every image the
+  saved version uses. The upload counts the saved files plus drafts of the last 24 h, so with older drafts a text
+  could commit more images than allowed; such a save is now a 400 and stores nothing.
+
 ## [1.1.0] – 2026-10-21
 
 ### Added

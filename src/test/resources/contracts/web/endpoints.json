@@ -1,0 +1,33 @@
+{
+  "caller": "eegfaktura-web",
+  "source": {
+    "repository": "eegfaktura-web",
+    "file": "src/service/eeg.service.ts",
+    "commit": "c37a0b7f9197dd31a16b3ab5294d2d13ff551883",
+    "branch": "add-XClient-Header (master 189b5b3 has the same billing calls, without the X-Client header)",
+    "date": "2026-09-27",
+    "fileLastChanged": "76d5729 2026-07-05"
+  },
+  "refresh": "src/test/resources/contracts/README.md",
+  "headers": {"tenant": "RC100001", "X-Client": "vfeeg-app/0.0.0", "Accept": "application/json"},
+  "calls": [
+    {"method": "GET", "path": "/api/billingRuns/RC100001/YM/Abr_YM-2024-6", "source": "eeg.service.ts:152 fetchBillingRun"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001", "source": "eeg.service.ts:166 fetchBillingRunById"},
+    {"method": "POST", "path": "/api/billing", "source": "eeg.service.ts:178 fetchBilling", "body": "web/post-billing.json"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001/participantAmounts", "source": "eeg.service.ts:191 fetchParticipantAmounts"},
+    {"method": "GET", "path": "/api/billingDocumentFiles/tenant/RC100001", "source": "eeg.service.ts:203 fetchBillingDocumentFiles (tenant upper-cased)"},
+    {"method": "GET", "path": "/api/fileData/00000000-0000-0000-0000-00000000a001", "source": "eeg.service.ts:214 downloadBillingDocument"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001/billingDocuments/archive", "source": "eeg.service.ts:226 exportBillingArchive"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001/billingDocuments/xlsx", "source": "eeg.service.ts:238,250 exportBillingExcel, exportBillingExcelForSepa"},
+    {"method": "GET", "path": "/api/billingRuns/00000000-0000-0000-0000-00000000a001/billingDocuments/sendmail", "source": "eeg.service.ts:262 billingRunSendmail"},
+    {"method": "GET", "path": "/api/billingConfigs/tenant/RC100001", "source": "eeg.service.ts:274 fetchBillingConfigByTenantId"},
+    {"method": "GET", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001", "source": "eeg.service.ts:288 fetchBillingConfigById"},
+    {"method": "POST", "path": "/api/billingConfigs", "source": "eeg.service.ts:302 createBillingConfig", "body": "web/post-billing-configs.json"},
+    {"method": "PUT", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001", "source": "eeg.service.ts:326 updateBillingConfig", "body": "web/put-billing-config.json"},
+    {"method": "POST", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/logoImage", "source": "eeg.service.ts:348 uploadImageBillingConfig('logo')", "multipart": "file"},
+    {"method": "POST", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/footerImage", "source": "eeg.service.ts:348 uploadImageBillingConfig('footer')", "multipart": "file"},
+    {"method": "DELETE", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/logoImage", "source": "eeg.service.ts:363 deleteImageBillingConfig('logo')"},
+    {"method": "DELETE", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/footerImage", "source": "eeg.service.ts:363 deleteImageBillingConfig('footer')"},
+    {"method": "GET", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/logoImage", "source": "eeg.service.ts:376 getImageBillingConfig, called with 'logo' only (EegBillingConfigCard.component.tsx:108)"}
+  ]
+}

@@ -30,7 +30,8 @@ public class BillingDocumentNumberGeneratorImpl implements BillingDocumentNumber
         if (sequenceNumberLength<=0 || sequenceNumberLength>10) {
             sequenceNumberLength = 5; //default
         }
-        prefix = prefix != null ? prefix : "";
+        // trimmed (known-errors #15): " R" and "R" print the same number, so they continue one sequence
+        prefix = prefix != null ? prefix.trim() : "";
         start = start != null ? start : 0L;
         BillingDocumentNumber next = new BillingDocumentNumber();
         next.setTenantId(tenantId);
@@ -39,7 +40,7 @@ public class BillingDocumentNumberGeneratorImpl implements BillingDocumentNumber
         Long nextSequenceNumber = billingDocumentNumberRepository.getMaxSequenceNumber(tenantId, year, prefix);
         nextSequenceNumber = nextSequenceNumber==null? start : nextSequenceNumber+1L;
         next.setSequenceNumber(nextSequenceNumber);
-        next.setDocumentNumber(prefix.trim() + year + String.format("%0"+ sequenceNumberLength + "d",
+        next.setDocumentNumber(prefix + year + String.format("%0"+ sequenceNumberLength + "d",
                 nextSequenceNumber));
         return billingDocumentNumberRepository.saveAndFlush(next);
     }

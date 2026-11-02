@@ -1,3 +1,4 @@
 /target/
 /etc/
 *.csv
+known-errors.md

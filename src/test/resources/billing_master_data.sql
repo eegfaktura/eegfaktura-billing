@@ -77,6 +77,12 @@ create table if not exists base.billing_masterdata
     tariff_time2_cent_per_kwh             numeric
 );
 
+-- joining fee (backend 20261028130000); also for a reused container whose table predates the columns
+alter table base.billing_masterdata
+    add column if not exists tariff_joining_fee                numeric default 0,
+    add column if not exists tariff_joining_fee_use_vat        boolean default false,
+    add column if not exists tariff_joining_fee_vat_in_percent numeric default 0;
+
 -- ZVT-Testdaten: Verbraucher-ZP mit zeitbasiertem Tarif (Basis 12.83 ct,
 -- Tag 06:00-08:00 22.5 ct, Nacht 20:00-06:00 (Mitternachtsueberlauf) 5.5 ct,
 -- Rabatt 10%). Eigener Teilnehmer, damit Bestands-Tests unberuehrt bleiben.
@@ -417,7 +423,7 @@ insert into base.billing_masterdata (
     tariff_metering_point_vat,
     tariff_freekwh
 ) values (
-             '039e8d60-b6ba-459c-b5a1-0c31aa53a49', --participant_id
+             '039e8d60-b6ba-459c-b5a1-0c31aa53a490', --participant_id
              null, -- participant_title_before
              'Fridolin', --participant_firstname
              'Fröhlich', --participant_lastname

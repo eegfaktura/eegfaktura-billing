@@ -82,6 +82,10 @@ public class BillingDocumentItem {
     @Column
     private BigDecimal grossValue;
 
+    @Column
+    @Enumerated(EnumType.STRING)
+    private BillingDocumentItemType itemType; // null for items written before V1_18
+
     @ManyToOne(fetch = FetchType.EAGER)
     private BillingDocument billingDocument;
 

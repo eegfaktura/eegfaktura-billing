@@ -1,0 +1,35 @@
+{
+  "source": {
+    "repository": "eegfaktura-v3",
+    "file": "backend/src/main/kotlin/at/eegfaktura/billing/config/BillingConfigService.kt:26-56 (upsert: full overwrite, image and template ids carried over), backend/src/main/kotlin/at/eegfaktura/integration/billing/LegacyBillingDtos.kt:117-139",
+    "commit": "0b785d2aaefafb4d34a91a7111fa249119b47af9",
+    "date": "2026-10-01"
+  },
+  "refresh": "src/test/resources/contracts/README.md",
+  "method": "PUT",
+  "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001",
+  "headers": {"Tenant": "RC100001", "Accept": "application/json"},
+  "body": {
+    "id": "00000000-0000-0000-0000-00000000a001",
+    "tenantId": "RC100001",
+    "headerImageFileDataId": "00000000-0000-0000-0000-00000000f001",
+    "footerImageFileDataId": "00000000-0000-0000-0000-00000000f002",
+    "createCreditNotesForAllProducers": true,
+    "beforeItemsTextInvoice": "Wir erlauben uns, folgende Leistungen zu verrechnen:",
+    "beforeItemsTextCreditNote": null,
+    "beforeItemsTextInfo": null,
+    "afterItemsTextInvoice": null,
+    "afterItemsTextCreditNote": null,
+    "afterItemsTextInfo": null,
+    "termsTextInvoice": "Zahlbar binnen 14 Tagen.",
+    "termsTextCreditNote": null,
+    "termsTextInfo": null,
+    "footerText": "EEG Sonnenschein",
+    "documentNumberSequenceLength": 6,
+    "customTemplateFileDataId": null,
+    "invoiceNumberPrefix": "RE",
+    "invoiceNumberStart": 100,
+    "creditNoteNumberPrefix": "GS",
+    "creditNoteNumberStart": 200
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "source": {
+    "repository": "eegfaktura-web",
+    "file": "src/service/eeg.service.ts:321-340 (updateBillingConfig: the fetched config, createCreditNotesForAllProducers forced true), src/models/eeg.model.ts:75-97 (BillingConfig)",
+    "commit": "c37a0b7f9197dd31a16b3ab5294d2d13ff551883",
+    "date": "2026-09-27"
+  },
+  "refresh": "src/test/resources/contracts/README.md",
+  "method": "PUT",
+  "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001",
+  "headers": {"tenant": "RC100001", "X-Client": "vfeeg-app/0.0.0", "Accept": "application/json"},
+  "body": {
+    "id": "00000000-0000-0000-0000-00000000a001",
+    "tenantId": "RC100001",
+    "headerImageFileDataId": "00000000-0000-0000-0000-00000000f001",
+    "footerImageFileDataId": null,
+    "createCreditNotesForAllProducers": true,
+    "beforeItemsTextInvoice": "Wir erlauben uns, folgende Leistungen zu verrechnen:",
+    "beforeItemsTextCreditNote": "Wir schreiben Ihnen gut:",
+    "beforeItemsTextInfo": "",
+    "afterItemsTextInvoice": "Danke für Ihre Teilnahme.",
+    "afterItemsTextCreditNote": "",
+    "afterItemsTextInfo": "",
+    "termsTextInvoice": "Zahlbar binnen 14 Tagen.",
+    "termsTextCreditNote": "Der Betrag wird überwiesen.",
+    "termsTextInfo": "",
+    "footerText": "EEG Sonnenschein, Hauptstraße 1, 8010 Graz",
+    "documentNumberSequenceLength": 5,
+    "customTemplateFileDataId": null,
+    "invoiceNumberPrefix": "RE",
+    "invoiceNumberStart": 1,
+    "creditNoteNumberPrefix": "GS",
+    "creditNoteNumberStart": 1
+  }
+}

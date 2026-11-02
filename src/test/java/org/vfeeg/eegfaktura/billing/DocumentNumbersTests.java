@@ -61,15 +61,6 @@ class DocumentNumbersTests {
             .withReuse(true);
 
     @Test
-    void contextLoads() {
-    }
-
-    @Test
-    void testContainer() {
-       assertThat(postgreSQLContainer.isRunning(), is(true));
-    }
-
-    @Test
     void testBillingDocumentNumberGenerator_BeginWithZero() {
 
         BillingDocumentNumber billingDocumentNumber = billingDocumentNumberGenerator.getNext(

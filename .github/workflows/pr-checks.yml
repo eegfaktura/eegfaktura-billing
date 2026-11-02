@@ -1,5 +1,6 @@
 # Tests on every pull request: the unit tests (every test class that needs no container) and the
-# full suite (test.yml: ./mvnw clean verify with every Testcontainers suite).
+# full suite (test.yml: ./mvnw clean verify with every Testcontainers suite and the JaCoCo gate —
+# the same job rolling-release.yml runs before an image is built).
 #
 # A unit test is every test class that neither starts a container nor reaches one through the
 # classes it uses: the step below starts from the files that mention Testcontainers or

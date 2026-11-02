@@ -12,6 +12,8 @@ public class JwtAuthentication implements Authentication {
     private final String username;
     private final Collection<Authority> authorities = new ArrayList<>();
     private final boolean superuser;
+    private final String email;
+    private final String clientId;
 
     public JwtAuthentication(final String username,
                              final Collection<Authority> authorities) {
@@ -21,10 +23,37 @@ public class JwtAuthentication implements Authentication {
     public JwtAuthentication(final String username,
                              final Collection<Authority> authorities,
                              final boolean superuser) {
+        this(username, authorities, superuser, null);
+    }
+
+    public JwtAuthentication(final String username,
+                             final Collection<Authority> authorities,
+                             final boolean superuser,
+                             final String email) {
+        this(username, authorities, superuser, email, null);
+    }
+
+    public JwtAuthentication(final String username,
+                             final Collection<Authority> authorities,
+                             final boolean superuser,
+                             final String email,
+                             final String clientId) {
         this.username = username;
         this.authorities.addAll(authorities);
         this.superuser = superuser;
+        this.email = email;
+        this.clientId = clientId;
         isAuthenticated = true;
+    }
+
+    /** E-Mail-Claim des Tokens (Testmail "an mich"), oder null. */
+    public String getEmail() {
+        return email;
+    }
+
+    /** Claim azp des Tokens: der Keycloak-Client (die Anwendung), keine Person; oder null. */
+    public String getClientId() {
+        return clientId;
     }
 
     /**

@@ -1,0 +1,23 @@
+{
+  "source": {
+    "repository": "eegfaktura-web",
+    "file": "src/components/participantPane/ParticipantPane.component.tsx:450-466 (onDoBilling), src/models/meteringpoint.model.ts:58-65 (ClearingPreviewRequest), src/service/eeg.service.ts:176-187",
+    "commit": "c37a0b7f9197dd31a16b3ab5294d2d13ff551883",
+    "date": "2026-09-27"
+  },
+  "refresh": "src/test/resources/contracts/README.md",
+  "method": "POST",
+  "path": "/api/billing",
+  "headers": {"tenant": "RC100001", "X-Client": "vfeeg-app/0.0.0", "Accept": "application/json"},
+  "body": {
+    "allocations": [
+      {"participantId": "00000000-0000-0000-0000-000000000101", "meteringPoint": "AT0099990000000000000000000000001", "allocationKWh": 123.456},
+      {"participantId": "00000000-0000-0000-0000-000000000101", "meteringPoint": "AT0099990000000000000000000000002", "allocationKWh": 0}
+    ],
+    "tenantId": "RC100001",
+    "preview": true,
+    "clearingPeriodIdentifier": "Abr_YM-2024-6",
+    "clearingPeriodType": "YM",
+    "clearingDocumentDate": "2024-06-28"
+  }
+}

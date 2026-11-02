@@ -46,6 +46,15 @@ mvn clean package
 
 ### Testing
 
+Always measure with `mvn clean`: `target/` keeps classes and reports of another branch otherwise.
+`./mvnw clean verify` runs the tests and the coverage gate (JaCoCo, report in `target/site/jacoco`);
+`./mvnw test` runs the tests without the gate. Needs JDK 21 and Docker; without a local JDK 21:
+
+```bash
+docker run --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/src -w /src \
+  -e TESTCONTAINERS_RYUK_DISABLED=true eclipse-temurin:21.0.11_10-jdk-jammy ./mvnw -B -ntp clean verify
+```
+
 Please note, that the current state of tests is not yet fine and is to be extended, cleaned-up a lot still.
 The current tests ensure, that the most important billing use cases do work. It is definitely a good idea
 to have a look on the generated billing documents (PDF) to see if this service is creating them correctly.
@@ -89,6 +98,14 @@ The container is accepting the following environment variables as configuration:
 * `MAIL_SMTP_STARTTLS_ENABLE` (default = false)
 * `MAIL_NO_REPLY_TO` e-mail address to use as sender for automated mails (default = no-reply@eegfaktura.at)
 * `JWT_PUBLICKEYFILE` full path to the JWT public key file, used to decrypt JWT tokens from header (default = /billing/zertifikat-pub.pem)
+* `LOG_FORMAT` `json` (default: one JSON object per line on stdout, flat ECS field names) or `text` (Spring's plain console lines)
+* `LOG_LEVEL` `trace`, `debug`, `info` (default), `warn` or `error`; any other value stops the start. The access
+  lines (logger `org.vfeeg.eegfaktura.billing.access`) stay at `info` at every level. Per package: Spring's
+  `LOGGING_LEVEL_<PACKAGE>` (e.g. `LOGGING_LEVEL_ORG_VFEEG=debug`)
+* `SERVICE_VERSION` written as `service.version` into every log line; it identifies the build and is set by the image
+  build (the commit SHA for a branch build, the version for a tag build), default `dev`. Prod and pilot run dev-tier
+  images re-tagged by the gitops promote workflow (no rebuild), so their release version is the image tag (the
+  deployment's `image:`; Dynatrace log records do not carry it), not `service.version`
 * `SPRINGDOC_ENABLED` `true` serves the API docs (/v3/api-docs) and the Swagger UI (default = false; true in the 'dev' profile). Set it to true only in development environments
 
 ## Contributing

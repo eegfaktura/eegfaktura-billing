@@ -20,12 +20,18 @@ jobs:
         with:
           node-version: "20"
       - name: Install Snyk CLI
-        run: npm install -g snyk
+        # pinned (published 2026-10-14); a newer version only when it is 7 days old
+        run: npm install -g snyk@1.1308.1
       - name: Snyk Code test (SAST)
-        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk code test --severity-threshold=high --sarif-file-output=snyk.sarif
+        # exit 1 = issues found: they go to Code Scanning, the run stays green;
+        # exit 2/3 = failure (e.g. an invalid SNYK_TOKEN) or nothing scanned: the run fails visibly
+        run: |
+          rc=0
+          snyk code test --severity-threshold=high --sarif-file-output=snyk.sarif || rc=$?
+          echo "snyk exit code $rc"
+          [ "$rc" -le 1 ]
       - name: Upload SARIF to GitHub Code Scanning
         if: ${{ always() && hashFiles('snyk.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@35632bdbd38dba649ce80e15482f7a399a32d400 # v3.27.9

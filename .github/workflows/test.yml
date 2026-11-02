@@ -1,6 +1,7 @@
-# Full test suite, called by pr-checks.yml on every pull request and by rolling-release.yml before
-# the image build: ./mvnw clean verify with every Testcontainers suite. GitHub-hosted ubuntu-latest
-# has Docker, which Testcontainers needs for PostgreSQL. Actions pinned by commit SHA.
+# Tests and coverage gate, called by pr-checks.yml on every pull request (as its full suite) and by
+# rolling-release.yml, so a red run blocks the image and the deploy jobs: ./mvnw clean verify with
+# every Testcontainers suite and the JaCoCo thresholds. GitHub-hosted ubuntu-latest has Docker,
+# which Testcontainers needs for PostgreSQL. Actions pinned by commit SHA.
 
 name: Tests
 
@@ -29,7 +30,7 @@ jobs:
 
       # app.test.store-documents-path is empty in the test configuration (no documents written);
       # on the runner the generated documents go to a directory of the run, so that path is tested too.
-      - name: Build and test
+      - name: Build, test and check coverage
         env:
           APP_TEST_STOREDOCUMENTSPATH: ${{ runner.temp }}/billing-documents
         run: |
@@ -43,5 +44,14 @@ jobs:
         with:
           name: test-results-full  # the name the CI report collector looks for
           path: target/surefire-reports
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload JaCoCo report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jacoco-report
+          path: target/site/jacoco
           if-no-files-found: warn
           retention-days: 30
