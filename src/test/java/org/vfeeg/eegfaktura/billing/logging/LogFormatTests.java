@@ -3,6 +3,7 @@ package org.vfeeg.eegfaktura.billing.logging;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
@@ -35,6 +36,13 @@ class LogFormatTests {
 
     private static ConfigurableApplicationContext start(String... args) {
         return new SpringApplicationBuilder(Bare.class).web(WebApplicationType.NONE).run(args);
+    }
+
+    @BeforeAll
+    static void releaseTheLoggingOfEarlierTests() {
+        // with a cached context of another test in this JVM, logging counts as set up and a start would not apply its
+        // format; closing a context cleans it up, so every start below sets up logging itself
+        start("--LOG_FORMAT=text").close();
     }
 
     @AfterAll
