@@ -3,7 +3,7 @@ package org.vfeeg.eegfaktura.billing.rest;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.vfeeg.eegfaktura.billing.model.BillingConfigDTO;
 
 import java.util.List;

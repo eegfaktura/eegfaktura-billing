@@ -4,7 +4,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import java.util.UUID;
@@ -68,8 +68,8 @@ public record Endpoint(Class<?> resource, HttpMethod method, String pattern, Kin
      * @param headerTenant  value of the {@code Tenant} header, {@code null} = no header
      * @param authorization value of the {@code Authorization} header, {@code null} = no token
      */
-    public MockHttpServletRequestBuilder request(String tenant, String headerTenant, String authorization) {
-        MockHttpServletRequestBuilder builder = multipart
+    public AbstractMockHttpServletRequestBuilder<?> request(String tenant, String headerTenant, String authorization) {
+        AbstractMockHttpServletRequestBuilder<?> builder = multipart
                 ? MockMvcRequestBuilders.multipart(method, path(tenant))
                         .file(new MockMultipartFile("file", "logo.png", MediaType.IMAGE_PNG_VALUE, PNG))
                 : MockMvcRequestBuilders.request(method, path(tenant));
@@ -86,7 +86,7 @@ public record Endpoint(Class<?> resource, HttpMethod method, String pattern, Kin
     }
 
     /** Request with an own-community admin token and header, carrying {@link #invalidBody}. */
-    public MockHttpServletRequestBuilder invalidRequest() {
+    public AbstractMockHttpServletRequestBuilder<?> invalidRequest() {
         return MockMvcRequestBuilders.request(method, path(TestTokens.OWN))
                 .contentType(MediaType.APPLICATION_JSON).content(invalidBody)
                 .header("Tenant", TestTokens.OWN)

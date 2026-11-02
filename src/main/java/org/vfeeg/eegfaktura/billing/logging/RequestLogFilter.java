@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.spi.LoggingEventBuilder;
-import org.springframework.boot.autoconfigure.security.SecurityProperties;
+import org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterProperties;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
  * (no user tracking, decided 2026-10-29).
  */
 @Component
-@Order(SecurityProperties.DEFAULT_FILTER_ORDER - 1)
+@Order(SecurityFilterProperties.DEFAULT_FILTER_ORDER - 1)
 public class RequestLogFilter extends OncePerRequestFilter {
 
     public static final String REQUEST_ID_HEADER = "X-Request-Id";

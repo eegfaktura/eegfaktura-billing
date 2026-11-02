@@ -19,12 +19,12 @@ In order to run this container you'll need docker installed.
 
 ## Built with
 
-* Spring Boot 3.5.3
+* Spring Boot 4.0.9
 * Java 21
 * Maven
-* Flyway 9.16
+* Flyway 11.14
 * JasperReports 7.0.2
-* springdoc-openapi 2.3.0
+* springdoc-openapi 3.0.3
 * Apache POI 5.4.1
 * PostgreSQL
 
@@ -68,7 +68,9 @@ src/test/resources/application.properties.
 You can deploy the container with docker or docker-compose as you wish.
 
 ## Rest API
-You can inspect and play with this services' API with the help of swagger (only visible when services is started with 'dev' profile!):
+You can inspect and play with this services' API with the help of swagger. The API docs (/v3/api-docs) and the Swagger UI
+are off by default and are switched on with `SPRINGDOC_ENABLED=true` (default on only in the 'dev' profile). They need a valid bearer
+token with the EEG_ADMIN role in every profile, like every other endpoint:
 http://youserver:8080/swagger-ui/index.html
 
 ## Features
@@ -104,6 +106,7 @@ The container is accepting the following environment variables as configuration:
   build (the commit SHA for a branch build, the version for a tag build), default `dev`. Prod and pilot run dev-tier
   images re-tagged by the gitops promote workflow (no rebuild), so their release version is the image tag (the
   deployment's `image:`; Dynatrace log records do not carry it), not `service.version`
+* `SPRINGDOC_ENABLED` `true` serves the API docs (/v3/api-docs) and the Swagger UI (default = false; true in the 'dev' profile). Set it to true only in development environments
 
 ## Contributing
 

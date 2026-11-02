@@ -30,7 +30,7 @@ artifact's own POM in the local Maven repository on 2026-10-01.
 
 | Artifact | Used for | Version | Licence |
 |---|---|---|---|
-| Spring Boot starters (web, validation, data-jpa, security, oauth2-client, oauth2-resource-server, webflux, mail) | the service | 3.5.3 (parent POM) | Apache-2.0 |
+| Spring Boot starters (web, validation, data-jpa, flyway, security, oauth2-client, oauth2-resource-server, mail) | the service | 4.0.9 (parent POM) | Apache-2.0 |
 | `org.postgresql:postgresql` | JDBC driver | from the Spring Boot parent | BSD-2-Clause |
 | `org.flywaydb:flyway-database-postgresql` | schema migrations | from the Spring Boot parent | Apache-2.0 |
 | `com.auth0:java-jwt` | JWT verification | 4.5.0 | MIT |
@@ -39,21 +39,21 @@ artifact's own POM in the local Maven repository on 2026-10-01.
 | `jasperreports-functions`, `-fonts`, `-jdt`, `-pdf` | report functions, fonts, compiler, PDF export | 7.0.2 | LGPL |
 | `org.apache.poi:poi`, `poi-ooxml` | XLSX export | 5.4.1 | Apache-2.0 |
 | `com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer` | allowlist sanitizer for the EEG-edited mail texts (`mail-html-policy.json`) | 20261011.1 (2026-10-11) | Apache-2.0 and BSD-2-Clause (both in its parent POM) |
-| `org.springdoc:springdoc-openapi-starter-webmvc-ui` | OpenAPI / Swagger UI | 2.3.0 | Apache-2.0 |
+| `org.springdoc:springdoc-openapi-starter-webmvc-ui` | OpenAPI / Swagger UI | 3.0.3 | Apache-2.0 |
 | `org.projectlombok:lombok` | accessors at compile time (not in the jar) | from the Spring Boot parent | MIT |
 
 ## Libraries (tests only)
 
 | Artifact | Used for | Version | Licence |
 |---|---|---|---|
-| `spring-boot-starter-test` (JUnit 5, Mockito, AssertJ) | tests | from the Spring Boot parent | EPL-2.0 / MIT / Apache-2.0 |
-| `org.testcontainers:junit-jupiter`, `postgresql` | PostgreSQL in the integration tests | 1.20.1 | MIT |
+| `spring-boot-starter-test` (JUnit 5, Mockito, AssertJ), `spring-boot-starter-webmvc-test`, `-data-jpa-test`, `-security-test` | tests | from the Spring Boot parent | EPL-2.0 / MIT / Apache-2.0 |
+| `org.testcontainers:testcontainers-junit-jupiter`, `testcontainers-postgresql` | PostgreSQL in the integration tests | from the Spring Boot parent | MIT |
 | Docker Hub PostgreSQL image (started by Testcontainers) | the test database (`PostgresContainerHolder`) and the separate contract database of M6 (`LegacyBaseDatabase`, same `postgres:15-alpine`) | as named in the tests | PostgreSQL licence |
 | `org.hamcrest:hamcrest-all` | assertions | 1.3 | BSD |
 | `org.jacoco:jacoco-maven-plugin` | coverage (build time, agent in the test JVM) | 0.8.13 | EPL-2.0 |
 | `net.datafaker:datafaker` | generated test data | 2.2.2 | Apache-2.0 |
 | `org.apache.pdfbox:pdfbox` (with `pdfbox-io`, `fontbox`, same version) | reading the text of the generated PDFs in the billing scenarios (M3) | 3.0.8 (Maven Central 2026-07-08, latest release) | Apache-2.0 (licence header of the POM; `<licenses>` inherited from `org.apache:apache:39`); its optional Bouncy Castle dependencies are not pulled; `commons-logging` stays at 1.3.5 from JasperReports |
-| `com.icegreen:greenmail` (core; without its `junit:junit` dependency, excluded in the POM) | local SMTP server in the mail tests (M5), started once per JVM by `support/GreenMailHolder` on a free port | 2.1.14 (Maven Central 2026-09-19, latest release) | Apache-2.0 (`<licenses>` of the parent `com.icegreen:greenmail-parent:2.1.14`); its `jakarta.mail-api`/`org.eclipse.angus:jakarta.mail`/`jakarta.activation-api` are managed down by Spring Boot 3.5.3 to 2.1.3/2.0.3/2.1.3 (GreenMail declares 2.1.5/2.0.5/2.1.4 — same Jakarta Mail 2.1 line, checked by the green mail tests); `angus-activation` 2.0.3 runtime |
+| `com.icegreen:greenmail` (core; without its `junit:junit` dependency, excluded in the POM) | local SMTP server in the mail tests (M5), started once per JVM by `support/GreenMailHolder` on a free port | 2.1.14 (Maven Central 2026-09-19, latest release) | Apache-2.0 (`<licenses>` of the parent `com.icegreen:greenmail-parent:2.1.14`); its `jakarta.mail-api`/`org.eclipse.angus:jakarta.mail`/`jakarta.activation-api` are managed down by Spring Boot 4.0.9 to 2.1.3/2.0.3/2.1.3 (GreenMail declares 2.1.5/2.0.5/2.1.4 — same Jakarta Mail 2.1 line, checked by the green mail tests); `angus-activation` 2.0.3 runtime |
 | eegfaktura-v3 `billing-arithmetic-cases.json` (copied file, `src/test/resources/v3oracle/`) | expected item amounts for `BillingArithmeticOracleTests` (M3 optional item) | v3 commit `0b785d2`, file from `f6540a0`, sha256 `830d846c…` | AGPL-3.0 (same organisation); never fetched by the build, refreshed by hand |
 | eegfaktura-v3 `docker/legacy-base/01, 02, 04, 05_….up.sql` and eegfaktura-backend `migrations/20260711120000_zvt_time_tariff.up.sql` (`81ab6f8`, 2026-09-26, copied 2026-10-21 as `06_…`) and `migrations/20261028130000_joining_fee.up.sql` (`9b3427b`, branch `feat/joining-fee`, copied 2026-10-27 as `07_…`, renamed 28.10.2026) (copied files, `src/test/resources/legacy-base/`) | builds the real legacy view `base.billing_masterdata` for the M6 view contract tests | v3 commit `ad120d1d712765f37c418b770e7c099f8bb4fd10` (2026-09-29; v3 copied them from `eegfaktura-backend/migrations` at `da3d505`), byte-identical (`cmp`), sha256 in the README there and in `LegacyMasterdataViewContractTests` | AGPL-3.0 (same organisation, same licence as billing); never fetched by the build, refreshed by hand |
 | eegfaktura-v3 `backend/src/main/resources/db/migration/V190__billing_masterdata_v3.sql` (copied file, `src/test/resources/contracts/v3view/`) | column names of v3's `billing_masterdata_v3` for the M6 name check | v3 commit `0b785d2` (file last changed in `12514bc`), byte-identical, sha256 `cb9434d3…` | AGPL-3.0 (same organisation); never fetched by the build, refreshed by hand |

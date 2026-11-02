@@ -3,13 +3,13 @@ package org.vfeeg.eegfaktura.billing.rest;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 import org.vfeeg.eegfaktura.billing.domain.BillingConfig;
 import org.vfeeg.eegfaktura.billing.domain.FileData;
 import org.vfeeg.eegfaktura.billing.repos.BillingConfigRepository;
@@ -63,7 +63,7 @@ class BillingConfigImageStoreWebTests extends WebSliceTest {
         });
     }
 
-    private static MockHttpServletRequestBuilder upload(String contentType) {
+    private static AbstractMockHttpServletRequestBuilder<?> upload(String contentType) {
         return multipart("/api/billingConfigs/" + ID + "/logoImage")
                 .file(new MockMultipartFile("file", "logo", contentType, Endpoint.PNG))
                 .header("Tenant", OWN)

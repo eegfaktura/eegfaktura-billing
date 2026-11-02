@@ -146,16 +146,18 @@ public class BillingDocument {
     @Column
     private String issuerBankCreditorId; // Creditor ID Mitglied
 
-    @Column
+    // Explicit name: since Hibernate 7 the default naming strategy puts an underscore after a digit
+    // (vat1_percent); the column was created as vat1percent.
+    @Column(name = "vat1percent")
     private BigDecimal vat1Percent;
 
-    @Column
+    @Column(name = "vat1sum_in_euro")
     private BigDecimal vat1SumInEuro;
 
-    @Column
+    @Column(name = "vat2percent")
     private BigDecimal vat2Percent;
 
-    @Column
+    @Column(name = "vat2sum_in_euro")
     private BigDecimal vat2SumInEuro;
 
     @Column
