@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.contract;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -27,10 +28,11 @@ import java.util.UUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The responses the callers read (M6, optional part 3): each DTO, filled in every field and written by
- * the ObjectMapper of production ({@link JacksonConfig}), has exactly the JSON fields of its snapshot
+ * the JsonMapper of production ({@link JacksonConfig}), has exactly the JSON fields of its snapshot
  * in {@code contracts/responses/}, and every field a caller reads ({@code readBy}) is among them. A
  * renamed or dropped field fails here; a new field needs a conscious snapshot update.
  */
@@ -41,14 +43,14 @@ class CallerResponseContractTests {
     static final String MODEL = "org.vfeeg.eegfaktura.billing.model.";
 
     @Autowired
-    ObjectMapper mapper;
+    JsonMapper mapper;
 
     @ParameterizedTest
     @ValueSource(strings = {"DoBillingResults", "BillingRunDTO", "ParticipantAmount", "BillingDocumentDTO",
             "BillingDocumentFileDTO", "BillingConfigDTO", "ErrorResponse", "JoiningFeeState"})
     void fieldsMatchTheSnapshotAndCoverWhatTheCallersRead(String dto) throws Exception {
         JsonNode snapshot = ContractFixtures.read("responses/" + dto + ".json");
-        Set<String> written = fieldPaths(mapper.valueToTree(filled(Class.forName(MODEL + dto))));
+        Set<String> written = fieldPaths(tree(filled(Class.forName(MODEL + dto))));
         assertThat(dto + " snapshot", written, is(texts(snapshot.get("fields"))));
         snapshot.get("readBy").fields().forEachRemaining(reader -> {
             Set<String> unread = texts(reader.getValue().get("fields"));
@@ -62,7 +64,7 @@ class CallerResponseContractTests {
     void datesAreIsoStrings() {
         BillingRunDTO run = new BillingRunDTO();
         run.setRunStatusDateTime(LocalDateTime.of(2024, 6, 28, 10, 15, 30));
-        assertThat(mapper.valueToTree(run).get("runStatusDateTime").asText(), is("2024-06-28T10:15:30"));
+        assertThat(tree(run).get("runStatusDateTime").asText(), is("2024-06-28T10:15:30"));
     }
 
     /** Lombok's {@code isCreateCreditNotesForAllProducers} field is the JSON key without {@code is}. */
@@ -70,12 +72,21 @@ class CallerResponseContractTests {
     void creditNoteFlagIsWrittenWithoutIs() {
         BillingConfigDTO config = new BillingConfigDTO();
         config.setCreateCreditNotesForAllProducers(true);
-        JsonNode json = mapper.valueToTree(config);
+        JsonNode json = tree(config);
         assertThat(json.get("createCreditNotesForAllProducers").asBoolean(), is(true));
         assertThat(json.has("isCreateCreditNotesForAllProducers"), is(false));
     }
 
     /** Field paths of a JSON tree; arrays of objects as {@code name[].field}. */
+    /** What production writes (Jackson 3), as the tree the snapshots are read into. */
+    private JsonNode tree(Object value) {
+        try {
+            return new ObjectMapper().readTree(mapper.writeValueAsString(value));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     static Set<String> fieldPaths(JsonNode node) {
         Set<String> paths = new TreeSet<>();
         collect(node, "", paths);
