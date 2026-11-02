@@ -49,13 +49,31 @@ class LogTextTests {
 
     @Test
     void maskedKeepsTheNameOfAPasswordAndDropsTheValue() {
-        assertEquals("password=<masked> port=25", LogText.masked("password=s3cret! port=25"));
+        assertEquals("password=<masked>", LogText.masked("password=s3cret! port=25"));
         assertEquals("MAIL_PASSWORD: <masked>", LogText.masked("MAIL_PASSWORD: s3cret"));
         assertEquals("{\"password\":<masked>,\"a\":1}", LogText.masked("{\"password\":\"two words\",\"a\":1}"));
         assertEquals("pwd = <masked>", LogText.masked("pwd = 'two words'"));
         assertEquals("client_secret=<masked>", LogText.masked("client_secret=abc"));
         assertEquals("jdbc:postgresql://db/billing?user=a&password=<masked>",
                 LogText.masked("jdbc:postgresql://db/billing?user=a&password=s3cret&ssl=true"));
+    }
+
+    @Test
+    void maskedRunsToTheEndOfThePasswordValue() {
+        assertEquals("password=<masked>", LogText.masked("password=two words"));
+        assertEquals("password=<masked>\nnext line", LogText.masked("password=two words\nnext line"));
+        assertEquals("password=<masked>\r\nnext line", LogText.masked("password=two words\r\nnext line"));
+        assertEquals("password=<masked>", LogText.masked("password=\"two words"));
+        assertEquals("password=<masked>", LogText.masked("password='two words"));
+        assertEquals("password=<masked>", LogText.masked("password=\"two \\\" more words\", \"a\":1"));
+        assertEquals("password=<masked>", LogText.masked("password='two \\' more words'"));
+        assertEquals("password=<masked>, next", LogText.masked("password=\"two words\", next"));
+    }
+
+    @Test
+    void maskedStaysLinearOnALongPasswordValue() {
+        String escapes = "password=\"" + "\\\"".repeat(1_000_000);
+        assertEquals("password=<masked>", assertTimeoutPreemptively(Duration.ofSeconds(5), () -> LogText.masked(escapes)));
     }
 
     @Test

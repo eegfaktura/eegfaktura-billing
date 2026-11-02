@@ -18,9 +18,14 @@ public final class LogText {
             Pattern.UNICODE_CHARACTER_CLASS);
     /** Header and payload are enough to read a token's claims, so a cut-off token counts too. */
     private static final Pattern JWT = Pattern.compile("(?<![\\w-])eyJ[\\w-]++\\.[\\w-]++(?:\\.[\\w-]++)?");
-    /** {@code password=x}, {@code "password":"x"}, {@code MAIL_PASSWORD: x}; the name stays, the value goes. */
+    /**
+     * {@code password=x}, {@code "password":"x"}, {@code MAIL_PASSWORD: x}; the name stays, the value goes. A value in
+     * quotes ends at its closing quote. Without one, or after an escape, nothing tells where the value ends, so the
+     * mask runs to the end of the line. No group repeats per character: Java would recurse and overflow on a long value.
+     */
     private static final Pattern PASSWORD = Pattern.compile(
-            "(?i)((?:passw(?:or)?d|passphrase|pwd|secret)[\"']?\\s*[:=]\\s*)(?:\"[^\"]*+\"|'[^']*+'|\\S+)");
+            "(?i)((?:passw(?:or)?d|passphrase|pwd|secret)[\"']?\\s*[:=]\\s*)"
+                    + "(?:\"[^\"\\\\\\r\\n]*+(?:\"|[^\\r\\n]*+)|'[^'\\\\\\r\\n]*+(?:'|[^\\r\\n]*+)|[^\\r\\n]*+)");
     /**
      * An Austrian IBAN has exactly 20 characters. It gets its own pattern because a metering point has the same start
      * and 33 characters ({@code AT0030000000000000000000000000001}), which fits the generic IBAN shape below.
