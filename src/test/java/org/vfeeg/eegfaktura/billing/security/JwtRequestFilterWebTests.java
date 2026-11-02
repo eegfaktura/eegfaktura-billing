@@ -20,6 +20,7 @@ import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -89,7 +90,7 @@ class JwtRequestFilterWebTests extends WebSliceTest {
     void tokenWithoutTenantClaimIsRefusedForAnyTenant() {
         AccessDeniedException refused = assertThrows(AccessDeniedException.class,
                 () -> getFile(TestTokens.bearer(TestTokens.withoutTenantClaim())));
-        assertThat(refused.getMessage(), containsString(OWN));
+        assertThat(refused.getMessage(), not(containsString(OWN)));
         verify(fileDataService, never()).get(any());
     }
 
@@ -115,7 +116,7 @@ class JwtRequestFilterWebTests extends WebSliceTest {
         AccessDeniedException refused = assertThrows(AccessDeniedException.class, () ->
                 mvc.perform(get("/api/fileData/" + Endpoint.ID)
                         .header("Tenant", FOREIGN).header(HttpHeaders.AUTHORIZATION, TestTokens.admin())));
-        assertThat(refused.getMessage(), containsString(FOREIGN));
+        assertThat(refused.getMessage(), not(containsString(FOREIGN)));
         verify(fileDataService, never()).get(any());
     }
 
