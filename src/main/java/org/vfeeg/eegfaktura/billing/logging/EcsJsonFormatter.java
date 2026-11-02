@@ -20,7 +20,8 @@ import java.util.Set;
  * flat, dotted ECS names, the same shape as the other eegfaktura services (Spring Boot's own {@code ecs} format
  * nests the objects and adds process/ecs fields). {@code @timestamp} in UTC with milliseconds, {@code log.level} in
  * lower case. Of the MDC and the key-value pairs only the names in {@link #FIELDS} are written — anything else a
- * library or a call site adds is dropped (never-log rule).
+ * library or a call site adds is dropped (never-log rule). {@code message}, {@code error.message} and
+ * {@code error.stack_trace} go through {@link LogText#masked}, so no call site has to.
  */
 public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
 
@@ -65,10 +66,10 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
         if (error != null) {
             // an explicit error.type wins (the original type of an exception logged without its messages)
             line.putIfAbsent("error.type", error.getClassName());
-            line.put("error.message", error.getMessage());
-            line.put("error.stack_trace", ThrowableProxyUtil.asString(error));
+            line.put("error.message", LogText.masked(error.getMessage()));
+            line.put("error.stack_trace", LogText.masked(ThrowableProxyUtil.asString(error)));
         }
-        line.put("message", event.getFormattedMessage());
+        line.put("message", LogText.masked(event.getFormattedMessage()));
         return JSON.writeToString(line) + "\n";
     }
 }

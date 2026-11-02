@@ -11,8 +11,28 @@ import java.util.regex.Pattern;
 /** Text for the log from sources that may carry personal data (never-log list of the logging concept). */
 public final class LogText {
 
-    // Unicode letters and digits (international addresses); the domain may be missing ("anna@")
-    private static final Pattern EMAIL = Pattern.compile("[\\w.%+'-]+@[\\w.-]*", Pattern.UNICODE_CHARACTER_CLASS);
+    // Unicode letters and digits (international addresses); the domain may be missing ("anna@").
+    // Lookbehind and possessive quantifier: linear on a long word, this runs over every line of the log.
+    private static final Pattern EMAIL = Pattern.compile("(?<![\\w.%+'-])[\\w.%+'-]++@[\\w.-]*",
+            Pattern.UNICODE_CHARACTER_CLASS);
+    /** Header and payload are enough to read a token's claims, so a cut-off token counts too. */
+    private static final Pattern JWT = Pattern.compile("(?<![\\w-])eyJ[\\w-]++\\.[\\w-]++(?:\\.[\\w-]++)?");
+    /** {@code password=x}, {@code "password":"x"}, {@code MAIL_PASSWORD: x}; the name stays, the value goes. */
+    private static final Pattern PASSWORD = Pattern.compile(
+            "(?i)((?:passw(?:or)?d|passphrase|pwd|secret)[\"']?\\s*[:=]\\s*)(?:\"[^\"]*+\"|'[^']*+'|\\S+)");
+    /**
+     * An Austrian IBAN has exactly 20 characters. It gets its own pattern because a metering point has the same start
+     * and 33 characters ({@code AT0030000000000000000000000000001}), which fits the generic IBAN shape below.
+     */
+    private static final Pattern IBAN_AT = Pattern.compile(
+            "(?<![A-Za-z0-9])AT\\d{2}( ?)\\d{4}(?:\\1\\d{4}){3}(?![A-Za-z0-9])");
+    /**
+     * Any other country: 15 to 34 characters, without blanks or with one after every fourth. The same separator
+     * throughout keeps a tenant followed by numbers ({@code RC100123 4711 1}) out. Upper case only, so the lower-case
+     * hex of a request id or a UUID does not match.
+     */
+    private static final Pattern IBAN_OTHER = Pattern.compile("(?<![A-Za-z0-9])(?=[A-Z0-9 ]{15})(?!AT)"
+            + "[A-Z]{2}\\d{2}( ?)[A-Z0-9]{4}(?:\\1[A-Z0-9]{4}){1,6}(?:\\1[A-Z0-9]{1,3})?(?![A-Za-z0-9])");
 
     /** Exceptions whose message quotes input values: request body, parameter or database row. */
     private static final List<Class<? extends Throwable>> QUOTING_INPUT = List.of(
@@ -30,6 +50,22 @@ public final class LogText {
      */
     public static String withoutEmails(String text) {
         return text == null ? null : EMAIL.matcher(text).replaceAll("<email>");
+    }
+
+    /**
+     * The filter of the log encoder: e-mail addresses, IBANs, JWTs and password values replaced, everything else
+     * unchanged. Tenants, UUIDs, request ids and metering-point numbers stay readable (they are ids, W-261008-ca2).
+     * An object hash like {@code Foo@1a2b} counts as an address; that loses nothing a reader needs.
+     */
+    public static String masked(String text) {
+        if (text == null) {
+            return null;
+        }
+        String masked = PASSWORD.matcher(text).replaceAll("$1<masked>");
+        masked = JWT.matcher(masked).replaceAll("<jwt>");
+        masked = withoutEmails(masked);
+        masked = IBAN_AT.matcher(masked).replaceAll("<iban>");
+        return IBAN_OTHER.matcher(masked).replaceAll("<iban>");
     }
 
     /**

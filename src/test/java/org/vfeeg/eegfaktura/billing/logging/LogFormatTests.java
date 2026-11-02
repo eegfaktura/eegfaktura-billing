@@ -88,6 +88,29 @@ class LogFormatTests {
     }
 
     @Test
+    void messageErrorAndStackTraceAreMaskedAndIdsStay(CapturedOutput output) throws Exception {
+        String meteringPoint = "AT0030000000000000000000000000001";
+        try (ConfigurableApplicationContext ignored = start("--LOG_FORMAT=json")) {
+            LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample").atWarn()
+                    .setCause(new IllegalStateException("for bert@example.org",
+                            new IllegalArgumentException("IBAN AT483200000012345864 password=s3cret")))
+                    .log("mask anna@example.org at " + meteringPoint);
+        }
+        String line = Arrays.stream(output.getOut().split("\\R"))
+                .filter(l -> l.contains("IllegalStateException")).findFirst().orElseThrow();
+        JsonNode json = new ObjectMapper().readTree(line);
+
+        assertEquals("mask <email> at " + meteringPoint, field(json, "message"));
+        assertEquals("for <email>", field(json, "error.message"));
+        assertTrue(field(json, "error.stack_trace").contains("Caused by: java.lang.IllegalArgumentException: "
+                + "IBAN <iban> password=<masked>"), field(json, "error.stack_trace"));
+        assertTrue(field(json, "error.stack_trace").contains("LogFormatTests"), "frames stay readable");
+        for (String secret : new String[]{"anna@example.org", "bert@example.org", "AT483200000012345864", "s3cret"}) {
+            assertFalse(line.contains(secret), secret + " in " + line);
+        }
+    }
+
+    @Test
     void textFormatIsNotJson(CapturedOutput output) {
         System.clearProperty("CONSOLE_LOG_STRUCTURED_FORMAT");
         try (ConfigurableApplicationContext ignored = start("--LOG_FORMAT=text")) {
