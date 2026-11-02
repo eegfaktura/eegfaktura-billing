@@ -218,7 +218,7 @@ class AccessLogWebTests extends WebSliceTest {
         assertNull(f.get("support.access"));
     }
 
-    /** The refusal warning of JwtRequestFilter names the tenant, never the user (no user tracking). */
+    /** The refusal warning of JwtRequestFilter names neither the requested tenant (a raw header) nor the user. */
     @Test
     void foreignTenantWarningNamesNoUser() {
         Logger filterLog = (Logger) org.slf4j.LoggerFactory.getLogger(JwtRequestFilter.class);
@@ -229,7 +229,9 @@ class AccessLogWebTests extends WebSliceTest {
         } finally {
             filterLog.detachAppender(appender);
         }
-        String warning = lines.stream().map(Line::message).filter(m -> m.contains(FOREIGN)).findFirst().orElseThrow();
+        String warning = lines.stream().map(Line::message).filter(m -> m.startsWith("Token does not grant"))
+                .findFirst().orElseThrow();
+        assertFalse(warning.contains(FOREIGN), warning);
         assertFalse(warning.contains("test-admin"), warning);
     }
 
