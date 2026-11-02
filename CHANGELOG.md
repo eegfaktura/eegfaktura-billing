@@ -15,8 +15,11 @@ this changelog highlights the changes relevant for overview and operations.
 - **No generated default password at start** (L9, tracking 261102-mm1): Spring's `UserDetailsServiceAutoConfiguration`
   is excluded. Its default user was never reachable, because login is by bearer token only (no httpBasic, no formLogin).
   Authentication is unchanged.
-- **`tenant.id` of a superuser is validated** (L10): the raw `Tenant` header goes into the log only with the format of
-  a tenant, otherwise `tenant.id` is left out. `support.access` stays.
+- **`tenant.id` of a superuser is validated** (L10): the raw `Tenant` header goes into `tenant.id` only with the format
+  of a tenant, otherwise the field is left out. `support.access` stays.
+- **No caller-chosen tenant in refusal lines** (L2): the warning and the exception of `JwtRequestFilter`, and the error
+  line and the exception of `TenantContext.validateTenant`, no longer quote the `Tenant` header or a tenant from path,
+  body or record. The messages changed accordingly; the status codes and the response bodies did not.
 
 ### Added
 - **Never-log test** (L11): `NeverLogSourceTests` reads the source and fails the build on a log statement that names

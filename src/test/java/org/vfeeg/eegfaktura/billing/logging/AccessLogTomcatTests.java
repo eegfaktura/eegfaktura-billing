@@ -106,6 +106,18 @@ class AccessLogTomcatTests {
     }
 
     @Test
+    void valuesOfAFailedTenantComparisonAreNowhereInTheLog(CapturedOutput output) throws Exception {
+        String header = "max muster";
+        String path = "ZZ-PATH-TENANT";
+
+        get("/api/billingConfigs/tenant/" + path, header, TestTokens.superuserAdmin());
+
+        assertTrue(output.getAll().contains("does not match the tenant of the request"), "the refusal was captured");
+        assertFalse(output.getAll().contains(header), output.getAll());
+        assertFalse(output.getAll().contains(path), output.getAll());
+    }
+
+    @Test
     void missingTokenIsOneRefusedLine() throws Exception {
         HttpResponse<String> response = get("/api/fileData/" + Endpoint.ID, TestTokens.OWN, null);
 
