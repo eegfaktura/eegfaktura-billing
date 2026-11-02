@@ -23,6 +23,13 @@ class LogTextTests {
     }
 
     @Test
+    void addressesJoinedByACharacterOfALocalPartAreAllMasked() {
+        for (String joined : new String[]{"a@b.at+c@d.at", "a@b.at'c@d.at", "a@b.at%c@d.at", "a@b.at-c@d.at", "a@b@c.at"}) {
+            assertEquals("<email>", LogText.withoutEmails(joined), joined);
+        }
+    }
+
+    @Test
     void textWithoutAddressStays() {
         assertEquals("smtp down (connect timed out)", LogText.withoutEmails("smtp down (connect timed out)"));
         assertNull(LogText.withoutEmails(null));

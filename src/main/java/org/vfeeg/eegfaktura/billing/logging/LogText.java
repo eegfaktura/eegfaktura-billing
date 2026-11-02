@@ -12,8 +12,9 @@ import java.util.regex.Pattern;
 public final class LogText {
 
     // Unicode letters and digits (international addresses); the domain may be missing ("anna@").
-    // Lookbehind and possessive quantifier: linear on a long word, this runs over every line of the log.
-    private static final Pattern EMAIL = Pattern.compile("(?<![\\w.%+'-])[\\w.%+'-]++@[\\w.-]*",
+    // Lookbehind and possessive quantifiers: linear on a long word, this runs over every line of the log. A match takes
+    // the rest of the run of address characters, or a second address glued on with + ' % would stay behind it.
+    private static final Pattern EMAIL = Pattern.compile("(?<![\\w.%+'-])[\\w.%+'-]++@[\\w.%+'@-]*+",
             Pattern.UNICODE_CHARACTER_CLASS);
     /** Header and payload are enough to read a token's claims, so a cut-off token counts too. */
     private static final Pattern JWT = Pattern.compile("(?<![\\w-])eyJ[\\w-]++\\.[\\w-]++(?:\\.[\\w-]++)?");
