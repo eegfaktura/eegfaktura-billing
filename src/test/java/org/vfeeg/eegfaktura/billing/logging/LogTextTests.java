@@ -99,4 +99,27 @@ class LogTextTests {
     void maskedOfNullIsNull() {
         assertNull(LogText.masked(null));
     }
+
+    @Test
+    void aCircularCauseChainEnds() {
+        RuntimeException first = new RuntimeException("first");
+        RuntimeException second = new RuntimeException("second", first);
+        first.initCause(second);
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> assertEquals(false, LogText.quotesInput(first)));
+        assertEquals(2, depth(LogText.withoutMessages(first)));
+    }
+
+    private static int depth(Throwable exception) {
+        return exception == null ? 0 : 1 + depth(exception.getCause());
+    }
+
+    @Test
+    void aQuotedValueEndsAtItsQuoteOnALaterLine() {
+        assertEquals("password=<masked>\nnext", LogText.masked("password=\"first\nsecond\"\nnext"));
+    }
+
+    @Test
+    void anEmptyValueLeavesTheNextLine() {
+        assertEquals("Missing password:<masked>\n\tat Foo.bar", LogText.masked("Missing password:\n\tat Foo.bar"));
+    }
 }

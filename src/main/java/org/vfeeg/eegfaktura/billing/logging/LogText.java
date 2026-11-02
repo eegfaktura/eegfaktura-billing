@@ -5,7 +5,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /** Text for the log from sources that may carry personal data (never-log list of the logging concept). */
@@ -20,12 +23,12 @@ public final class LogText {
     private static final Pattern JWT = Pattern.compile("(?<![\\w-])eyJ[\\w-]++\\.[\\w-]++(?:\\.[\\w-]++)?");
     /**
      * {@code password=x}, {@code "password":"x"}, {@code MAIL_PASSWORD: x}; the name stays, the value goes. A value in
-     * quotes ends at its closing quote. Without one, or after an escape, nothing tells where the value ends, so the
+     * quotes ends at its closing quote, also on a later line. Without one, or after an escape, nothing tells where the value ends, so the
      * mask runs to the end of the line. No group repeats per character: Java would recurse and overflow on a long value.
      */
     private static final Pattern PASSWORD = Pattern.compile(
-            "(?i)((?:passw(?:or)?d|passphrase|pwd|secret)[\"']?\\s*[:=]\\s*)"
-                    + "(?:\"[^\"\\\\\\r\\n]*+(?:\"|[^\\r\\n]*+)|'[^'\\\\\\r\\n]*+(?:'|[^\\r\\n]*+)|[^\\r\\n]*+)");
+            "(?i)((?:passw(?:or)?d|passphrase|pwd|secret)[\"']?[ \\t]*[:=][ \\t]*)"
+                    + "(?:\"[^\"\\\\]*+(?:\"|[^\\r\\n]*+)|'[^'\\\\]*+(?:'|[^\\r\\n]*+)|[^\\r\\n]*+)");
     /**
      * An Austrian IBAN has exactly 20 characters. It gets its own pattern because a metering point has the same start
      * and 33 characters ({@code AT0030000000000000000000000000001}), which fits the generic IBAN shape below.
@@ -79,7 +82,8 @@ public final class LogText {
      * "Failing row contains (...)")? Such an exception is logged by type only, see {@link #withoutMessages}.
      */
     public static boolean quotesInput(Throwable exception) {
-        for (Throwable t = exception; t != null; t = t.getCause() == t ? null : t.getCause()) {
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable t = exception; t != null && seen.add(t); t = t.getCause()) {
             for (Class<? extends Throwable> type : QUOTING_INPUT) {
                 if (type.isInstance(t)) {
                     return true;
@@ -94,11 +98,16 @@ public final class LogText {
      * For exceptions that {@link #quotesInput quote input values}.
      */
     public static Throwable withoutMessages(Throwable exception) {
-        if (exception == null) {
+        return withoutMessages(exception, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    /** {@code seen} ends a cause chain that runs in a circle. */
+    private static Throwable withoutMessages(Throwable exception, Set<Throwable> seen) {
+        if (exception == null || !seen.add(exception)) {
             return null;
         }
-        Throwable cause = exception.getCause() == exception ? null : exception.getCause();
-        MessageRemoved copy = new MessageRemoved(exception.getClass().getName(), withoutMessages(cause));
+        MessageRemoved copy = new MessageRemoved(exception.getClass().getName(),
+                withoutMessages(exception.getCause(), seen));
         copy.setStackTrace(exception.getStackTrace());
         return copy;
     }
