@@ -27,6 +27,8 @@ this changelog highlights the changes relevant for overview and operations.
   (springdoc 2.3.0); enabled, it answers 200 for a valid EEG_ADMIN token and stays 403 without one. Off, the static
   files of the UI under `/webjars/swagger-ui/` stay reachable with an EEG_ADMIN token, without any API data.
 
+## [1.8.1] – 2026-11-02
+
 ### Fixed
 - **A final run that overlaps a final run is refused** (eegfaktura-dev tracking billing 261031-mm5). The check on a run
   compared type and identifier only, so a final run of March and one of the first quarter both went through and the energy
