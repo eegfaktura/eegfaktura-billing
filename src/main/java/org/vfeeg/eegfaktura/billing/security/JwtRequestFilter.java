@@ -64,7 +64,7 @@ public class JwtRequestFilter  extends OncePerRequestFilter {
                 && !jwtAuthentication.isSuperuser()
                 && !jwtAuthentication.hasTenant(requestedTenant)) {
             // no user name in the log (no user tracking, decided 2026-10-29)
-            log.warn("Token does not grant tenant {}", requestedTenant);
+            log.warn("Token does not grant the requested tenant");
             throw new AccessDeniedException("User not granted permission for " + requestedTenant);
         }
 

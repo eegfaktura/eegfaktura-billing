@@ -39,8 +39,8 @@ class NeverLogSourceTests {
 
     /** Exceptions: a statement of a file that may name what {@link #NAMES} forbids, and why. */
     private static final List<Allowed> ALLOWED = List.of(
-            new Allowed("JwtRequestFilter.java", "\"Token does not grant tenant {}\"",
-                    "text only: the value is the tenant, the token is not logged"),
+            new Allowed("JwtRequestFilter.java", "\"Token does not grant the requested tenant\"",
+                    "text only: no value, the token is not logged"),
             new Allowed("JwtTokenService.java", "\"Token rejected\"",
                     "text only: a fixed message and the exception's type, the token is not logged"),
             new Allowed("MailTemplateService.java", "LogText.withoutEmails(e.getMessage())",
