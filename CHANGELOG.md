@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.9.0] – 2026-11-02
+
 ### Security
 - **Spring Boot 4.0.9 / Spring Framework 7.0.10 / Spring Security 7.0.8** (from Boot 3.5.16 / Framework 6.2.19): fixes
   CVE-2026-47884 (critical, `XsltView` path limitation → SSRF/RCE) and CVE-2026-47890 (SSE stream corruption with view
