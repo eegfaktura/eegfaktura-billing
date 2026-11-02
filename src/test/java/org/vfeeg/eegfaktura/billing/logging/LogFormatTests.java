@@ -15,6 +15,7 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ConfigurableApplicationContext;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -108,6 +109,52 @@ class LogFormatTests {
         for (String secret : new String[]{"anna@example.org", "bert@example.org", "AT483200000012345864", "s3cret"}) {
             assertFalse(line.contains(secret), secret + " in " + line);
         }
+    }
+
+    @Test
+    void deploymentEnvironmentIsOnEveryLine(CapturedOutput output) {
+        try (ConfigurableApplicationContext ignored = start("--LOG_FORMAT=json", "--DEPLOYMENT_ENVIRONMENT=pilot")) {
+            LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample").info("sample line");
+        }
+        List<String> json = jsonLinesOfTheStart(output);
+        assertTrue(json.stream().anyMatch(l -> l.contains("sample line")), "the line was captured");
+        for (String line : json) {
+            assertTrue(line.contains("\"deployment.environment\":\"pilot\""), line);
+        }
+    }
+
+    @Test
+    void deploymentEnvironmentUnsetOrBlankLeavesTheFieldOut(CapturedOutput output) {
+        for (String args : new String[]{"--LOG_FORMAT=json", "--LOG_FORMAT=json --DEPLOYMENT_ENVIRONMENT= "}) {
+            try (ConfigurableApplicationContext ignored = start(args.split(" "))) {
+                LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample").info("sample line");
+            }
+        }
+        List<String> json = jsonLinesOfTheStart(output);
+        assertTrue(json.stream().anyMatch(l -> l.contains("sample line")), "the line was captured");
+        assertTrue(json.stream().noneMatch(l -> l.contains("deployment.environment")), output.getOut());
+    }
+
+    /** Without devtools' first line: it comes before the start sets up logging, so with the setup of the test before. */
+    private static List<String> jsonLinesOfTheStart(CapturedOutput output) {
+        return Arrays.stream(output.getOut().split("\\R"))
+                .filter(l -> l.startsWith("{") && !l.contains("RestartApplicationListener")).toList();
+    }
+
+    @Test
+    void oneStartLineWithVersionAndEffectiveLevelAtEveryLevel(CapturedOutput output) throws Exception {
+        try (ConfigurableApplicationContext ignored = new SpringApplicationBuilder(Bare.class, StartupLog.class)
+                .web(WebApplicationType.NONE).run("--LOG_FORMAT=json", "--LOG_LEVEL=error",
+                        "--SERVICE_VERSION=9.9.9", "--MAIL_PASSWORD=s3cret")) {
+            assertTrue(ignored.isRunning());
+        }
+        List<String> lines = Arrays.stream(output.getOut().split("\\R"))
+                .filter(l -> l.contains("service.start")).toList();
+        assertEquals(1, lines.size(), output.getOut());
+        JsonNode json = new ObjectMapper().readTree(lines.get(0));
+        assertEquals("info", field(json, "log.level"));
+        assertEquals("Service started: version 9.9.9, log level error", field(json, "message"));
+        assertFalse(output.getOut().contains("s3cret"));
     }
 
     @Test

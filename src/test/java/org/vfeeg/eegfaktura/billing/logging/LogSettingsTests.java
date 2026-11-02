@@ -29,6 +29,7 @@ class LogSettingsTests {
         assertFalse(LogSettings.resolve("text", null).containsKey("spring.main.banner-mode"));
         assertEquals("info", LogSettings.resolve(null, "error")
                 .get("logging.level." + RequestLogFilter.ACCESS_LOGGER));
+        assertEquals("info", LogSettings.resolve(null, "error").get("logging.level." + StartupLog.LOGGER));
     }
 
     @Test

@@ -36,10 +36,12 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
 
     private final String serviceName;
     private final String serviceVersion;
+    private final String deploymentEnvironment;
 
     public EcsJsonFormatter(Environment environment) {
         this.serviceName = environment.getProperty(LogSettings.SERVICE_NAME_PROPERTY, "eegfaktura-billing");
         this.serviceVersion = environment.getProperty(LogSettings.SERVICE_VERSION_PROPERTY, "dev");
+        this.deploymentEnvironment = environment.getProperty(LogSettings.DEPLOYMENT_ENVIRONMENT_PROPERTY);
     }
 
     @Override
@@ -50,6 +52,9 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
         line.put("log.logger", event.getLoggerName());
         line.put("service.name", serviceName);
         line.put("service.version", serviceVersion);
+        if (deploymentEnvironment != null) {
+            line.put("deployment.environment", deploymentEnvironment);
+        }
         event.getMDCPropertyMap().forEach((key, value) -> {
             if (FIELDS.contains(key)) {
                 line.put(key, value);

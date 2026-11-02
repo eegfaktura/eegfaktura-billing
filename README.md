@@ -106,6 +106,8 @@ The container is accepting the following environment variables as configuration:
   build (the commit SHA for a branch build, the version for a tag build), default `dev`. Prod and pilot run dev-tier
   images re-tagged by the gitops promote workflow (no rebuild), so their release version is the image tag (the
   deployment's `image:`; Dynatrace log records do not carry it), not `service.version`
+* `DEPLOYMENT_ENVIRONMENT` written as `deployment.environment` into every JSON log line (`local`, `dev`, `pilot`,
+  `prod`); unset, the field is left out
 * `SPRINGDOC_ENABLED` `true` serves the API docs (/v3/api-docs) and the Swagger UI (default = false; true in the 'dev' profile). Set it to true only in development environments
 
 ## Contributing
