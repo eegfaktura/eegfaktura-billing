@@ -19,7 +19,7 @@ In order to run this container you'll need docker installed.
 
 ## Built with
 
-* Spring Boot 4.0.8
+* Spring Boot 4.0.9
 * Java 21
 * Maven
 * Flyway 11.14

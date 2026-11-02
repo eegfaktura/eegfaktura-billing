@@ -14,8 +14,9 @@ this changelog highlights the changes relevant for overview and operations.
   corruption with view fragments) in `spring-webmvc`. Neither has a fix in the 6.2 line. billing
   uses neither `XsltView` nor SSE, so the vulnerable code paths were not reachable; the upgrade
   removes the findings.
-- Overrides: Tomcat 11.0.27 and Jackson 3.1.7 (Boot 4.0.8 manages 11.0.24 and 3.1.5, both with
-  known CVEs), Jackson 2 (transitive, e.g. JasperReports) 2.21.7, PostgreSQL driver 42.7.14.
+- **Spring Boot 4.0.9** (Spring Framework 7.0.10, Spring Security 7.0.8): manages Tomcat 11.0.27,
+  Jackson 3.1.7, Jackson 2 (transitive, e.g. JasperReports) 2.21.7 and the PostgreSQL driver 42.7.14
+  itself, so the version overrides of the 4.0.8 step are removed; the resolved versions are unchanged.
 
 ### Changed
 - Upgrade-related changes: JSON via Jackson 3 with `spring.jackson.use-jackson2-defaults=true`
