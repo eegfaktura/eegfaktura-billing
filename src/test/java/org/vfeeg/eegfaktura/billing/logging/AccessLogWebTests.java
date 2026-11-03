@@ -207,6 +207,26 @@ class AccessLogWebTests extends WebSliceTest {
         assertEquals("true", f.get("support.access"));
     }
 
+    /** The tenant rule holds for a tenant the token grants too: one that has no tenant format stays out. */
+    @Test
+    void grantedTenantWithoutTheFormatOfATenantStaysOut() throws Exception {
+        String odd = "RC 100\"}";
+        FileDataDTO file = new FileDataDTO();
+        file.setTenantId(odd);
+        file.setName("c.pdf");
+        file.setMimeType("application/pdf");
+        file.setData(new byte[]{1});
+        when(fileDataService.get(Endpoint.ID)).thenReturn(file);
+        mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", odd)
+                        .header(HttpHeaders.AUTHORIZATION, TestTokens.bearer(TestTokens.token(List.of(odd),
+                                List.of("EEG_ADMIN")))))
+                .andExpect(status().isOk());
+
+        Map<String, Object> f = onlyLine().fields();
+        assertFalse(f.containsKey("tenant.id"), "" + f);
+        assertNull(f.get("support.access"));
+    }
+
     @Test
     void superuserOnItsOwnTenantIsNoSupportAccess() throws Exception {
         mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", OWN)

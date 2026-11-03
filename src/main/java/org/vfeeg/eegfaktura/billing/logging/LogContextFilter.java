@@ -17,8 +17,8 @@ import java.util.regex.Pattern;
  * Runs in the security chain right after {@code JwtRequestFilter}: once the token is valid and the requested tenant
  * was checked against it, puts {@code tenant.id} (the tenant the request works on, when the token grants it) and
  * {@code client.id} (the token's {@code azp}, the Keycloak client — not a person) into the MDC. A superuser on a
- * tenant its token does not name gets {@code support.access=true}, and {@code tenant.id} when the header has the
- * format of a tenant. Without a valid token both stay empty.
+ * tenant its token does not name gets {@code support.access=true}. {@code tenant.id} is written only when the
+ * upper-cased header has the format of a tenant (the one place of that rule). Without a valid token both stay empty.
  * Not a {@code @Component}, so it runs only inside the security chain; {@link RequestLogFilter} clears the MDC.
  */
 public class LogContextFilter extends OncePerRequestFilter {
@@ -33,14 +33,10 @@ public class LogContextFilter extends OncePerRequestFilter {
             String tenant = request.getHeader("Tenant");
             if (tenant != null && !tenant.isBlank()) {
                 if (auth.hasTenant(tenant)) {
-                    MDC.put(LogFields.TENANT_ID, tenant.strip().toUpperCase(Locale.ROOT));
+                    putTenant(tenant);
                 } else if (auth.isSuperuser()) {
-                    // operator/support working on a community the token does not name: visible as such. No token
-                    // vouches for this value, it is the raw header, so it goes into the log only if it looks like a tenant
-                    String requested = tenant.strip().toUpperCase(Locale.ROOT);
-                    if (TENANT.matcher(requested).matches()) {
-                        MDC.put(LogFields.TENANT_ID, requested);
-                    }
+                    // operator/support working on a community the token does not name: visible as such
+                    putTenant(tenant);
                     MDC.put(LogFields.SUPPORT_ACCESS, "true");
                 }
             }
@@ -49,5 +45,13 @@ public class LogContextFilter extends OncePerRequestFilter {
             }
         }
         chain.doFilter(request, response);
+    }
+
+    /** The header is a raw value: it goes into the log only if it looks like a tenant, otherwise the field stays out. */
+    private static void putTenant(String header) {
+        String tenant = header.strip().toUpperCase(Locale.ROOT);
+        if (TENANT.matcher(tenant).matches()) {
+            MDC.put(LogFields.TENANT_ID, tenant);
+        }
     }
 }

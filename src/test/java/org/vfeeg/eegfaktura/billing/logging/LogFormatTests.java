@@ -137,7 +137,7 @@ class LogFormatTests {
     }
 
     @Test
-    void oneStartLineWithVersionAndEffectiveLevel() throws Exception {
+    void startLineWithVersionAndEffectiveLevel() throws Exception {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty(LogSettings.SERVICE_VERSION_PROPERTY, "9.9.9");
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
@@ -145,7 +145,7 @@ class LogFormatTests {
         ch.qos.logback.classic.Logger startup = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(StartupLog.LOGGER);
         startup.addAppender(appender);
         try {
-            new StartupLog(environment).started();
+            new StartupLog().started();
         } finally {
             startup.detachAppender(appender);
         }
@@ -161,7 +161,9 @@ class LogFormatTests {
         assertEquals(root, fields.get(LogFields.LOG_EFFECTIVE_LEVEL));
         JsonNode json = json(environment, line);
         assertEquals("9.9.9", field(json, "service.version"));
-        assertEquals("Service started: version 9.9.9, log level " + root, field(json, "message"));
+        assertEquals("service start", field(json, "message"));
+        assertEquals("info", field(json, "log.level"));
+        assertEquals(root, field(json, "log.effective_level"));
     }
 
     /** The service picks {@link LogSettings} up the way Spring Boot loads every environment post-processor. */

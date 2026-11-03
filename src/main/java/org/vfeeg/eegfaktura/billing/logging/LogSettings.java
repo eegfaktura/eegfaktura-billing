@@ -16,7 +16,8 @@ import java.util.Set;
  * <ul>
  *   <li>{@code LOG_FORMAT=json} (default) → Boot's structured console logging with {@link EcsJsonFormatter}: one
  *       JSON object per line on stdout, flat ECS names; {@code LOG_FORMAT=text} → Boot's plain console pattern.</li>
- *   <li>{@code LOG_LEVEL=trace|debug|info|warn|error} (default {@code info}) → {@code logging.level.root}; the
+ *   <li>{@code LOG_LEVEL=trace|debug|info|warn|error} (default {@code info}; {@code warning} counts as {@code warn})
+ *       → {@code logging.level.root}; the
  *       access logger and {@link StartupLog} stay at {@code info}, so {@code warn}/{@code error} keep those lines.</li>
  *   <li>{@code SERVICE_VERSION} (set in the image, default {@code dev}) → {@code service.version};
  *       {@code service.name} is {@code eegfaktura-billing}.</li>
@@ -61,6 +62,9 @@ public class LogSettings implements EnvironmentPostProcessor {
             default -> throw new IllegalStateException("LOG_FORMAT must be json or text, not '" + format + "'");
         }
         String l = normalize(level, "info");
+        if (l.equals("warning")) {
+            l = "warn";
+        }
         if (!LEVELS.contains(l)) {
             throw new IllegalStateException("LOG_LEVEL must be one of " + LEVELS + ", not '" + level + "'");
         }

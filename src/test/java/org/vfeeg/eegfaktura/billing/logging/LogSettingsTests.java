@@ -45,7 +45,13 @@ class LogSettingsTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"verbose", "warning", "fatal", "off", "all"})
+    @ValueSource(strings = {"warning", "WARNING", " Warning "})
+    void warningIsWarn(String level) {
+        assertEquals("warn", LogSettings.resolve(null, level).get("logging.level.root"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"verbose", "fatal", "off", "all"})
     void unknownLevelIsRefused(String level) {
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> LogSettings.resolve(null, level));
         assertEquals("LOG_LEVEL must be one of " + LogSettings.LEVELS + ", not '" + level + "'", e.getMessage());
