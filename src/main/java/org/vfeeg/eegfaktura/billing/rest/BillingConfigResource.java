@@ -1,9 +1,7 @@
 package org.vfeeg.eegfaktura.billing.rest;
 
-import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -32,11 +30,6 @@ public class BillingConfigResource {
         this.billingConfigService = billingConfigService;
         this.fileDataService = fileDataService;
     }
-
-//    @GetMapping
-//    public ResponseEntity<List<BillingConfigDTO>> getAllBillingConfigs() {
-//        return ResponseEntity.ok(billingConfigService.findAll());
-//    }
 
     @GetMapping("/tenant/{tenantId}")
     public ResponseEntity<BillingConfigDTO> getBillingConfigByTenantId(
