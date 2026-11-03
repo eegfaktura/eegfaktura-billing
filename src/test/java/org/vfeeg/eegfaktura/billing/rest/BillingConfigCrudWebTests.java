@@ -1,6 +1,5 @@
 package org.vfeeg.eegfaktura.billing.rest;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -67,11 +66,7 @@ class BillingConfigCrudWebTests extends BillingConfigWebSlice {
         assertThat(body.getValue().getDocumentNumberSequenceLength(), is(5));
     }
 
-    /**
-     * F8: the body names the own community, the stored record belongs to another one. The stored
-     * record's tenant must decide; today only the body's is compared.
-     */
-    @Disabled("known-errors #19")
+    /** F8: the body names the own community, the stored record belongs to another one; the stored one decides. */
     @Test
     void updateOfAForeignStoredConfigIsForbidden() throws Exception {
         when(billingConfigService.get(ID)).thenReturn(config(FOREIGN));

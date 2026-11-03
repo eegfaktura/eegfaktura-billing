@@ -1,7 +1,6 @@
 package org.vfeeg.eegfaktura.billing.rest;
 
 import jakarta.validation.Valid;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -112,11 +111,12 @@ class RestExceptionHandlerWebTests extends WebSliceTest {
                 .andExpect(jsonPath("$.message").value(nullValue()));
     }
 
-    /** A malformed id is the caller's error; the catch-all handler turns it into 500 today. */
-    @Disabled("known-errors #31")
+    /** A malformed id is the caller's error. */
     @Test
     void malformedIdIsBadRequest() throws Exception {
         mvc.perform(authorized(get("/api/fileData/not-a-uuid")))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.httpStatus").value(400))
+                .andExpect(jsonPath("$.exception").value("MethodArgumentTypeMismatchException"));
     }
 }
