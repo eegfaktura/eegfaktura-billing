@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.logging;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
@@ -60,7 +61,7 @@ class AccessLogWebTests extends WebSliceTest {
     @MockitoBean
     FileDataService fileDataService;
 
-    record Line(String message, Map<String, Object> fields) {
+    record Line(String logger, Level level, String message, Map<String, Object> fields) {
     }
 
     private final List<Line> lines = new ArrayList<>();
@@ -74,7 +75,7 @@ class AccessLogWebTests extends WebSliceTest {
                     fields.put(kv.key, kv.value);
                 }
             }
-            lines.add(new Line(event.getFormattedMessage(), fields));
+            lines.add(new Line(event.getLoggerName(), event.getLevel(), event.getFormattedMessage(), fields));
         }
     };
 
@@ -249,8 +250,9 @@ class AccessLogWebTests extends WebSliceTest {
         } finally {
             filterLog.detachAppender(appender);
         }
-        String warning = lines.stream().map(Line::message).filter(m -> m.startsWith("Token does not grant"))
-                .findFirst().orElseThrow();
+        String warning = lines.stream()
+                .filter(l -> l.logger().equals(JwtRequestFilter.class.getName()) && l.level() == Level.WARN)
+                .map(Line::message).findFirst().orElseThrow();
         assertFalse(warning.contains(FOREIGN), warning);
         assertFalse(warning.contains("test-admin"), warning);
     }

@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.logging;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -7,6 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.LoggerFactory;
 import org.slf4j.event.KeyValuePair;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -16,6 +18,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.vfeeg.eegfaktura.billing.rest.Endpoint;
 import org.vfeeg.eegfaktura.billing.rest.TestTokens;
+import org.vfeeg.eegfaktura.billing.security.JwtRequestFilter;
+import org.vfeeg.eegfaktura.billing.security.TenantContext;
 import org.vfeeg.eegfaktura.billing.support.PostgresContainerHolder;
 
 import java.net.URI;
@@ -49,16 +53,27 @@ class AccessLogTomcatTests {
     int port;
 
     private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    /** The refusal lines of the token and the tenant check. */
+    private final ListAppender<ILoggingEvent> refusals = new ListAppender<>();
+    private final List<Logger> refusing = List.of((Logger) LoggerFactory.getLogger(JwtRequestFilter.class),
+            (Logger) LoggerFactory.getLogger(TenantContext.class));
 
     @BeforeEach
     void attach() {
         appender.start();
         ((Logger) RequestLogFilter.ACCESS).addAppender(appender);
+        refusals.start();
+        refusing.forEach(logger -> logger.addAppender(refusals));
     }
 
     @AfterEach
     void detach() {
         ((Logger) RequestLogFilter.ACCESS).detachAppender(appender);
+        refusing.forEach(logger -> logger.detachAppender(refusals));
+    }
+
+    private boolean refused(Class<?> by, Level level) {
+        return refusals.list.stream().anyMatch(e -> e.getLoggerName().equals(by.getName()) && e.getLevel() == level);
     }
 
     private HttpResponse<String> get(String path, String tenant, String authorization) throws Exception {
@@ -101,7 +116,7 @@ class AccessLogTomcatTests {
 
         assertEquals(403, get("/api/fileData/" + Endpoint.ID, header, TestTokens.admin()).statusCode());
 
-        assertTrue(output.getAll().contains("Token does not grant the requested tenant"), "the refusal was captured");
+        assertTrue(refused(JwtRequestFilter.class, Level.WARN), "the refusal was logged: " + refusals.list);
         assertFalse(output.getAll().contains(header), output.getAll());
     }
 
@@ -112,7 +127,7 @@ class AccessLogTomcatTests {
 
         get("/api/billingConfigs/tenant/" + path, header, TestTokens.superuserAdmin());
 
-        assertTrue(output.getAll().contains("does not match the tenant of the request"), "the refusal was captured");
+        assertTrue(refused(TenantContext.class, Level.ERROR), "the refusal was logged: " + refusals.list);
         assertFalse(output.getAll().contains(header), output.getAll());
         assertFalse(output.getAll().contains(path), output.getAll());
     }
