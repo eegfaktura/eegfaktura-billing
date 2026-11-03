@@ -46,10 +46,9 @@ artifact's own POM in the local Maven repository on 2026-10-01.
 
 | Artifact | Used for | Version | Licence |
 |---|---|---|---|
-| `spring-boot-starter-test` (JUnit 5, Mockito, AssertJ), `spring-boot-starter-webmvc-test`, `-data-jpa-test`, `-security-test` | tests | from the Spring Boot parent | EPL-2.0 / MIT / Apache-2.0 |
+| `spring-boot-starter-test` (JUnit 5, Mockito, AssertJ, Hamcrest), `spring-boot-starter-webmvc-test`, `-data-jpa-test`, `-security-test` | tests | from the Spring Boot parent | EPL-2.0 / MIT / Apache-2.0 |
 | `org.testcontainers:testcontainers-junit-jupiter`, `testcontainers-postgresql` | PostgreSQL in the integration tests | from the Spring Boot parent | MIT |
 | Docker Hub PostgreSQL image (started by Testcontainers) | the test database (`PostgresContainerHolder`) and the separate contract database of M6 (`LegacyBaseDatabase`, same `postgres:15-alpine`) | as named in the tests | PostgreSQL licence |
-| `org.hamcrest:hamcrest-all` | assertions | 1.3 | BSD |
 | `org.jacoco:jacoco-maven-plugin` | coverage (build time, agent in the test JVM) | 0.8.13 | EPL-2.0 |
 | `net.datafaker:datafaker` | generated test data | 2.2.2 | Apache-2.0 |
 | `org.apache.pdfbox:pdfbox` (with `pdfbox-io`, `fontbox`, same version) | reading the text of the generated PDFs in the billing scenarios (M3) | 3.0.8 (Maven Central 2026-07-08, latest release) | Apache-2.0 (licence header of the POM; `<licenses>` inherited from `org.apache:apache:39`); its optional Bouncy Castle dependencies are not pulled; `commons-logging` stays at 1.3.5 from JasperReports |
