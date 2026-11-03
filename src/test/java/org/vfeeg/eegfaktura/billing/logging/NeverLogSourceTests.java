@@ -26,19 +26,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * addresses no pattern knows.
  *
  * <p>Identifiers are split into words (camelCase, snake_case) and compared as whole words with {@link #WORDS} (an
- * entry may span several words: {@code firstName}, {@code api_key}); string literals are not scanned, a fixed text
- * names no value. Works on the text, on purpose: no new dependency. A real exception goes into {@link #ALLOWED} with
+ * entry may span several words: {@code firstName}, {@code api_key}), also with a plural {@code s}; in an identifier all
+ * in lower case a word of five or more letters counts as a part too. String literals are not scanned, a fixed text
+ * names no value, except a list word directly before a placeholder ({@code "token: {}"}). Values are not skipped by
+ * type: a text scan does not know the types. Works on the text, on purpose: no new dependency. A real exception goes into {@link #ALLOWED} with
  * its reason, and an entry that no longer matches fails too, so the list cannot go stale.
  */
 class NeverLogSourceTests {
 
     private static final Path SOURCE = Path.of("src/main/java");
 
-    /** The never-log words common to all eegfaktura services. */
-    private static final Set<String> WORDS = Set.of("password", "passwd", "pwd", "secret", "token", "jwt", "bearer",
-            "authorization", "credential", "creds", "cookie", "apikey", "iban", "bic", "firstname", "lastname",
-            "vorname", "nachname", "name1", "name2", "street", "phone", "email", "mailaddress", "recipient", "sentto",
+    /** The never-log words common to all eegfaktura services; a blank joins the words of a compound. */
+    private static final List<String> LIST = List.of("password", "passwd", "pwd", "secret", "token", "jwt", "bearer",
+            "authorization", "credential", "creds", "cookie", "api key", "iban", "bic", "firstname", "lastname",
+            "vorname", "nachname", "name1", "name2", "street", "phone", "email", "mail address", "recipient", "sentto",
             "owner", "accountholder", "username", "userid", "sub", "subject", "payload", "body");
+    /** {@link #LIST} as identifier words: lower case, compounds joined. */
+    private static final Set<String> WORDS = LIST.stream().map(w -> w.replace(" ", "")).collect(Collectors.toSet());
+    /** A list word directly before a placeholder of a format string: {@code "token: {}"}, {@code "password=%s"}. */
+    private static final Pattern BEFORE_PLACEHOLDER = Pattern.compile("(?i)(?<![a-z])("
+            + LIST.stream().sorted((a, b) -> b.length() - a.length()).map(w -> w.replace(" ", "[ _-]?"))
+                    .collect(Collectors.joining("|"))
+            + ")s?[ \\t]*[:=]?[ \\t]*(?:\\{}|%[-#+ 0,(\\d.]*[a-zA-Z])");
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
     private static final Pattern WORD_BOUNDARY = Pattern.compile("_+|(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])");
     private static final Pattern LOGGER_DECLARATION = Pattern.compile("\\b(?:Logger|LoggingEventBuilder)\\s+(\\w+)\\b");
@@ -93,7 +102,22 @@ class NeverLogSourceTests {
         for (String statement : List.of("log.info(\"sent to {}\", participant.getParticipantEmail());",
                 "log.error(\"first \" + lastName);", "log\n  .debug(\n \"x {}\",\n passwordHash);",
                 "log.warn(\"x {}\", MAIL_PASSWORD);", "log.info(\"{}\", firstName);", "log.info(\"{}\", api_key);",
-                "log.atInfo().addKeyValue(\"x\", request.recipient()).log(\"x\");", "log.info(\"{}\", sentTo);")) {
+                "log.atInfo().addKeyValue(\"x\", request.recipient()).log(\"x\");", "log.info(\"{}\", sentTo);",
+                // plural s
+                "log.info(\"{}\", tokens);", "log.info(\"{}\", emails);", "log.info(\"{}\", passwords);",
+                "log.info(\"{}\", recipients);", "log.info(\"{}\", IBANs);", "log.info(\"{}\", memberIbans);",
+                // a word of five or more letters inside an identifier all in lower case
+                "log.info(\"{}\", accesstoken);", "log.info(\"{}\", userpassword);", "log.info(\"{}\", mailaddress);",
+                "log.info(\"{}\", tokenizer);")) {
+            assertEquals(1, hits("class A { void f() { " + statement + " } }").size(), statement);
+        }
+    }
+
+    @Test
+    void findsAListWordDirectlyBeforeAPlaceholder() {
+        for (String statement : List.of("log.warn(\"iban={}\", value);", "log.info(\"token: {}\", value);",
+                "log.info(String.format(\"password=%s\", value));", "log.info(\"Mail address {} rejected\", v);",
+                "log.info(\"secrets {}\", v);", "log.info(\"\"\"\n  api_key: {}\n  \"\"\", v);")) {
             assertEquals(1, hits("class A { void f() { " + statement + " } }").size(), statement);
         }
     }
@@ -120,10 +144,10 @@ class NeverLogSourceTests {
     @Test
     void passesLiteralsOtherWordsCommentsAndOtherCode() {
         for (String body : List.of("void f() { log.warn(\"Token does not grant the requested tenant\"); }",
-                "void f() { log.warn(\"iban={}\", value); }",
+                "void f() { log.warn(\"no iban for member {}\", id); }",
                 "void f() { log.atInfo().addKeyValue(\"token\", value).log(\"x\"); }",
                 "void f() { log.info(\"\"\"\n  email\n  \"\"\"); }",
-                "void f() { log.info(\"{} {} {}\", tokenizer, subscriptionId, nobody); }",
+                "void f() { log.info(\"{} {} {}\", bicycle, subscriptionId, nobody); }",
                 "void f(Mail m) { log.info(\"mail {}\", m.size()); }",
                 "void f(Mail m) { m.setEmail(email); }",
                 "void f() { // log.info(\"{}\", email);\n }", "void f() { /* log.info(iban); */ }",
@@ -163,15 +187,29 @@ class NeverLogSourceTests {
         return records;
     }
 
-    /** The never-log word an identifier contains as one or more whole words, or {@code null}. */
+    /**
+     * The never-log word an identifier contains as one or more whole words, also with a plural {@code s}, or
+     * {@code null}. In an identifier all in lower case a word of five or more letters counts as a part too
+     * ({@code accesstoken}).
+     */
     static String personal(String identifier) {
         String[] words = WORD_BOUNDARY.split(identifier);
         for (int from = 0; from < words.length; from++) {
             StringBuilder joined = new StringBuilder();
             for (int to = from; to < words.length; to++) {
-                joined.append(words[to].toLowerCase(Locale.ROOT));
-                if (WORDS.contains(joined.toString())) {
-                    return joined.toString();
+                String word = joined.append(words[to].toLowerCase(Locale.ROOT)).toString();
+                if (WORDS.contains(word)) {
+                    return word;
+                }
+                if (word.endsWith("s") && WORDS.contains(word.substring(0, word.length() - 1))) {
+                    return word.substring(0, word.length() - 1);
+                }
+            }
+        }
+        if (identifier.equals(identifier.toLowerCase(Locale.ROOT))) {
+            for (String word : WORDS) {
+                if (word.length() >= 5 && identifier.contains(word)) {
+                    return word;
                 }
             }
         }
@@ -201,6 +239,13 @@ class NeverLogSourceTests {
                 String word = personal(identifier.group());
                 if (word != null) {
                     hits.add(new Hit(file, line, statement, "names " + word));
+                    break;
+                }
+            }
+            for (String literal : literals(statement)) {
+                Matcher placeholder = BEFORE_PLACEHOLDER.matcher(literal);
+                if (placeholder.find()) {
+                    hits.add(new Hit(file, line, statement, "formats a value as " + placeholder.group(1)));
                     break;
                 }
             }
@@ -239,6 +284,21 @@ class NeverLogSourceTests {
             }
         }
         return out.toString();
+    }
+
+    /** The string literals and text blocks of the statement, with their quotes. */
+    private static List<String> literals(String statement) {
+        List<String> literals = new ArrayList<>();
+        for (int i = 0; i < statement.length(); i++) {
+            if (statement.charAt(i) == '"') {
+                int close = literalEnd(statement, i);
+                literals.add(statement.substring(i, Math.min(close + 1, statement.length())));
+                i = close;
+            } else if (statement.charAt(i) == '\'') {
+                i = literalEnd(statement, i);
+            }
+        }
+        return literals;
     }
 
     /** Index behind the {@code ;} that ends the statement, skipping strings and characters. */
