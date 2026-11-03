@@ -13,20 +13,11 @@
 	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
 	<property name="net.sf.jasperreports.awt.ignore.missing.font" value="true"/>
 	<dataset name="tblItems" uuid="f6df2d88-b7fb-4b8e-942d-520718b4e1d3">
-		<parameter name="text" class="java.lang.String"/>
-		<parameter name="pricePerUnit" class="java.lang.String"/>
-		<parameter name="netValue" class="java.lang.String"/>
-		<parameter name="discountPercent" class="java.lang.String"/>
-		<parameter name="vatPercent" class="java.lang.String"/>
-		<parameter name="vetVaueInEuro" class="java.lang.String"/>
-		<parameter name="grossValue" class="java.lang.String"/>
-		<parameter name="amount" class="java.lang.String"/>
 		<field name="text" class="java.lang.String"/>
 		<field name="pricePerUnit" class="java.lang.String"/>
 		<field name="netValue" class="java.lang.String"/>
 		<field name="discountPercent" class="java.lang.String"/>
 		<field name="vatPercent" class="java.lang.String"/>
-		<field name="vetVaueInEuro" class="java.lang.String"/>
 		<field name="grossValue" class="java.lang.String"/>
 		<field name="amount" class="java.lang.String"/>
 		<field name="rowType" class="java.lang.String"/>
@@ -53,7 +44,6 @@
 	<parameter name="recipientBankOwner" class="java.lang.String"/>
 	<parameter name="recipientSepaMandateReference" class="java.lang.String"/>
 	<parameter name="recipientVatId" class="java.lang.String"/>
-	<parameter name="recipientTaxId" class="java.lang.String"/>
 	<parameter name="recipientAddressLine1" class="java.lang.String"/>
 	<parameter name="recipientAddressLine2" class="java.lang.String"/>
 	<parameter name="recipientAddressLine3" class="java.lang.String"/>

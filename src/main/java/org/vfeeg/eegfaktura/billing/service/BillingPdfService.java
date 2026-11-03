@@ -81,7 +81,6 @@ public class BillingPdfService {
                 : ""));
         parameters.put("recipientBankOwner", document.getRecipientBankOwner());
         parameters.put("recipientSepaMandateReference", document.getRecipientSepaMandateReference());
-        parameters.put("recipientTaxId", document.getRecipientTaxId());
         parameters.put("recipientVatId", document.getRecipientVatId());
         parameters.put("recipientAddressLine1", document.getRecipientAddressLine1());
         parameters.put("recipientAddressLine2", document.getRecipientAddressLine2());
@@ -288,7 +287,6 @@ public class BillingPdfService {
         row.put("pricePerUnit", "");
         row.put("netValue", "");
         row.put("vatPercent", "");
-        row.put("vatValueInEuro", "");
         row.put("grossValue", "");
         row.put("discountPercent", "0,00 %"); // unterdrueckt den "Rabatt:"-Zeilen-Suffix
         row.put("rowType", rowType);          // H=Blockkopf, S=Zwischensumme (grau hinterlegt)
@@ -310,7 +308,6 @@ public class BillingPdfService {
         parameterMap.put("netValue", BigDecimalTools.makeGermanString(billingDocumentItem.getNetValue(), "€"));
         parameterMap.put("discountPercent", BigDecimalTools.makeGermanString(billingDocumentItem.getDiscountPercent(), "%"));
         parameterMap.put("vatPercent", BigDecimalTools.makeGermanString(billingDocumentItem.getVatPercent(), "%"));
-        parameterMap.put("vatValueInEuro", BigDecimalTools.makeGermanString(billingDocumentItem.getVatValueInEuro(), "€"));
         parameterMap.put("grossValue", BigDecimalTools.makeGermanString(billingDocumentItem.getGrossValue(), "€"));
         if (billingDocumentItem.getMeteringPointType()!=null) {
             parameterMap.put("amount", BigDecimalTools.makeGermanString(billingDocumentItem.getAmount(), "kWh"));
