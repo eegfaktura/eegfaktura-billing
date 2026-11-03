@@ -13,6 +13,8 @@ import org.vfeeg.eegfaktura.billing.domain.BillingDocumentFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentType;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.FileData;
+import org.vfeeg.eegfaktura.billing.logging.EcsJsonFormatter;
+import org.vfeeg.eegfaktura.billing.logging.EcsTextFormatter;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
@@ -198,8 +200,8 @@ class BillingDocumentMailServiceTests {
     }
 
     /**
-     * The SMTP error names the recipient: the line keeps the error (masked) and its type, not the address and not the
-     * stack trace; the exception built around it carries the document id only (never-log list).
+     * The SMTP error names the recipient: the line keeps the error and its type, not the stack trace; both log
+     * formats mask the address. The exception built around it carries the document id only (never-log list).
      */
     @Test
     void failedSendIsLoggedWithoutTheAddress() throws Exception {
@@ -210,8 +212,12 @@ class BillingDocumentMailServiceTests {
                 .thenThrow(new MessagingException("550 5.1.1 <anna@example.at>: Recipient address rejected"));
 
         ch.qos.logback.classic.spi.ILoggingEvent line = failureLine(sendAndCaptureLog());
-        assertThat(line.getFormattedMessage(), is("Failed to send mail (billingDocumentId=" + anna.getId()
+        org.springframework.mock.env.MockEnvironment environment = new org.springframework.mock.env.MockEnvironment();
+        String text = new EcsTextFormatter(environment).format(line);
+        assertThat(text, containsString(": Failed to send mail (billingDocumentId=" + anna.getId()
                 + "): 550 5.1.1 <<email>>: Recipient address rejected"));
+        assertThat(text, not(containsString("anna@example.at")));
+        assertThat(new EcsJsonFormatter(environment).format(line), not(containsString("anna@example.at")));
         assertThat(line.getThrowableProxy(), is((Object) null));
         assertThat(line.getKeyValuePairs().get(0).value, is((Object) MessagingException.class.getName()));
     }

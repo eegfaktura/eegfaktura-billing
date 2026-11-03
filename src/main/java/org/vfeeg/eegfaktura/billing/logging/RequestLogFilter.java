@@ -89,7 +89,7 @@ public class RequestLogFilter extends OncePerRequestFilter {
         Throwable failure = null;
         try {
             chain.doFilter(request, response);
-        } catch (IOException | ServletException | RuntimeException | Error e) {
+        } catch (Throwable e) {
             failure = e;
             throw e;
         } finally {
@@ -99,7 +99,7 @@ public class RequestLogFilter extends OncePerRequestFilter {
                     // no line
                 } else if (failure != null && !response.isCommitted()) {
                     // the status the client gets is set by the container's error dispatch (e.g. 403 for the tenant
-                    // refusal JwtRequestFilter throws, private known-errors.md #35): written there
+                    // refusal JwtRequestFilter throws): written there
                     request.setAttribute(PENDING, new Pending(start, MDC.getCopyOfContextMap(), route,
                             failure.getClass().getName()));
                 } else {

@@ -1,11 +1,8 @@
 package org.vfeeg.eegfaktura.billing.security;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.ApplicationContext;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -22,16 +19,12 @@ import java.net.http.HttpResponse;
 import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The whole application, as it starts in production: Spring creates no default user and logs no generated password,
- * and the login stays what it was. The property gives this class a context of its own: it has to start inside the
- * output capture, a context cached by another test would have logged long before.
+ * The whole application, as it starts in production: Spring creates no default user (so it has no generated password
+ * to log), and the login stays what it was.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "no-default-user-test=true")
-@ExtendWith(OutputCaptureExtension.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class NoDefaultUserTests {
 
     @DynamicPropertySource
@@ -52,13 +45,6 @@ class NoDefaultUserTests {
             request.header("Authorization", authorization);
         }
         return HttpClient.newHttpClient().send(request.build(), HttpResponse.BodyHandlers.ofString()).statusCode();
-    }
-
-    @Test
-    void noGeneratedPasswordInTheStartLog(CapturedOutput output) {
-        assertTrue(output.getOut().contains("Started NoDefaultUserTests"), "the start itself was captured");
-        assertFalse(output.getOut().contains("generated security password"), "generated password logged");
-        assertFalse(output.getOut().contains("UserDetailsServiceAutoConfiguration"));
     }
 
     @Test

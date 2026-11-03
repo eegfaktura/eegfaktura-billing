@@ -11,7 +11,13 @@ this changelog highlights the changes relevant for overview and operations.
 ### Security
 - **The log encoder masks e-mail addresses, IBANs, JWTs and password values** (eegfaktura-dev#45 L8): `message`,
   `error.message` and `error.stack_trace` of the JSON format go through one filter (`LogText.masked`). Tenants, UUIDs,
-  request ids and metering-point numbers stay readable. `LOG_FORMAT=text` is not filtered, it is meant for local runs.
+  request ids and metering-point numbers stay readable. `LOG_FORMAT=text` (Q2) writes the same filtered and masked
+  fields as one plain line (`EcsTextFormatter`, control characters escaped); before, Boot's console pattern wrote
+  messages and stack traces unmasked. The two call-site filters of SMTP errors are gone, the formatter does it.
+- **Test-mail warning without the tenant from the header** (Q8, tracking 261102-mm3): the text no longer names it; the
+  line keeps the checked `tenant.id`.
+- **One tenant rule for `tenant.id`** (Q7): the format check applies where the field is written, also to a tenant the
+  token grants; a value without the format of a tenant leaves the field out.
 - **No generated default password at start** (L9, tracking 261102-mm1): Spring's `UserDetailsServiceAutoConfiguration`
   is excluded. Its default user was never reachable, because login is by bearer token only (no httpBasic, no formLogin).
   Authentication is unchanged.
@@ -23,14 +29,23 @@ this changelog highlights the changes relevant for overview and operations.
 
 ### Added
 - **Never-log test** (L11): `NeverLogSourceTests` reads the source and fails the build on a log statement that names
-  personal data or credentials, or logs a whole entity or DTO. An exception needs an allowlist entry with a reason.
-- **Start-up line and `deployment.environment`** (L14): one line `service.start` with the version and the effective log
-  level, at every `LOG_LEVEL`. New optional env `DEPLOYMENT_ENVIRONMENT`, written as `deployment.environment` into every
+  personal data or credentials, or logs a whole value of a record with a personal component (Q1: identifiers split
+  into words and compared with the common word list, string literals not scanned). An exception needs an allowlist
+  entry with a reason.
+- **Start-up line and `deployment.environment`** (L14, Q7): one line, message `service start`,
+  `event.action=service.start`, `service.version` and `log.effective_level`, at every `LOG_LEVEL`. `LOG_LEVEL=warning`
+  is accepted as `warn`. New optional env `DEPLOYMENT_ENVIRONMENT`, written as `deployment.environment` into every
   JSON line; unset, the field is left out.
 
 ### Fixed
 - **`request.id` and `tenant.id` also on the lines of an error dispatch after `sendError`** (L12); the lines of a
   request and of the asynchronous billing run already carried them and are now covered by tests.
+
+### Changed
+- **Logging code-quality review** (eegfaktura-dev#45 Q1–Q8): `LogFormatTests` test the formatters and the start line
+  directly, without Spring restarts or global logging state (Q3); `NoDefaultUserTests` without output capture (Q4);
+  refusal lines found by logger and level instead of their text (Q5); `RequestLogFilter` catches `Throwable` with
+  precise rethrow (Q6). The fields of the JSON line are unchanged; changed texts: start line (Q7), test-mail warning (Q8).
 
 ## [1.9.0] – 2026-11-02
 

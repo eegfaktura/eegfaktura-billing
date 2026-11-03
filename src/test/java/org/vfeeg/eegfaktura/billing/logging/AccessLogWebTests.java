@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.logging;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
@@ -60,7 +61,7 @@ class AccessLogWebTests extends WebSliceTest {
     @MockitoBean
     FileDataService fileDataService;
 
-    record Line(String message, Map<String, Object> fields) {
+    record Line(String logger, Level level, String message, Map<String, Object> fields) {
     }
 
     private final List<Line> lines = new ArrayList<>();
@@ -74,7 +75,7 @@ class AccessLogWebTests extends WebSliceTest {
                     fields.put(kv.key, kv.value);
                 }
             }
-            lines.add(new Line(event.getFormattedMessage(), fields));
+            lines.add(new Line(event.getLoggerName(), event.getLevel(), event.getFormattedMessage(), fields));
         }
     };
 
@@ -207,6 +208,26 @@ class AccessLogWebTests extends WebSliceTest {
         assertEquals("true", f.get("support.access"));
     }
 
+    /** The tenant rule holds for a tenant the token grants too: one that has no tenant format stays out. */
+    @Test
+    void grantedTenantWithoutTheFormatOfATenantStaysOut() throws Exception {
+        String odd = "RC 100\"}";
+        FileDataDTO file = new FileDataDTO();
+        file.setTenantId(odd);
+        file.setName("c.pdf");
+        file.setMimeType("application/pdf");
+        file.setData(new byte[]{1});
+        when(fileDataService.get(Endpoint.ID)).thenReturn(file);
+        mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", odd)
+                        .header(HttpHeaders.AUTHORIZATION, TestTokens.bearer(TestTokens.token(List.of(odd),
+                                List.of("EEG_ADMIN")))))
+                .andExpect(status().isOk());
+
+        Map<String, Object> f = onlyLine().fields();
+        assertFalse(f.containsKey("tenant.id"), "" + f);
+        assertNull(f.get("support.access"));
+    }
+
     @Test
     void superuserOnItsOwnTenantIsNoSupportAccess() throws Exception {
         mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", OWN)
@@ -229,8 +250,9 @@ class AccessLogWebTests extends WebSliceTest {
         } finally {
             filterLog.detachAppender(appender);
         }
-        String warning = lines.stream().map(Line::message).filter(m -> m.startsWith("Token does not grant"))
-                .findFirst().orElseThrow();
+        String warning = lines.stream()
+                .filter(l -> l.logger().equals(JwtRequestFilter.class.getName()) && l.level() == Level.WARN)
+                .map(Line::message).findFirst().orElseThrow();
         assertFalse(warning.contains(FOREIGN), warning);
         assertFalse(warning.contains("test-admin"), warning);
     }

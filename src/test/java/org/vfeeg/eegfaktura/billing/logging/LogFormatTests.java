@@ -1,83 +1,81 @@
 package org.vfeeg.eegfaktura.billing.logging;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.LoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-import org.springframework.boot.WebApplicationType;
-import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.context.ConfigurableApplicationContext;
+import org.slf4j.event.KeyValuePair;
+import org.springframework.boot.env.EnvironmentPostProcessor;
+import org.springframework.mock.env.MockEnvironment;
 
-import java.util.Arrays;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * What a log line looks like on stdout with {@code LOG_FORMAT=json}: one ECS JSON object per line, with the common
- * fields of the logging concept. Starts a bare Spring application, so {@link LogSettings} is picked up the way the
- * service picks it up (META-INF/spring.factories).
+ * What a log line looks like with {@code LOG_FORMAT=json}: {@link EcsJsonFormatter} on a built logback event, one ECS
+ * JSON object per line with the common fields of the logging concept, and the start line of {@link StartupLog}.
+ * No Spring start and no change to the global logging setup.
  */
-@ExtendWith(OutputCaptureExtension.class)
 class LogFormatTests {
 
-    /** Plain source class, no component scan (stays out of the other tests' contexts). */
-    static class Bare {
+    /** A logger context of its own: the events are built here, the global one stays untouched. */
+    private static final LoggerContext CONTEXT = new LoggerContext();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static LoggingEvent event(Level level, String message, Throwable error, Map<String, String> mdc,
+                                      Object... keyValues) {
+        LoggingEvent event = new LoggingEvent(LogFormatTests.class.getName(),
+                CONTEXT.getLogger("org.vfeeg.eegfaktura.billing.Sample"), level, message, error, null);
+        event.setMDCPropertyMap(mdc);
+        for (int i = 0; i < keyValues.length; i += 2) {
+            event.addKeyValuePair(new KeyValuePair((String) keyValues[i], keyValues[i + 1]));
+        }
+        return event;
     }
 
-    private static ConfigurableApplicationContext start(String... args) {
-        return new SpringApplicationBuilder(Bare.class).web(WebApplicationType.NONE).run(args);
+    private static JsonNode json(MockEnvironment environment, ILoggingEvent event) throws Exception {
+        String line = new EcsJsonFormatter(environment).format(event);
+        assertTrue(line.endsWith("\n") && line.indexOf('\n') == line.length() - 1, "one line: " + line);
+        return MAPPER.readTree(line);
     }
 
-    @BeforeAll
-    static void releaseTheLoggingOfEarlierTests() {
-        // with a cached context of another test in this JVM, logging counts as set up and a start would not apply its
-        // format; closing a context cleans it up, so every start below sets up logging itself
-        start("--LOG_FORMAT=text").close();
-    }
-
-    @AfterAll
-    static void backToText() {
-        // the logging system is global: leave it as the other tests expect it. Boot keeps the structured format in a
-        // system property once set (one start per JVM in production), so it is cleared here.
-        System.clearProperty("CONSOLE_LOG_STRUCTURED_FORMAT");
-        start("--LOG_FORMAT=text").close();
+    private static String field(JsonNode json, String name) {
+        JsonNode node = json.get(name);
+        return node == null ? null : node.asText();
     }
 
     @Test
-    void jsonLineCarriesTheCommonFields(CapturedOutput output) throws Exception {
-        try (ConfigurableApplicationContext ignored = start("--LOG_FORMAT=json", "--SERVICE_VERSION=9.9.9")) {
-            Logger log = LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample");
-            MDC.put(LogFields.REQUEST_ID, "req-1");
-            MDC.put(LogFields.TENANT_ID, "RC100001");
-            MDC.put("user.email", "kassier@example.org"); // not on the whitelist
-            try {
-                log.atError().addKeyValue(LogFields.EVENT_ACTION, "billing.run.failed")
-                        .addKeyValue("http.request.method", "POST").addKeyValue("event.duration", 1_500_000L)
-                        .addKeyValue("iban", "AT611904300234573201")
-                        .setCause(new IllegalStateException("broken \"quoted\"\nsecond line"))
-                        .log("Abrechnung fehlgeschlagen");
-            } finally {
-                MDC.clear();
-            }
-        }
-        String line = Arrays.stream(output.getOut().split("\\R"))
-                .filter(l -> l.contains("Abrechnung fehlgeschlagen")).findFirst().orElseThrow();
-        System.err.println("sample JSON line: " + line);
-        JsonNode json = new ObjectMapper().readTree(line);
+    void jsonLineCarriesTheCommonFields() throws Exception {
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty(LogSettings.SERVICE_VERSION_PROPERTY, "9.9.9");
+        Map<String, String> mdc = Map.of(LogFields.REQUEST_ID, "req-1", LogFields.TENANT_ID, "RC100001",
+                "user.email", "kassier@example.org"); // not on the whitelist
+        JsonNode json = json(environment, event(Level.ERROR, "Abrechnung fehlgeschlagen",
+                new IllegalStateException("broken \"quoted\"\nsecond line"), mdc,
+                LogFields.EVENT_ACTION, "billing.run.failed", "http.request.method", "POST",
+                "event.duration", 1_500_000L, "iban", "AT611904300234573201"));
 
-        assertTrue(json.at("/@timestamp").asText().matches("\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{3}Z"),
-                "UTC with milliseconds: " + json.at("/@timestamp"));
+        assertTrue(field(json, "@timestamp").matches("\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{3}Z"),
+                "UTC with milliseconds: " + field(json, "@timestamp"));
         assertEquals("error", field(json, "log.level"));
+        assertEquals("org.vfeeg.eegfaktura.billing.Sample", field(json, "log.logger"));
         assertEquals("eegfaktura-billing", field(json, "service.name"));
         assertEquals("9.9.9", field(json, "service.version"));
         assertEquals("billing.run.failed", field(json, "event.action"));
@@ -88,106 +86,135 @@ class LogFormatTests {
         assertEquals("broken \"quoted\"\nsecond line", field(json, "error.message"));
         assertTrue(field(json, "error.stack_trace").contains("LogFormatTests"), "stack trace inside the record");
         assertEquals("POST", field(json, "http.request.method"));
-        assertEquals("1500000", field(json, "event.duration"));
-        // whitelist: neither an unknown MDC entry or key-value pair nor Boot's extra fields are written
-        for (String dropped : new String[]{"kassier@example.org", "AT611904300234573201", "\"process\"",
-                "\"ecs\"", "\"node\""}) {
-            assertFalse(line.contains(dropped), dropped + " in " + line);
-        }
+        assertTrue(json.get("event.duration").isNumber(), "a number stays a number");
+        assertEquals(1_500_000L, json.get("event.duration").asLong());
+        // whitelist: neither an unknown MDC entry nor an unknown key-value pair is written
+        assertNull(json.get("user.email"));
+        assertNull(json.get("iban"));
+        assertFalse(json.toString().contains("kassier@example.org") || json.toString().contains("AT6119"), "" + json);
     }
 
     @Test
-    void messageErrorAndStackTraceAreMaskedAndIdsStay(CapturedOutput output) throws Exception {
+    void messageErrorAndStackTraceAreMaskedAndIdsStay() throws Exception {
         String meteringPoint = "AT0030000000000000000000000000001";
-        try (ConfigurableApplicationContext ignored = start("--LOG_FORMAT=json")) {
-            LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample").atWarn()
-                    .setCause(new IllegalStateException("for bert@example.org",
-                            new IllegalArgumentException("IBAN AT483200000012345864 password=s3cret")))
-                    .log("mask anna@example.org at " + meteringPoint);
-        }
-        String line = Arrays.stream(output.getOut().split("\\R"))
-                .filter(l -> l.contains("IllegalStateException")).findFirst().orElseThrow();
-        JsonNode json = new ObjectMapper().readTree(line);
+        JsonNode json = json(new MockEnvironment(), event(Level.WARN, "mask anna@example.org at " + meteringPoint,
+                new IllegalStateException("for bert@example.org",
+                        new IllegalArgumentException("IBAN AT483200000012345864 password=s3cret")), Map.of()));
 
         assertEquals("mask <email> at " + meteringPoint, field(json, "message"));
         assertEquals("for <email>", field(json, "error.message"));
         assertTrue(field(json, "error.stack_trace").contains("Caused by: java.lang.IllegalArgumentException: "
                 + "IBAN <iban> password=<masked>"), field(json, "error.stack_trace"));
         assertTrue(field(json, "error.stack_trace").contains("LogFormatTests"), "frames stay readable");
-        for (String secret : new String[]{"anna@example.org", "bert@example.org", "AT483200000012345864", "s3cret"}) {
-            assertFalse(line.contains(secret), secret + " in " + line);
+        for (String secret : List.of("anna@example.org", "bert@example.org", "AT483200000012345864", "s3cret")) {
+            assertFalse(json.toString().contains(secret), secret + " in " + json);
         }
     }
 
     @Test
-    void deploymentEnvironmentIsOnEveryLine(CapturedOutput output) {
-        try (ConfigurableApplicationContext ignored = start("--LOG_FORMAT=json", "--DEPLOYMENT_ENVIRONMENT=pilot")) {
-            LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample").info("sample line");
+    void textLineHasTheSameFieldsMaskedOnOneLine() {
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty(LogSettings.SERVICE_VERSION_PROPERTY, "9.9.9");
+        String line = new EcsTextFormatter(environment).format(event(Level.WARN,
+                "mail to anna@example.org\nforged line", new IllegalStateException("IBAN AT483200000012345864"),
+                Map.of(LogFields.REQUEST_ID, "req-1", "user.email", "kassier@example.org"),
+                "event.outcome", "refused", "iban", "AT611904300234573201"));
+
+        assertTrue(line.endsWith("\n") && line.indexOf('\n') == line.length() - 1, "one line: " + line);
+        assertTrue(line.matches("\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{3}Z WARN "
+                + "org\\.vfeeg\\.eegfaktura\\.billing\\.Sample: mail to <email>\\\\nforged line .*\n"), line);
+        for (String field : List.of(" service.name=eegfaktura-billing", " service.version=9.9.9", " request.id=req-1",
+                " event.outcome=refused", " error.type=java.lang.IllegalStateException",
+                " error.message=\"IBAN <iban>\"", " error.stack_trace=\"java.lang.IllegalStateException: IBAN <iban>\\")) {
+            assertTrue(line.contains(field), field + " in " + line);
         }
-        List<String> json = jsonLinesOfTheStart(output);
-        assertTrue(json.stream().anyMatch(l -> l.contains("sample line")), "the line was captured");
-        for (String line : json) {
-            assertTrue(line.contains("\"deployment.environment\":\"pilot\""), line);
+        for (String dropped : List.of("kassier@example.org", "AT6119", "AT4832", "anna@example.org", "user.email")) {
+            assertFalse(line.contains(dropped), dropped + " in " + line);
         }
     }
 
     @Test
-    void deploymentEnvironmentUnsetOrBlankLeavesTheFieldOut(CapturedOutput output) {
-        for (String args : new String[]{"--LOG_FORMAT=json", "--LOG_FORMAT=json --DEPLOYMENT_ENVIRONMENT= "}) {
-            try (ConfigurableApplicationContext ignored = start(args.split(" "))) {
-                LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample").info("sample line");
-            }
-        }
-        List<String> json = jsonLinesOfTheStart(output);
-        assertTrue(json.stream().anyMatch(l -> l.contains("sample line")), "the line was captured");
-        assertTrue(json.stream().noneMatch(l -> l.contains("deployment.environment")), output.getOut());
-    }
+    void textValuesWithBlanksQuotesOrControlCharactersAreQuotedAndEscaped() {
+        String bell = String.valueOf((char) 7);
+        String separator = String.valueOf((char) 0x2028);
+        String line = new EcsTextFormatter(new MockEnvironment()).format(event(Level.INFO,
+                "say \"hi\"" + separator + "x", null, Map.of(), "event.action", "a b", "http.route", "/a=\"b\"",
+                "event.outcome", "c" + bell + "\r\\"));
 
-    /** Without devtools' first line: it comes before the start sets up logging, so with the setup of the test before. */
-    private static List<String> jsonLinesOfTheStart(CapturedOutput output) {
-        return Arrays.stream(output.getOut().split("\\R"))
-                .filter(l -> l.startsWith("{") && !l.contains("RestartApplicationListener")).toList();
+        String backslash = "\\";
+        assertTrue(line.contains(": say \"hi\"" + backslash + "u2028x "), line);
+        assertTrue(line.contains(" event.action=\"a b\""), line);
+        assertTrue(line.contains(" http.route=\"/a=\\\"b\\\"\""), line);
+        assertTrue(line.contains(" event.outcome=c" + backslash + "u0007\\r\\\\"), line);
     }
 
     @Test
-    void oneStartLineWithVersionAndEffectiveLevelAtEveryLevel(CapturedOutput output) throws Exception {
-        try (ConfigurableApplicationContext ignored = new SpringApplicationBuilder(Bare.class, StartupLog.class)
-                .web(WebApplicationType.NONE).run("--LOG_FORMAT=json", "--LOG_LEVEL=error",
-                        "--SERVICE_VERSION=9.9.9", "--MAIL_PASSWORD=s3cret")) {
-            assertTrue(ignored.isRunning());
+    void anExplicitErrorTypeWinsOverTheExceptionsType() throws Exception {
+        JsonNode json = json(new MockEnvironment(), event(Level.ERROR, "x", new IllegalStateException("x"), Map.of(),
+                "error.type", "org.postgresql.util.PSQLException"));
+        assertEquals("org.postgresql.util.PSQLException", field(json, "error.type"));
+    }
+
+    @Test
+    void deploymentEnvironmentIsOnTheLineWhenSet() throws Exception {
+        MockEnvironment environment = new MockEnvironment().withProperty("DEPLOYMENT_ENVIRONMENT", " pilot ");
+        new LogSettings().postProcessEnvironment(environment, null);
+
+        assertEquals("pilot", field(json(environment, event(Level.INFO, "x", null, Map.of())),
+                "deployment.environment"));
+    }
+
+    @Test
+    void deploymentEnvironmentUnsetOrBlankLeavesTheFieldOut() throws Exception {
+        for (MockEnvironment environment : List.of(new MockEnvironment(),
+                new MockEnvironment().withProperty("DEPLOYMENT_ENVIRONMENT", " "))) {
+            new LogSettings().postProcessEnvironment(environment, null);
+            assertNull(json(environment, event(Level.INFO, "x", null, Map.of())).get("deployment.environment"));
         }
-        List<String> lines = Arrays.stream(output.getOut().split("\\R"))
-                .filter(l -> l.contains("service.start")).toList();
-        assertEquals(1, lines.size(), output.getOut());
-        JsonNode json = new ObjectMapper().readTree(lines.get(0));
+    }
+
+    @Test
+    void startLineWithVersionAndEffectiveLevel() throws Exception {
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty(LogSettings.SERVICE_VERSION_PROPERTY, "9.9.9");
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        ch.qos.logback.classic.Logger startup = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(StartupLog.LOGGER);
+        startup.addAppender(appender);
+        try {
+            new StartupLog().started();
+        } finally {
+            startup.detachAppender(appender);
+        }
+
+        assertEquals(1, appender.list.size(), "" + appender.list);
+        ILoggingEvent line = appender.list.get(0);
+        assertEquals(Level.INFO, line.getLevel());
+        Map<String, Object> fields = new HashMap<>();
+        line.getKeyValuePairs().forEach(kv -> fields.put(kv.key, kv.value));
+        String root = ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME))
+                .getEffectiveLevel().toString().toLowerCase(Locale.ROOT);
+        assertEquals("service.start", fields.get(LogFields.EVENT_ACTION));
+        assertEquals(root, fields.get(LogFields.LOG_EFFECTIVE_LEVEL));
+        JsonNode json = json(environment, line);
+        assertEquals("9.9.9", field(json, "service.version"));
+        assertEquals("service start", field(json, "message"));
         assertEquals("info", field(json, "log.level"));
-        assertEquals("Service started: version 9.9.9, log level error", field(json, "message"));
-        assertFalse(output.getOut().contains("s3cret"));
+        assertEquals(root, field(json, "log.effective_level"));
     }
 
+    /** The service picks {@link LogSettings} up the way Spring Boot loads every environment post-processor. */
     @Test
-    void textFormatIsNotJson(CapturedOutput output) {
-        System.clearProperty("CONSOLE_LOG_STRUCTURED_FORMAT");
-        try (ConfigurableApplicationContext ignored = start("--LOG_FORMAT=text")) {
-            LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.Sample").atInfo()
-                    .addKeyValue("event.outcome", "refused").log("plain line");
+    void springFactoriesNamesLogSettings() throws Exception {
+        boolean named = false;
+        for (URL url : Collections.list(getClass().getClassLoader().getResources("META-INF/spring.factories"))) {
+            Properties factories = new Properties();
+            try (InputStream in = url.openStream()) {
+                factories.load(in);
+            }
+            named |= factories.getProperty(EnvironmentPostProcessor.class.getName(), "")
+                    .contains(LogSettings.class.getName());
         }
-        String line = Arrays.stream(output.getOut().split("\\R"))
-                .filter(l -> l.contains("plain line")).findFirst().orElseThrow();
-        assertFalse(line.startsWith("{"), line);
-        assertTrue(line.contains("event.outcome=\"refused\""), "key-value pairs in the text line: " + line);
-    }
-
-    /** ECS field by its dotted name, whether the encoder writes it flat ("a.b") or nested ({"a":{"b"}}). */
-    private static String field(JsonNode json, String dotted) {
-        JsonNode flat = json.get(dotted);
-        if (flat != null) {
-            return flat.asText();
-        }
-        JsonNode node = json;
-        for (String part : dotted.split("\\.")) {
-            node = node.path(part);
-        }
-        return node.isMissingNode() ? null : node.asText();
+        assertTrue(named, "META-INF/spring.factories names " + LogSettings.class.getName());
     }
 }

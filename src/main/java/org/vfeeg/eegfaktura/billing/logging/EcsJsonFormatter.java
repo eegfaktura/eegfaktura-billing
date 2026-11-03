@@ -21,7 +21,8 @@ import java.util.Set;
  * nests the objects and adds process/ecs fields). {@code @timestamp} in UTC with milliseconds, {@code log.level} in
  * lower case. Of the MDC and the key-value pairs only the names in {@link #FIELDS} are written — anything else a
  * library or a call site adds is dropped (never-log rule). {@code message}, {@code error.message} and
- * {@code error.stack_trace} go through {@link LogText#masked}, so no call site has to.
+ * {@code error.stack_trace} go through {@link LogText#masked}, so no call site has to. {@link EcsTextFormatter} writes
+ * the same fields as one plain line ({@code LOG_FORMAT=text}).
  */
 public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
 
@@ -46,6 +47,11 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
 
     @Override
     public String format(ILoggingEvent event) {
+        return JSON.writeToString(fields(event)) + "\n";
+    }
+
+    /** The fields of the line, filtered and masked; {@code message} last. */
+    protected Map<String, Object> fields(ILoggingEvent event) {
         Map<String, Object> line = new LinkedHashMap<>();
         line.put("@timestamp", MILLIS.format(event.getInstant()));
         line.put("log.level", event.getLevel().toString().toLowerCase(Locale.ROOT));
@@ -75,6 +81,6 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
             line.put("error.stack_trace", LogText.masked(ThrowableProxyUtil.asString(error)));
         }
         line.put("message", LogText.masked(event.getFormattedMessage()));
-        return JSON.writeToString(line) + "\n";
+        return line;
     }
 }
