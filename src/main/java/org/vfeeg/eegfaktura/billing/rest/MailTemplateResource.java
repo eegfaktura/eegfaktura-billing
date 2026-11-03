@@ -6,7 +6,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -46,13 +45,10 @@ public class MailTemplateResource {
         this.mailTemplateService = mailTemplateService;
     }
 
+    /** The tenant of the request; MailTemplateService refuses a missing one and normalises it. */
     private static String requestTenant() {
         var current = TenantContext.getCurrentTenant();
-        String tenant = current == null ? null : current.getAuthority();
-        if (tenant == null || tenant.isBlank()) {
-            throw new AccessDeniedException("No tenant");
-        }
-        return tenant;
+        return current == null ? null : current.getAuthority();
     }
 
     @GetMapping
