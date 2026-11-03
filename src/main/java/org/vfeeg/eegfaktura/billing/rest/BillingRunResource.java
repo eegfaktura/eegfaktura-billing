@@ -114,8 +114,6 @@ public class BillingRunResource {
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
         return billingRunActionLock.export(id, () -> {
-                List<BillingDocumentDTO> billingDocumentDTOs = billingDocumentService.findByBillingRunId(id);
-
                 ByteArrayResource resource = new ByteArrayResource(
                         billingDocumentArchiveService.createArchive(id));
 
