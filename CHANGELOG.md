@@ -8,6 +8,30 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Security
+- **The log encoder masks e-mail addresses, IBANs, JWTs and password values** (eegfaktura-dev#45 L8): `message`,
+  `error.message` and `error.stack_trace` of the JSON format go through one filter (`LogText.masked`). Tenants, UUIDs,
+  request ids and metering-point numbers stay readable. `LOG_FORMAT=text` is not filtered, it is meant for local runs.
+- **No generated default password at start** (L9, tracking 261102-mm1): Spring's `UserDetailsServiceAutoConfiguration`
+  is excluded. Its default user was never reachable, because login is by bearer token only (no httpBasic, no formLogin).
+  Authentication is unchanged.
+- **`tenant.id` of a superuser is validated** (L10): the raw `Tenant` header goes into `tenant.id` only with the format
+  of a tenant, otherwise the field is left out. `support.access` stays.
+- **No caller-chosen tenant in refusal lines** (L2): the warning and the exception of `JwtRequestFilter`, and the error
+  line and the exception of `TenantContext.validateTenant`, no longer quote the `Tenant` header or a tenant from path,
+  body or record. The messages changed accordingly; the status codes and the response bodies did not.
+
+### Added
+- **Never-log test** (L11): `NeverLogSourceTests` reads the source and fails the build on a log statement that names
+  personal data or credentials, or logs a whole entity or DTO. An exception needs an allowlist entry with a reason.
+- **Start-up line and `deployment.environment`** (L14): one line `service.start` with the version and the effective log
+  level, at every `LOG_LEVEL`. New optional env `DEPLOYMENT_ENVIRONMENT`, written as `deployment.environment` into every
+  JSON line; unset, the field is left out.
+
+### Fixed
+- **`request.id` and `tenant.id` also on the lines of an error dispatch after `sendError`** (L12); the lines of a
+  request and of the asynchronous billing run already carried them and are now covered by tests.
+
 ## [1.9.0] – 2026-11-02
 
 ### Security

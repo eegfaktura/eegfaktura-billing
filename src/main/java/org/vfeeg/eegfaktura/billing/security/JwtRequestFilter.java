@@ -64,8 +64,9 @@ public class JwtRequestFilter  extends OncePerRequestFilter {
                 && !jwtAuthentication.isSuperuser()
                 && !jwtAuthentication.hasTenant(requestedTenant)) {
             // no user name in the log (no user tracking, decided 2026-10-29)
-            log.warn("Token does not grant tenant {}", requestedTenant);
-            throw new AccessDeniedException("User not granted permission for " + requestedTenant);
+            log.warn("Token does not grant the requested tenant");
+            // no value: Tomcat logs this exception with its message, and the header is raw
+            throw new AccessDeniedException("User not granted permission for the requested tenant");
         }
 
         // set user details on spring security context

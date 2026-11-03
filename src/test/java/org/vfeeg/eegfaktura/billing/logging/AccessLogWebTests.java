@@ -185,6 +185,29 @@ class AccessLogWebTests extends WebSliceTest {
     }
 
     @Test
+    void superuserHeaderThatIsNoTenantStaysOutButSupportAccessStays() throws Exception {
+        for (String header : List.of("kassier@example.org", "AT61 1904", "RC1\"}", "A".repeat(65))) {
+            lines.clear();
+            mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", header)
+                    .header(HttpHeaders.AUTHORIZATION, TestTokens.superuserAdmin()));
+
+            Map<String, Object> f = onlyLine().fields();
+            assertFalse(f.containsKey("tenant.id"), header + " in " + f);
+            assertEquals("true", f.get("support.access"), header);
+        }
+    }
+
+    @Test
+    void superuserOnAGeaTenantKeepsIt() throws Exception {
+        mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", " gc100123-001 ")
+                .header(HttpHeaders.AUTHORIZATION, TestTokens.superuserAdmin()));
+
+        Map<String, Object> f = onlyLine().fields();
+        assertEquals("GC100123-001", f.get("tenant.id"));
+        assertEquals("true", f.get("support.access"));
+    }
+
+    @Test
     void superuserOnItsOwnTenantIsNoSupportAccess() throws Exception {
         mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", OWN)
                         .header(HttpHeaders.AUTHORIZATION, TestTokens.superuserAdmin()))
@@ -195,7 +218,7 @@ class AccessLogWebTests extends WebSliceTest {
         assertNull(f.get("support.access"));
     }
 
-    /** The refusal warning of JwtRequestFilter names the tenant, never the user (no user tracking). */
+    /** The refusal warning of JwtRequestFilter names neither the requested tenant (a raw header) nor the user. */
     @Test
     void foreignTenantWarningNamesNoUser() {
         Logger filterLog = (Logger) org.slf4j.LoggerFactory.getLogger(JwtRequestFilter.class);
@@ -206,8 +229,32 @@ class AccessLogWebTests extends WebSliceTest {
         } finally {
             filterLog.detachAppender(appender);
         }
-        String warning = lines.stream().map(Line::message).filter(m -> m.contains(FOREIGN)).findFirst().orElseThrow();
+        String warning = lines.stream().map(Line::message).filter(m -> m.startsWith("Token does not grant"))
+                .findFirst().orElseThrow();
+        assertFalse(warning.contains(FOREIGN), warning);
         assertFalse(warning.contains("test-admin"), warning);
+    }
+
+    @Test
+    void aLineOfTheApplicationCarriesRequestAndTenant() throws Exception {
+        Logger application = (Logger) org.slf4j.LoggerFactory.getLogger("org.vfeeg.eegfaktura.billing.service.Sample");
+        application.addAppender(appender);
+        FileDataDTO file = fileDataService.get(Endpoint.ID);
+        when(fileDataService.get(Endpoint.ID)).thenAnswer(call -> {
+            application.warn("inside the request");
+            return file;
+        });
+        try {
+            mvc.perform(get("/api/fileData/" + Endpoint.ID).header("Tenant", OWN.toLowerCase())
+                    .header(HttpHeaders.AUTHORIZATION, TestTokens.admin()).header("X-Request-Id", "req-43"));
+        } finally {
+            application.detachAppender(appender);
+        }
+
+        Map<String, Object> f = lines.stream().filter(l -> l.message().equals("inside the request"))
+                .findFirst().orElseThrow().fields();
+        assertEquals("req-43", f.get("request.id"));
+        assertEquals(OWN, f.get("tenant.id"));
     }
 
     @Test

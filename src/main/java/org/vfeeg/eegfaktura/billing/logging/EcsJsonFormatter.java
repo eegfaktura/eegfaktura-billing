@@ -20,14 +20,15 @@ import java.util.Set;
  * flat, dotted ECS names, the same shape as the other eegfaktura services (Spring Boot's own {@code ecs} format
  * nests the objects and adds process/ecs fields). {@code @timestamp} in UTC with milliseconds, {@code log.level} in
  * lower case. Of the MDC and the key-value pairs only the names in {@link #FIELDS} are written — anything else a
- * library or a call site adds is dropped (never-log rule).
+ * library or a call site adds is dropped (never-log rule). {@code message}, {@code error.message} and
+ * {@code error.stack_trace} go through {@link LogText#masked}, so no call site has to.
  */
 public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
 
     /** Request and event fields taken from the MDC or the key-value pairs of a line. */
     static final Set<String> FIELDS = Set.of("event.action", "event.outcome", "event.duration",
             "http.request.method", "http.route", "http.response.status_code", "request.id", "trace.id", "span.id",
-            "tenant.id", "client.id", "support.access", "error.type");
+            "tenant.id", "client.id", "support.access", "error.type", "log.effective_level");
 
     private static final DateTimeFormatter MILLIS =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
@@ -35,10 +36,12 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
 
     private final String serviceName;
     private final String serviceVersion;
+    private final String deploymentEnvironment;
 
     public EcsJsonFormatter(Environment environment) {
         this.serviceName = environment.getProperty(LogSettings.SERVICE_NAME_PROPERTY, "eegfaktura-billing");
         this.serviceVersion = environment.getProperty(LogSettings.SERVICE_VERSION_PROPERTY, "dev");
+        this.deploymentEnvironment = environment.getProperty(LogSettings.DEPLOYMENT_ENVIRONMENT_PROPERTY);
     }
 
     @Override
@@ -49,6 +52,9 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
         line.put("log.logger", event.getLoggerName());
         line.put("service.name", serviceName);
         line.put("service.version", serviceVersion);
+        if (deploymentEnvironment != null) {
+            line.put("deployment.environment", deploymentEnvironment);
+        }
         event.getMDCPropertyMap().forEach((key, value) -> {
             if (FIELDS.contains(key)) {
                 line.put(key, value);
@@ -65,10 +71,10 @@ public class EcsJsonFormatter implements StructuredLogFormatter<ILoggingEvent> {
         if (error != null) {
             // an explicit error.type wins (the original type of an exception logged without its messages)
             line.putIfAbsent("error.type", error.getClassName());
-            line.put("error.message", error.getMessage());
-            line.put("error.stack_trace", ThrowableProxyUtil.asString(error));
+            line.put("error.message", LogText.masked(error.getMessage()));
+            line.put("error.stack_trace", LogText.masked(ThrowableProxyUtil.asString(error)));
         }
-        line.put("message", event.getFormattedMessage());
+        line.put("message", LogText.masked(event.getFormattedMessage()));
         return JSON.writeToString(line) + "\n";
     }
 }

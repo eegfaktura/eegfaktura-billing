@@ -17,9 +17,10 @@ import java.util.Set;
  *   <li>{@code LOG_FORMAT=json} (default) → Boot's structured console logging with {@link EcsJsonFormatter}: one
  *       JSON object per line on stdout, flat ECS names; {@code LOG_FORMAT=text} → Boot's plain console pattern.</li>
  *   <li>{@code LOG_LEVEL=trace|debug|info|warn|error} (default {@code info}) → {@code logging.level.root}; the
- *       access logger stays at {@code info}, so {@code warn}/{@code error} keep the access lines.</li>
+ *       access logger and {@link StartupLog} stay at {@code info}, so {@code warn}/{@code error} keep those lines.</li>
  *   <li>{@code SERVICE_VERSION} (set in the image, default {@code dev}) → {@code service.version};
  *       {@code service.name} is {@code eegfaktura-billing}.</li>
+ *   <li>{@code DEPLOYMENT_ENVIRONMENT} → {@code deployment.environment}; unset, the field is left out.</li>
  * </ul>
  * An unknown value of either stops the start. A per-package level stays Boot's own
  * {@code LOGGING_LEVEL_<PACKAGE>} (e.g. {@code LOGGING_LEVEL_ORG_VFEEG=debug}).
@@ -29,6 +30,7 @@ public class LogSettings implements EnvironmentPostProcessor {
     static final String SOURCE_NAME = "eegfakturaLogSettings";
     static final String SERVICE_NAME_PROPERTY = "eegfaktura.logging.service-name";
     static final String SERVICE_VERSION_PROPERTY = "eegfaktura.logging.service-version";
+    static final String DEPLOYMENT_ENVIRONMENT_PROPERTY = "eegfaktura.logging.deployment-environment";
     static final Set<String> LEVELS = Set.of("trace", "debug", "info", "warn", "error");
 
     @Override
@@ -36,6 +38,10 @@ public class LogSettings implements EnvironmentPostProcessor {
         Map<String, Object> properties = resolve(environment.getProperty("LOG_FORMAT"),
                 environment.getProperty("LOG_LEVEL"));
         properties.put(SERVICE_VERSION_PROPERTY, environment.getProperty("SERVICE_VERSION", "dev"));
+        String deployment = environment.getProperty("DEPLOYMENT_ENVIRONMENT");
+        if (deployment != null && !deployment.isBlank()) {
+            properties.put(DEPLOYMENT_ENVIRONMENT_PROPERTY, deployment.strip());
+        }
         environment.getPropertySources().addLast(new MapPropertySource(SOURCE_NAME, properties));
     }
 
@@ -61,6 +67,7 @@ public class LogSettings implements EnvironmentPostProcessor {
         properties.put("logging.level.root", l);
         // the access line stays at every LOG_LEVEL (warn/error would drop it otherwise)
         properties.put("logging.level." + RequestLogFilter.ACCESS_LOGGER, "info");
+        properties.put("logging.level." + StartupLog.LOGGER, "info");
         return properties;
     }
 
