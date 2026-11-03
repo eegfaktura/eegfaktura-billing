@@ -112,6 +112,43 @@ class LogFormatTests {
     }
 
     @Test
+    void textLineHasTheSameFieldsMaskedOnOneLine() {
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty(LogSettings.SERVICE_VERSION_PROPERTY, "9.9.9");
+        String line = new EcsTextFormatter(environment).format(event(Level.WARN,
+                "mail to anna@example.org\nforged line", new IllegalStateException("IBAN AT483200000012345864"),
+                Map.of(LogFields.REQUEST_ID, "req-1", "user.email", "kassier@example.org"),
+                "event.outcome", "refused", "iban", "AT611904300234573201"));
+
+        assertTrue(line.endsWith("\n") && line.indexOf('\n') == line.length() - 1, "one line: " + line);
+        assertTrue(line.matches("\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{3}Z WARN "
+                + "org\\.vfeeg\\.eegfaktura\\.billing\\.Sample: mail to <email>\\\\nforged line .*\n"), line);
+        for (String field : List.of(" service.name=eegfaktura-billing", " service.version=9.9.9", " request.id=req-1",
+                " event.outcome=refused", " error.type=java.lang.IllegalStateException",
+                " error.message=\"IBAN <iban>\"", " error.stack_trace=\"java.lang.IllegalStateException: IBAN <iban>\\")) {
+            assertTrue(line.contains(field), field + " in " + line);
+        }
+        for (String dropped : List.of("kassier@example.org", "AT6119", "AT4832", "anna@example.org", "user.email")) {
+            assertFalse(line.contains(dropped), dropped + " in " + line);
+        }
+    }
+
+    @Test
+    void textValuesWithBlanksQuotesOrControlCharactersAreQuotedAndEscaped() {
+        String bell = String.valueOf((char) 7);
+        String separator = String.valueOf((char) 0x2028);
+        String line = new EcsTextFormatter(new MockEnvironment()).format(event(Level.INFO,
+                "say \"hi\"" + separator + "x", null, Map.of(), "event.action", "a b", "http.route", "/a=\"b\"",
+                "event.outcome", "c" + bell + "\r\\"));
+
+        String backslash = "\\";
+        assertTrue(line.contains(": say \"hi\"" + backslash + "u2028x "), line);
+        assertTrue(line.contains(" event.action=\"a b\""), line);
+        assertTrue(line.contains(" http.route=\"/a=\\\"b\\\"\""), line);
+        assertTrue(line.contains(" event.outcome=c" + backslash + "u0007\\r\\\\"), line);
+    }
+
+    @Test
     void anExplicitErrorTypeWinsOverTheExceptionsType() throws Exception {
         JsonNode json = json(new MockEnvironment(), event(Level.ERROR, "x", new IllegalStateException("x"), Map.of(),
                 "error.type", "org.postgresql.util.PSQLException"));

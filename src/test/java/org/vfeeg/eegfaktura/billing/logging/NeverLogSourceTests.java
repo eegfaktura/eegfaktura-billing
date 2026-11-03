@@ -42,11 +42,7 @@ class NeverLogSourceTests {
             new Allowed("JwtRequestFilter.java", "\"Token does not grant the requested tenant\"",
                     "text only: no value, the token is not logged"),
             new Allowed("JwtTokenService.java", "\"Token rejected\"",
-                    "text only: a fixed message and the exception's type, the token is not logged"),
-            new Allowed("MailTemplateService.java", "LogText.withoutEmails(e.getMessage())",
-                    "the helper that removes the addresses, no address is logged"),
-            new Allowed("BillingDocumentMailService.java", "LogText.withoutEmails(cause.getMessage())",
-                    "the helper that removes the addresses, no address is logged"));
+                    "text only: a fixed message and the exception's type, the token is not logged"));
 
     record Allowed(String file, String statement, String reason) {
     }

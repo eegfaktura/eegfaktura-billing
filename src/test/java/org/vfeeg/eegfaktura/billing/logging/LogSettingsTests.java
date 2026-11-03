@@ -33,8 +33,8 @@ class LogSettingsTests {
     }
 
     @Test
-    void textSwitchesStructuredLoggingOff() {
-        assertFalse(LogSettings.resolve("TEXT", null).containsKey(STRUCTURED));
+    void textIsTheTextFormatter() {
+        assertEquals(EcsTextFormatter.class.getName(), LogSettings.resolve("TEXT", null).get(STRUCTURED));
         assertEquals(EcsJsonFormatter.class.getName(), LogSettings.resolve(" Json ", null).get(STRUCTURED));
     }
 

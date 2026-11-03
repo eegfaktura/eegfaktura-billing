@@ -15,7 +15,8 @@ import java.util.Set;
  * logging and maps the environment onto Boot's own properties:
  * <ul>
  *   <li>{@code LOG_FORMAT=json} (default) → Boot's structured console logging with {@link EcsJsonFormatter}: one
- *       JSON object per line on stdout, flat ECS names; {@code LOG_FORMAT=text} → Boot's plain console pattern.</li>
+ *       JSON object per line on stdout, flat ECS names; {@code LOG_FORMAT=text} → {@link EcsTextFormatter}: the
+ *       same fields, masked the same way, as one plain line.</li>
  *   <li>{@code LOG_LEVEL=trace|debug|info|warn|error} (default {@code info}; {@code warning} counts as {@code warn})
  *       → {@code logging.level.root}; the
  *       access logger and {@link StartupLog} stay at {@code info}, so {@code warn}/{@code error} keep those lines.</li>
@@ -49,8 +50,6 @@ public class LogSettings implements EnvironmentPostProcessor {
     static Map<String, Object> resolve(String format, String level) {
         Map<String, Object> properties = new HashMap<>();
         properties.put(SERVICE_NAME_PROPERTY, "eegfaktura-billing");
-        // text format only: request and tenant of the line, and its key-value pairs (error.type, outcome, duration)
-        properties.put("logging.pattern.correlation", "[%X{request.id:-} %X{tenant.id:-}] %kvp ");
         String f = normalize(format, "json");
         switch (f) {
             case "json" -> {
@@ -58,7 +57,7 @@ public class LogSettings implements EnvironmentPostProcessor {
                 // the banner is plain text on stdout and would break "one JSON object per line"
                 properties.put("spring.main.banner-mode", "off");
             }
-            case "text" -> { /* Boot's plain console pattern */ }
+            case "text" -> properties.put("logging.structured.format.console", EcsTextFormatter.class.getName());
             default -> throw new IllegalStateException("LOG_FORMAT must be json or text, not '" + format + "'");
         }
         String l = normalize(level, "info");

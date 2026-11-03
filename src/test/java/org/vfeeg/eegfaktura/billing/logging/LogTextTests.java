@@ -13,26 +13,26 @@ class LogTextTests {
     @Test
     void everyAddressIsMasked() {
         assertEquals("Invalid Addresses: <email>; <<email>>: rejected",
-                LogText.withoutEmails("Invalid Addresses: anna.muster+eeg@example.at; <bert@mail.example.org>: rejected"));
+                LogText.masked("Invalid Addresses: anna.muster+eeg@example.at; <bert@mail.example.org>: rejected"));
     }
 
     @Test
     void internationalAddressesAndLocalPartsAreMasked() {
         assertEquals("<email> and <email> and <email>",
-                LogText.withoutEmails("jürgen.müller@bäckerei.at and o'neil@example.org and anna@"));
+                LogText.masked("jürgen.müller@bäckerei.at and o'neil@example.org and anna@"));
     }
 
     @Test
     void addressesJoinedByACharacterOfALocalPartAreAllMasked() {
         for (String joined : new String[]{"a@b.at+c@d.at", "a@b.at'c@d.at", "a@b.at%c@d.at", "a@b.at-c@d.at", "a@b@c.at"}) {
-            assertEquals("<email>", LogText.withoutEmails(joined), joined);
+            assertEquals("<email>", LogText.masked(joined), joined);
         }
     }
 
     @Test
     void textWithoutAddressStays() {
-        assertEquals("smtp down (connect timed out)", LogText.withoutEmails("smtp down (connect timed out)"));
-        assertNull(LogText.withoutEmails(null));
+        assertEquals("smtp down (connect timed out)", LogText.masked("smtp down (connect timed out)"));
+        assertNull(LogText.masked(null));
     }
 
     @Test

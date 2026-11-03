@@ -57,7 +57,7 @@ public final class LogText {
      * {@code <email>} — e.g. an SMTP error naming the recipient. A second line of defence: callers should not put
      * addresses into messages in the first place.
      */
-    public static String withoutEmails(String text) {
+    private static String withoutEmails(String text) {
         return text == null ? null : EMAIL.matcher(text).replaceAll("<email>");
     }
 

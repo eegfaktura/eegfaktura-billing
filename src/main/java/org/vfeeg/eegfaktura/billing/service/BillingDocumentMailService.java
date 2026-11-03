@@ -9,7 +9,6 @@ import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.FileData;
-import org.vfeeg.eegfaktura.billing.logging.LogText;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
@@ -125,14 +124,15 @@ public class BillingDocumentMailService {
 
     /**
      * One ERROR per failed mail with the root cause's type. An SMTP error names the recipient: its message is logged
-     * masked and without the stack trace (which repeats it); any other failure (NPE, Jasper, ...) keeps the stack.
+     * without the stack trace (which repeats it), the log formatter masks the address; any other failure (NPE, Jasper,
+     * ...) keeps the stack.
      */
     private static void logSendFailure(BillingDocument billingDocument, Exception e) {
         Throwable cause = e.getCause() != null ? e.getCause() : e;
         if (cause instanceof MessagingException || cause instanceof MailException) {
             log.atError().addKeyValue("error.type", cause.getClass().getName())
                     .log("Failed to send mail (billingDocumentId={}): {}", billingDocument.getId(),
-                            LogText.withoutEmails(cause.getMessage()));
+                            cause.getMessage());
         } else {
             log.error("Failed to send mail (billingDocumentId={})", billingDocument.getId(), cause);
         }
