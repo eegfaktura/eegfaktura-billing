@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,30 +20,32 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Never-log test of the logging concept (W-261008-ca2, point 4): reads the source and fails on a log statement that
- * names personal data or credentials, or that logs a whole entity or DTO (Lombok's {@code toString} prints every
- * field). The encoder's masking catches patterns, this test catches the names and addresses no pattern knows.
+ * Never-log test of the logging concept (W-261008-ca2, point 4): reads the source and fails on a log statement whose
+ * code names personal data or credentials, or that logs a whole value of a record with such a component (a record's
+ * {@code toString} prints every component). The encoder's masking catches patterns, this test catches the names and
+ * addresses no pattern knows.
  *
- * <p>Works on the text, on purpose: no new dependency. A real exception goes into {@link #ALLOWED} with its reason,
- * and an entry that no longer matches fails too, so the list cannot go stale.
+ * <p>Identifiers are split into words (camelCase, snake_case) and compared as whole words with {@link #WORDS} (an
+ * entry may span several words: {@code firstName}, {@code api_key}); string literals are not scanned, a fixed text
+ * names no value. Works on the text, on purpose: no new dependency. A real exception goes into {@link #ALLOWED} with
+ * its reason, and an entry that no longer matches fails too, so the list cannot go stale.
  */
 class NeverLogSourceTests {
 
     private static final Path SOURCE = Path.of("src/main/java");
-    private static final String MODEL_PACKAGES = "org/vfeeg/eegfaktura/billing/";
 
-    private static final Pattern NAMES = Pattern.compile("(?i)first_?name|last_?name|sur_?name|vorname|nachname"
-            + "|bank_?owner|street|phone|e-?mail|iban|passw|pwd|token|secret|jwt|bearer");
+    /** The never-log words common to all eegfaktura services. */
+    private static final Set<String> WORDS = Set.of("password", "passwd", "pwd", "secret", "token", "jwt", "bearer",
+            "authorization", "credential", "creds", "cookie", "apikey", "iban", "bic", "firstname", "lastname",
+            "vorname", "nachname", "name1", "name2", "street", "phone", "email", "mailaddress", "recipient", "sentto",
+            "owner", "accountholder", "username", "userid", "sub", "subject", "payload", "body");
+    private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
+    private static final Pattern WORD_BOUNDARY = Pattern.compile("_+|(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])");
     private static final Pattern LOGGER_DECLARATION = Pattern.compile("\\b(?:Logger|LoggingEventBuilder)\\s+(\\w+)\\b");
-    private static final String NO_MEMBER = "(?!\\s*\\.(?!\\s*toString\\b))";
-    private static final Pattern STRING = Pattern.compile("\"(?:[^\"\\\\\\n]|\\\\.)*\"");
+    private static final Pattern RECORD = Pattern.compile("\\brecord\\s+(\\w+)\\s*(?:<[^>]*>)?\\s*\\(([^)]*)\\)");
 
-    /** Exceptions: a statement of a file that may name what {@link #NAMES} forbids, and why. */
-    private static final List<Allowed> ALLOWED = List.of(
-            new Allowed("JwtRequestFilter.java", "\"Token does not grant the requested tenant\"",
-                    "text only: no value, the token is not logged"),
-            new Allowed("JwtTokenService.java", "\"Token rejected\"",
-                    "text only: a fixed message and the exception's type, the token is not logged"));
+    /** Exceptions: a statement of a file that may name what {@link #WORDS} forbids, and why. */
+    private static final List<Allowed> ALLOWED = List.of();
 
     record Allowed(String file, String statement, String reason) {
     }
@@ -62,15 +65,18 @@ class NeverLogSourceTests {
     }
 
     @Test
-    void noLogStatementNamesPersonalDataOrWholeEntities() throws IOException {
-        Set<String> modelTypes = modelTypes();
-        assertTrue(modelTypes.contains("BillingDocument") && modelTypes.contains("DoBillingParams"), "" + modelTypes);
-        assertFalse(modelTypes.contains("BillingRunStatus"), "an enum prints its name only");
+    void noLogStatementNamesPersonalDataOrWholeRecords() throws IOException {
+        Set<String> records = new HashSet<>();
+        for (Path file : javaFiles()) {
+            records.addAll(personalRecords(Files.readString(file)));
+        }
+        assertTrue(records.containsAll(Set.of("TestRequest", "TestResult")), "" + records);
+        assertFalse(records.contains("MailFile") || records.contains("Conflict"), "" + records);
 
         List<Hit> found = new ArrayList<>();
         int statements = 0;
         for (Path file : javaFiles()) {
-            Scan scan = scan(file.getFileName().toString(), Files.readString(file), modelTypes);
+            Scan scan = scan(file.getFileName().toString(), Files.readString(file), records);
             found.addAll(scan.hits());
             statements += scan.statements();
         }
@@ -83,10 +89,11 @@ class NeverLogSourceTests {
     }
 
     @Test
-    void findsNamesInArgumentsTextAndKeyValuePairs() {
+    void findsNamesInIdentifiers() {
         for (String statement : List.of("log.info(\"sent to {}\", participant.getParticipantEmail());",
-                "log.warn(\"iban={}\", value);", "log.atInfo().addKeyValue(\"token\", value).log(\"x\");",
-                "log.error(\"first \" + lastName);", "log\n  .debug(\n \"x {}\",\n passwordHash);")) {
+                "log.error(\"first \" + lastName);", "log\n  .debug(\n \"x {}\",\n passwordHash);",
+                "log.warn(\"x {}\", MAIL_PASSWORD);", "log.info(\"{}\", firstName);", "log.info(\"{}\", api_key);",
+                "log.atInfo().addKeyValue(\"x\", request.recipient()).log(\"x\");", "log.info(\"{}\", sentTo);")) {
             assertEquals(1, hits("class A { void f() { " + statement + " } }").size(), statement);
         }
     }
@@ -94,25 +101,31 @@ class NeverLogSourceTests {
     @Test
     void findsLoggersOfAnyNameAndAContinuedBuilder() {
         assertEquals(1, hits("class A { static final Logger ACCESS = null; void f() { ACCESS.atInfo().log(iban); } }").size());
-        assertEquals(1, hits("class A { void f() { LoggingEventBuilder b = x(); b = b.addKeyValue(\"email\", v); } }").size());
+        assertEquals(1, hits("class A { void f() { LoggingEventBuilder b = x(); b = b.addKeyValue(\"k\", email); } }").size());
     }
 
     @Test
-    void findsWholeEntities() {
-        for (String body : List.of("void f(BillingDocument d) { log.info(\"doc {}\", d); }",
-                "void f(BillingDocument d) { log.info(\"doc \" + d); }",
-                "void f(BillingDocument d) { log.info(\"doc {}\", d.toString()); }",
-                "void f(BillingDocument d) { log.info(\"doc {}\", String.valueOf(d)); }",
-                "void f(List<BillingDocument> docs) { log.info(\"docs {}\", docs); }",
-                "void f(Item i) { log.info(\"doc {}\", i.getBillingDocument()); }")) {
+    void findsWholeRecordsWithAPersonalComponent() {
+        assertEquals(Set.of("Mail"), personalRecords("record Mail(String recipient, int size) {} "
+                + "record File(Map<String, List<String>> parts, long size) {}"));
+        for (String body : List.of("void f(Mail m) { log.info(\"mail {}\", m); }",
+                "void f(Mail m) { log.info(\"mail \" + m); }",
+                "void f(Mail m) { log.info(\"mail {}\", m.toString()); }",
+                "void f(Models.Mail m) { log.info(\"mail {}\", String.valueOf(m)); }",
+                "void f(List<Mail> mails) { log.info(\"mails {}\", mails); }")) {
             assertEquals(1, hits("class A { " + body + " }").size(), body);
         }
     }
 
     @Test
-    void passesIdsCommentsAndOtherCode() {
-        for (String body : List.of("void f(BillingDocument d) { log.info(\"doc {}\", d.getId()); }",
-                "void f(BillingDocument d) { d.setEmail(email); }",
+    void passesLiteralsOtherWordsCommentsAndOtherCode() {
+        for (String body : List.of("void f() { log.warn(\"Token does not grant the requested tenant\"); }",
+                "void f() { log.warn(\"iban={}\", value); }",
+                "void f() { log.atInfo().addKeyValue(\"token\", value).log(\"x\"); }",
+                "void f() { log.info(\"\"\"\n  email\n  \"\"\"); }",
+                "void f() { log.info(\"{} {} {}\", tokenizer, subscriptionId, nobody); }",
+                "void f(Mail m) { log.info(\"mail {}\", m.size()); }",
+                "void f(Mail m) { m.setEmail(email); }",
                 "void f() { // log.info(\"{}\", email);\n }", "void f() { /* log.info(iban); */ }",
                 "void f(String tenant) { log.warn(\"Mail template of {} not usable\", tenant); }",
                 "String f() { return log.isDebugEnabled() ? email : null; }")) {
@@ -121,21 +134,7 @@ class NeverLogSourceTests {
     }
 
     private static List<Hit> hits(String source) {
-        return scan("A.java", source, Set.of("BillingDocument")).hits();
-    }
-
-    /** Regular classes of the packages {@code domain} and {@code model}; an enum only prints its name. */
-    private static Set<String> modelTypes() throws IOException {
-        Set<String> types = new HashSet<>();
-        for (Path file : javaFiles()) {
-            String path = file.toString().replace('\\', '/');
-            String type = file.getFileName().toString().replace(".java", "");
-            if ((path.contains(MODEL_PACKAGES + "domain/") || path.contains(MODEL_PACKAGES + "model/"))
-                    && !Pattern.compile("\\benum\\s+" + type + "\\b").matcher(Files.readString(file)).find()) {
-                types.add(type);
-            }
-        }
-        return types;
+        return scan("A.java", source, Set.of("Mail")).hits();
     }
 
     private static List<Path> javaFiles() throws IOException {
@@ -144,13 +143,48 @@ class NeverLogSourceTests {
         }
     }
 
-    static Scan scan(String file, String source, Set<String> modelTypes) {
+    /** Records with a component whose name is a never-log word: their {@code toString} prints it. */
+    static Set<String> personalRecords(String source) {
+        Set<String> records = new HashSet<>();
+        Matcher m = RECORD.matcher(withoutComments(source));
+        while (m.find()) {
+            String components = m.group(2);
+            for (String previous = ""; !previous.equals(components); ) {
+                previous = components;
+                components = components.replaceAll("<[^<>]*>", "");
+            }
+            for (String component : components.split(",")) {
+                Matcher name = Pattern.compile("(\\w+)\\s*$").matcher(component);
+                if (name.find() && personal(name.group(1)) != null) {
+                    records.add(m.group(1));
+                }
+            }
+        }
+        return records;
+    }
+
+    /** The never-log word an identifier contains as one or more whole words, or {@code null}. */
+    static String personal(String identifier) {
+        String[] words = WORD_BOUNDARY.split(identifier);
+        for (int from = 0; from < words.length; from++) {
+            StringBuilder joined = new StringBuilder();
+            for (int to = from; to < words.length; to++) {
+                joined.append(words[to].toLowerCase(Locale.ROOT));
+                if (WORDS.contains(joined.toString())) {
+                    return joined.toString();
+                }
+            }
+        }
+        return null;
+    }
+
+    static Scan scan(String file, String source, Set<String> records) {
         String code = withoutComments(source);
         Set<String> loggers = new HashSet<>(Set.of("log"));
         LOGGER_DECLARATION.matcher(code).results().forEach(m -> loggers.add(m.group(1)));
         Pattern call = Pattern.compile("\\b(?:" + String.join("|", loggers) + ")\\s*\\.\\s*"
                 + "(?:trace|debug|info|warn|error|atTrace|atDebug|atInfo|atWarn|atError|addKeyValue|setCause|log)\\s*\\(");
-        Set<String> models = modelVariables(code, modelTypes);
+        Set<String> recordVariables = recordVariables(code, records);
 
         List<Hit> hits = new ArrayList<>();
         int statements = 0;
@@ -161,40 +195,50 @@ class NeverLogSourceTests {
             statements++;
             String statement = code.substring(m.start(), end).replaceAll("\\s+", " ").strip();
             int line = (int) code.substring(0, m.start()).chars().filter(c -> c == '\n').count() + 1;
-            Matcher name = NAMES.matcher(statement);
-            if (name.find()) {
-                hits.add(new Hit(file, line, statement, "names " + name.group()));
+            String withoutLiterals = withoutLiterals(statement);
+            Matcher identifier = IDENTIFIER.matcher(withoutLiterals);
+            while (identifier.find()) {
+                String word = personal(identifier.group());
+                if (word != null) {
+                    hits.add(new Hit(file, line, statement, "names " + word));
+                    break;
+                }
             }
-            String model = wholeModel(STRING.matcher(statement).replaceAll("\"\""), models, modelTypes);
-            if (model != null) {
-                hits.add(new Hit(file, line, statement, "logs the whole " + model));
+            for (String variable : recordVariables) {
+                // the value itself or its toString, not one of its components
+                if (Pattern.compile("(?<![\\w.])" + variable + "\\b(?!\\s*[.(])|(?<![\\w.])" + variable
+                        + "\\s*\\.\\s*toString\\b").matcher(withoutLiterals).find()) {
+                    hits.add(new Hit(file, line, statement, "logs the whole record " + variable));
+                }
             }
         }
         return new Scan(hits, statements);
     }
 
-    /** Names of the variables and parameters of a model type, also inside a collection. */
-    private static Set<String> modelVariables(String code, Set<String> modelTypes) {
-        String types = String.join("|", modelTypes);
-        return Pattern.compile("\\b(?:" + types + ")(?:<[^>]*>|\\[])?\\s+(\\w+)|<\\s*(?:" + types + ")\\s*>\\s+(\\w+)")
+    /** Names of the variables and parameters of a record type of {@code records}, also inside a collection. */
+    private static Set<String> recordVariables(String code, Set<String> records) {
+        if (records.isEmpty()) {
+            return Set.of();
+        }
+        String types = String.join("|", records);
+        return Pattern.compile("\\b(?:" + types + ")(?:\\[])?\\s+(\\w+)|<\\s*(?:\\w+\\.)*(?:" + types + ")\\s*>\\s+(\\w+)")
                 .matcher(code).results().map(r -> r.group(1) != null ? r.group(1) : r.group(2))
                 .collect(Collectors.toSet());
     }
 
-    /** The model a statement prints whole: bare, by toString, or as what a getter returns. */
-    private static String wholeModel(String statement, Set<String> models, Set<String> modelTypes) {
-        for (String variable : models) {
-            // not a part of a longer name, not a method, no member access except toString
-            if (Pattern.compile("(?<![\\w.])" + variable + "(?!\\w)(?!\\s*\\()" + NO_MEMBER).matcher(statement).find()) {
-                return variable;
+    /** The statement with every string, text block and character literal emptied. */
+    private static String withoutLiterals(String statement) {
+        StringBuilder out = new StringBuilder(statement.length());
+        for (int i = 0; i < statement.length(); i++) {
+            char c = statement.charAt(i);
+            if (c == '"' || c == '\'') {
+                i = literalEnd(statement, i);
+                out.append(c).append(c);
+            } else {
+                out.append(c);
             }
         }
-        for (String type : modelTypes) {
-            if (Pattern.compile("\\.get" + type + "\\(\\)" + NO_MEMBER).matcher(statement).find()) {
-                return type;
-            }
-        }
-        return null;
+        return out.toString();
     }
 
     /** Index behind the {@code ;} that ends the statement, skipping strings and characters. */
