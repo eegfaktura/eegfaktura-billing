@@ -61,7 +61,7 @@ class EmailServiceTests {
     @Test
     void sendsToValidRecipientsAndReturnsNoRejects() throws Exception {
         List<String> rejected = emailService.sendEmail(FROM, "anna@example.at", "office@eeg.at",
-                "Rechnung Abr_YQ-2024-3", "<p>Hallo</p>", Map.of());
+                "Rechnung Abr_YQ-2024-3", "<p>Hallo</p>", List.of(), Map.of());
 
         MimeMessage sent = sentMessage();
         assertThat(rejected, is(empty()));
@@ -74,7 +74,7 @@ class EmailServiceTests {
     @Test
     void invalidAndBlankPartsAreRejectedAndNotSent() throws Exception {
         List<String> rejected = emailService.sendEmail(FROM, " anna@example.at ; kaputt ;; bert@example.at",
-                "office@eeg.at;no-at-sign", "S", "<p/>", Map.of());
+                "office@eeg.at;no-at-sign", "S", "<p/>", List.of(), Map.of());
 
         MimeMessage sent = sentMessage();
         assertThat(rejected, contains("kaputt", "no-at-sign"));
@@ -85,7 +85,7 @@ class EmailServiceTests {
 
     @Test
     void noValidCcMeansNoCcHeader() throws Exception {
-        List<String> rejected = emailService.sendEmail(FROM, "anna@example.at", "kaputt", "S", "<p/>", Map.of());
+        List<String> rejected = emailService.sendEmail(FROM, "anna@example.at", "kaputt", "S", "<p/>", List.of(), Map.of());
 
         assertThat(rejected, contains("kaputt"));
         assertThat(sentMessage().getRecipients(Message.RecipientType.CC), is(nullValue()));
@@ -93,14 +93,14 @@ class EmailServiceTests {
 
     @Test
     void nullCcIsAllowed() throws Exception {
-        assertThat(emailService.sendEmail(FROM, "anna@example.at", null, "S", "<p/>", Map.of()), is(empty()));
+        assertThat(emailService.sendEmail(FROM, "anna@example.at", null, "S", "<p/>", List.of(), Map.of()), is(empty()));
         assertThat(sentMessage().getRecipients(Message.RecipientType.CC), is(nullValue()));
     }
 
     @Test
     void noValidRecipientIsAnErrorAndNothingIsSent() {
         MessagingException error = assertThrows(MessagingException.class,
-                () -> emailService.sendEmail(FROM, "kaputt; ", "office@eeg.at", "S", "<p/>", Map.of()));
+                () -> emailService.sendEmail(FROM, "kaputt; ", "office@eeg.at", "S", "<p/>", List.of(), Map.of()));
 
         assertThat(error.getMessage(), containsString("invalid email"));
         verify(mailSender, never()).send(any(MimeMessage.class));
@@ -111,7 +111,7 @@ class EmailServiceTests {
     @ValueSource(strings = {"anna.huber(at)gmx.at", "Anna Huber <anna@x.at>", "anna huber@gmx.at"})
     void invalidRecipientIsNotQuotedInTheError(String to) {
         MessagingException error = assertThrows(MessagingException.class,
-                () -> emailService.sendEmail(FROM, to, null, "S", "<p/>", Map.of()));
+                () -> emailService.sendEmail(FROM, to, null, "S", "<p/>", List.of(), Map.of()));
 
         assertThat(error.getMessage(), is("invalid email (no valid recipient address)"));
     }
@@ -119,7 +119,7 @@ class EmailServiceTests {
     @Test
     void nullRecipientIsAnError() {
         assertThrows(MessagingException.class,
-                () -> emailService.sendEmail(FROM, null, null, "S", "<p/>", Map.of()));
+                () -> emailService.sendEmail(FROM, null, null, "S", "<p/>", List.of(), Map.of()));
         verify(mailSender, never()).send(any(MimeMessage.class));
     }
 
@@ -131,12 +131,12 @@ class EmailServiceTests {
     }
 
     @Test
-    void pngIsEmbeddedInlineAndOtherFilesAreAttachedAsPdf() throws Exception {
+    void inlineImageIsEmbeddedAndAttachmentsAreAttachedAsPdf() throws Exception {
         Map<String, byte[]> attachments = new LinkedHashMap<>();
-        attachments.put("attachment-logo.png", new byte[]{1, 2, 3});
         attachments.put("Rechnung-R202400001.pdf", new byte[]{4, 5});
 
         emailService.sendEmail(FROM, "anna@example.at", null, "S", "<p>Hallo <img src=\"cid:x\"/></p>",
+                List.of(new EmailService.InlineImage("attachment-logo.png", new byte[]{1, 2, 3}, "image/png")),
                 attachments);
 
         List<MimeBodyPart> parts = leafParts(sentMessage());

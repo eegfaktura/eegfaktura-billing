@@ -7,7 +7,6 @@ import jakarta.transaction.Transactional;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
-import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.util.HtmlUtils;
 import org.vfeeg.eegfaktura.billing.util.EmailAddressUtil;
 
@@ -33,19 +32,9 @@ public class EmailService {
      * Addresses are normalized per ';'-part (unicode strip incl. NBSP)
      * and validated against the shared suite-wide rule; the normalized
      * values are what actually gets sent. No valid "to" at all is an
-     * error.
+     * error. Inline images of any type (e.g. the images of an EEG mail text) go into the HTML part, the
+     * attachments (the document PDF) are added as PDF.
      */
-    public List<String> sendEmail(
-            String from , String to, String cc, String subject, String htmlBody,
-            Map<String, byte[]> attachments) throws MessagingException {
-        return sendEmail(from, to, cc, subject, htmlBody, List.of(), attachments);
-    }
-
-    /** An image embedded in the HTML part, referenced there as {@code cid:<contentId>}. */
-    public record InlineImage(String contentId, byte[] data, String mimeType) {
-    }
-
-    /** As above, plus inline images of any type (e.g. the images of an EEG mail text). */
     public List<String> sendEmail(
             String from , String to, String cc, String subject, String htmlBody,
             List<InlineImage> inlineImages, Map<String, byte[]> attachments) throws MessagingException {
@@ -70,9 +59,7 @@ public class EmailService {
         helper.setTo(validTo.toArray(new String[0]));
         if (!validCc.isEmpty()) {
             helper.setCc(validCc.toArray(new String[0]));
-            // Remove replyTo and return Path header because it might increase SPAM score
-            // helper.setReplyTo(ccArray[0]);
-            // message.setHeader("return-path", ccArray[0]);
+            // no reply-to / return-path to the cc address: it might increase the spam score
         }
         helper.setSubject(subject);
         // multipart/alternative: a plain-text part next to the HTML. A lone
@@ -83,19 +70,18 @@ public class EmailService {
             helper.addInline(image.contentId(), new ByteArrayDataSource(image.data(), image.mimeType()));
         }
         for (Map.Entry<String, byte[]> attachment : attachments.entrySet()) {
-            if (attachment.getKey().contains(".png")) {
-                helper.addInline(attachment.getKey(), new ByteArrayDataSource(attachment.getValue(),
-                        MimeTypeUtils.IMAGE_PNG_VALUE));
-            } else {
-                helper.addAttachment(attachment.getKey(), new ByteArrayDataSource(attachment.getValue(),
-                        "application/pdf"));
-            }
+            helper.addAttachment(attachment.getKey(), new ByteArrayDataSource(attachment.getValue(),
+                    "application/pdf"));
         }
         // Mark system-generated mail so filters don't treat it like bulk/personal mail.
         message.setHeader("Auto-Submitted", "auto-generated");
         emailSender.send(message);
 
         return rejected;
+    }
+
+    /** An image embedded in the HTML part, referenced there as {@code cid:<contentId>}. */
+    public record InlineImage(String contentId, byte[] data, String mimeType) {
     }
 
     /**
