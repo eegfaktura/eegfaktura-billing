@@ -2,7 +2,10 @@ package org.vfeeg.eegfaktura.billing.logging;
 
 import org.slf4j.MDC;
 
-/** MDC keys (ECS names) the service sets per request; every log line of the request carries them. */
+/**
+ * Names (ECS) of the service's own log fields: MDC keys set per request, which every log line of the request carries,
+ * and keys of a line's key-value pairs ({@link #EVENT_ACTION}, {@link #LOG_EFFECTIVE_LEVEL}).
+ */
 public final class LogFields {
 
     public static final String REQUEST_ID = "request.id";
