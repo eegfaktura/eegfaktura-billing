@@ -344,7 +344,8 @@ public class MailTemplateService {
                     mail.html(), mail.inlineImages(), Map.of());
         } catch (MessagingException | org.springframework.mail.MailException e) {
             // the SMTP error names the recipient (the logged-in user's address): the log formatter masks it
-            log.warn("Test mail for {} not sent: {}", tenant, e.getMessage());
+            // no tenant in the text: it is the raw header, the line carries the checked tenant.id
+            log.warn("Test mail not sent: {}", e.getMessage());
             throw new TestMailFailedException(e);
         }
         return new TestResult(to);

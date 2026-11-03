@@ -127,6 +127,35 @@ class MailTemplateServiceTest {
         String text = EmailService.htmlToPlainText(html.getValue());
         assertTrue(text.endsWith("Eigener Text\n" + MailTemplateCatalog.FIXED_FOOTER), text);
     }
+    /** The tenant is derived from the header: it is not in the text of the warning (tenant.id is the checked field). */
+    @Test
+    @SuppressWarnings("unchecked")
+    void failedTestMailWarningNamesNeitherTenantNorAddress() throws Exception {
+        when(emailService.sendEmail(anyString(), anyString(), any(), anyString(), anyString(), any(List.class),
+                any(Map.class))).thenThrow(new org.springframework.mail.MailSendException("550 <me@example.com> rejected"));
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(MailTemplateService.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            assertThrows(MailTemplateService.TestMailFailedException.class,
+                    () -> service.sendTest(TENANT, MailTemplateCatalog.BILLING_DOCUMENT,
+                            new TestRequest(MailTemplateService.RECIPIENT_ME, "x", "<p>x</p>", null), "me@example.com"));
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        assertEquals(1, appender.list.size(), "" + appender.list);
+        ch.qos.logback.classic.spi.ILoggingEvent warning = appender.list.get(0);
+        assertEquals(ch.qos.logback.classic.Level.WARN, warning.getLevel());
+        assertFalse(warning.getFormattedMessage().contains(TENANT), warning.getFormattedMessage());
+        String line = new org.vfeeg.eegfaktura.billing.logging.EcsTextFormatter(
+                new org.springframework.mock.env.MockEnvironment()).format(warning);
+        assertFalse(line.contains("me@example.com"), line);
+    }
+
     @Test
     void linkRulesAreA400InPreviewAndTestMailWithAMessage() {
         String shortener = "<p><a href=\"https://bit.ly/x\">Portal</a></p>";
