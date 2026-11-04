@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,7 +65,7 @@ class FinalRunOverlapTests extends BillingScenarioBase {
     }
 
     private void billFinal(String period) {
-        billingService.doBilling(params(period, false));
+        BillingRuns.bill(billingService, params(period, false));
     }
 
     @Test
@@ -143,8 +144,8 @@ class FinalRunOverlapTests extends BillingScenarioBase {
     @Test
     void aPreviewIsNotRefusedAndDoesNotRefuse() {
         billFinal(MARCH);
-        billingService.doBilling(params(FIRST_QUARTER, true));
-        billingService.doBilling(params(SECOND_QUARTER, true));
+        BillingRuns.bill(billingService, params(FIRST_QUARTER, true));
+        BillingRuns.bill(billingService, params(SECOND_QUARTER, true));
 
         billFinal(SECOND_QUARTER);
 

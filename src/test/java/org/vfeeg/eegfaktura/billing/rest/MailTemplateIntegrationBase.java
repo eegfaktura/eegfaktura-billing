@@ -21,7 +21,8 @@ import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.vfeeg.eegfaktura.billing.support.PostgresContainerHolder;
 import org.vfeeg.eegfaktura.billing.repos.BillingConfigRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingMailTemplateRepository;
 import org.vfeeg.eegfaktura.billing.security.Authority;
@@ -84,8 +85,9 @@ abstract class MailTemplateIntegrationBase {
     }
 
     // started here, not via @Container: the class-level @Sql below runs before the Testcontainers
-    // extension would start it
-    public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
+    // extension would start it. Own database, not PostgresContainerHolder: that @Sql commits the master data of
+    // TE100100 once per subclass, which the TE100100 tests on the shared database would bill twice.
+    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer(PostgresContainerHolder.IMAGE)
             .withUsername("sa")
             .withPassword("sa")
             .withReuse(true);

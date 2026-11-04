@@ -2,3 +2,4 @@
 /etc/
 *.csv
 known-errors.md
+/.idea/

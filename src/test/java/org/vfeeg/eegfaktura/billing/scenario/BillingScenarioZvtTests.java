@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import org.junit.jupiter.api.Test;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
 import org.vfeeg.eegfaktura.billing.model.Allocation;
@@ -173,7 +174,7 @@ class BillingScenarioZvtTests extends BillingScenarioBase {
         DoBillingParams params = world.params(PERIOD_TYPE, PERIOD, preview);
         params.setClearingDocumentDate(REFERENCE_DATE);
         params.setAllocations(allocations);
-        return billingService.doBilling(params);
+        return BillingRuns.bill(billingService, params);
     }
 
     private void assertRefused(BillingRunFixture world, Allocation allocation, String reason) {

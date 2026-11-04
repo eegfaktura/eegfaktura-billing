@@ -57,8 +57,7 @@ public final class EndpointTable {
             image(DELETE, CONFIGS + "/{id}/logoImage", false),
             image(DELETE, CONFIGS + "/{id}/footerImage", false),
             image(GET, CONFIGS + "/{id}/logoImage", false),
-            // demands a multipart part although it is a GET (known-errors #21); the matrix sends one
-            image(GET, CONFIGS + "/{id}/footerImage", true),
+            image(GET, CONFIGS + "/{id}/footerImage", false),
             // BillingDocumentResource (6)
             row(BillingDocumentResource.class, GET, "/api/billingDocuments/tenant/{id}/{year}", PATH_TENANT, 200),
             row(BillingDocumentResource.class, GET, "/api/billingDocuments/tenant/{tenantId}/joiningFeeState",

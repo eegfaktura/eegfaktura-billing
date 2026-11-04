@@ -18,11 +18,6 @@ import java.util.UUID;
 
 public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
 
-    List<BillingRun> findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifierAndRunStatus(String tenantId,
-                                                                                                String billingPeriodType,
-                                                                                                String billingPeriodIdentifier,
-                                                                                                BillingRunStatus runStatus);
-
     List<BillingRun> findByTenantIdIgnoreCaseAndRunStatus(String tenantId, BillingRunStatus runStatus);
 
     List<BillingRun> findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(String tenantId,

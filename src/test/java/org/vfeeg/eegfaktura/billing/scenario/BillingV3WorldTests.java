@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -181,7 +182,7 @@ class BillingV3WorldTests extends BillingScenarioBase {
             allocation.setAllocationKWh(a.get("allocationKWh").decimalValue());
             return allocation;
         }).toArray(Allocation[]::new));
-        return billingService.doBilling(params);
+        return BillingRuns.bill(billingService, params);
     }
 
     private static String code(String variant) {

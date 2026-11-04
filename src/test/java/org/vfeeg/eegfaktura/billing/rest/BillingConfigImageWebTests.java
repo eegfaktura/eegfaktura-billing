@@ -1,6 +1,5 @@
 package org.vfeeg.eegfaktura.billing.rest;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpHeaders;
@@ -76,8 +75,7 @@ class BillingConfigImageWebTests extends BillingConfigWebSlice {
                 .andExpect(content().bytes(Endpoint.PNG));
     }
 
-    /** F10: the footer download demands a multipart part {@code file}; a plain GET must work. */
-    @Disabled("known-errors #21")
+    /** F10: a plain GET of the footer works (no multipart part needed). */
     @Test
     void footerDownloadWorksWithoutAnUpload() throws Exception {
         stubRecordsOf(OWN);
@@ -88,8 +86,7 @@ class BillingConfigImageWebTests extends BillingConfigWebSlice {
                 .andExpect(content().bytes(Endpoint.PNG));
     }
 
-    /** F10: a config without a logo must answer 404, not 500. */
-    @Disabled("known-errors #21")
+    /** F10: a config without a logo answers 404, not 500. */
     @Test
     void logoDownloadWithoutALogoIsNotFound() throws Exception {
         BillingConfigDTO withoutLogo = config(OWN);

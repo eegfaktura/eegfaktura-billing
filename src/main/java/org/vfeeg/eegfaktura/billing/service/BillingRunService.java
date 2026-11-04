@@ -1,18 +1,15 @@
 package org.vfeeg.eegfaktura.billing.service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 import jakarta.transaction.Transactional;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
-import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentItemRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
@@ -55,13 +52,6 @@ public class BillingRunService {
         this.fileDataRepository = fileDataRepository;
     }
 
-    public List<BillingRunDTO> findAll() {
-        final List<BillingRun> billingRuns = billingRunRepository.findAll(Sort.by("id"));
-        return billingRuns.stream()
-                .map((billingRun) -> mapToDTO(billingRun, new BillingRunDTO()))
-                .toList();
-    }
-
     public List<BillingRunDTO> findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(
             String tenantId, String clearingPeriodType, String clearingPeriodIdentifier) {
 
@@ -78,19 +68,6 @@ public class BillingRunService {
         return billingRunRepository.findById(id)
                 .map(billingRun -> mapToDTO(billingRun, new BillingRunDTO()))
                 .orElseThrow(NotFoundException::new);
-    }
-
-    public UUID create(final BillingRunDTO billingRunDTO) {
-        final BillingRun billingRun = new BillingRun();
-        mapToEntity(billingRunDTO, billingRun);
-        return billingRunRepository.save(billingRun).getId();
-    }
-
-    public void update(final UUID id, final BillingRunDTO billingRunDTO) {
-        final BillingRun billingRun = billingRunRepository.findById(id)
-                .orElseThrow(NotFoundException::new);
-        mapToEntity(billingRunDTO, billingRun);
-        billingRunRepository.save(billingRun);
     }
 
     /**
@@ -142,22 +119,6 @@ public class BillingRunService {
         billingRunDTO.setNumberOfInvoices(billingRun.getNumberOfInvoices());
         billingRunDTO.setNumberOfCreditNotes(billingRun.getNumberOfCreditNotes());
         return billingRunDTO;
-    }
-
-    private BillingRun mapToEntity(final BillingRunDTO billingRunDTO, final BillingRun billingRun) {
-        billingRun.setClearingPeriodType(billingRunDTO.getClearingPeriodType());
-        billingRun.setClearingPeriodIdentifier(billingRunDTO.getClearingPeriodIdentifier());
-        billingRun.setTenantId(billingRunDTO.getTenantId());
-        billingRun.setRunStatus(billingRunDTO.getRunStatus());
-        billingRun.setRunStatusDateTime(billingRunDTO.getRunStatusDateTime());
-        billingRun.setMailStatus(billingRunDTO.getMailStatus());
-        billingRun.setMailStatusDateTime(billingRunDTO.getMailStatusDateTime());
-        billingRun.setSendMailProtocol(billingRunDTO.getSendMailProtocol());
-        billingRun.setSepaStatus(billingRunDTO.getSepaStatus());
-        billingRun.setSepaStatusDateTime(billingRunDTO.getSepaStatusDateTime());
-        billingRun.setNumberOfInvoices(billingRunDTO.getNumberOfInvoices());
-        billingRun.setNumberOfCreditNotes(billingRunDTO.getNumberOfCreditNotes());
-        return billingRun;
     }
 
 

@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing;
 
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,7 +57,7 @@ class BuilderCrossCheckTests {
         assertThat(fixture.masterCount(), is(5));
         fixture.createConfig(billingConfigService, fileDataRepository, false);
 
-        DoBillingResults results = billingService.doBilling(fixture.params("QUARTERLY", "Abr_YQ-2023-3", true));
+        DoBillingResults results = BillingRuns.bill(billingService, fixture.params("QUARTERLY", "Abr_YQ-2023-3", true));
         assertThat(results.getAbstractText(), is("Abrechnung (Vorschau): erfolgreich abgeschlossen."));
         assertThat(results.getBillingRunId(), notNullValue());
         assertThat(results.getParticipantAmounts().size(), is(3));

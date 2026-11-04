@@ -43,7 +43,8 @@ repository, file (with lines), commit and date in `source`.
 - Not pinned here: the failure texts of `POST /api/billing` that both callers parse
   (`Abrechnung fehlgeschlagen…`, `bereits abgeschlossen`, `Ungültiges Belegdatum`) — M3's
   `BillingScenarioErrorPathTests` asserts them; v3 also maps a 500 with `exception`
-  `AccessDeniedException` to "not found" (`known-errors.md` #20).
+  `AccessDeniedException` to "not found" (`known-errors.md` #20). Since BI-CQ-6 billing answers a refused
+  tenant with **403** (same body, `exception` `AccessDeniedException`); v3's mapping has to follow.
 
 ## Refresh when a neighbour changes
 

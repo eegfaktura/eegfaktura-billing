@@ -2,7 +2,6 @@ package org.vfeeg.eegfaktura.billing.service;
 
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingConfig;
@@ -14,7 +13,6 @@ import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
 import org.vfeeg.eegfaktura.billing.util.FileTypeDetector;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -110,13 +108,6 @@ public class BillingConfigService {
             billingConfig.setFooterImageFileDataId(fileDataId);
         }
         billingConfigRepository.save(billingConfig);
-    }
-
-    public List<BillingConfigDTO> findAll() {
-        final List<BillingConfig> billingConfigs = billingConfigRepository.findAll(Sort.by("id"));
-        return billingConfigs.stream()
-                .map(billingConfig -> mapToDTO(billingConfig, new BillingConfigDTO()))
-                .toList();
     }
 
     public BillingConfigDTO get(final UUID id) {

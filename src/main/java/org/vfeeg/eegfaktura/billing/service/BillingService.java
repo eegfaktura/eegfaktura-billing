@@ -216,19 +216,8 @@ public class BillingService {
     }
 
     /**
-     * Synchrone Komposition aus Annahme + Berechnung - fuer Tests und
-     * interne Aufrufer. Der asynchrone Pfad laeuft ueber acceptBillingRun /
-     * claimBillingRun / BillingRunLauncher.
-     */
-    @Transactional
-    public DoBillingResults doBilling(DoBillingParams doBillingParams) {
-        BillingRun billingRun = acceptBillingRun(doBillingParams);
-        return executeBillingRun(billingRun.getId(), doBillingParams);
-    }
-
-    /**
-     * Rechen-Teil des Abrechnungslaufs (laeuft asynchron im Launcher bzw.
-     * synchron via doBilling). Exceptions propagieren - der fruehere
+     * Rechen-Teil des Abrechnungslaufs (laeuft asynchron im Launcher nach
+     * acceptBillingRun / claimBillingRun). Exceptions propagieren - der fruehere
      * catch-all lebt jetzt im BillingRunLauncher (-> Status FAILED).
      */
     @Transactional

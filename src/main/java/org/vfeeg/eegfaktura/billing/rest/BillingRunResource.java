@@ -45,11 +45,6 @@ public class BillingRunResource {
         this.billingRunActionLock = billingRunActionLock;
     }
 
-//    @GetMapping
-//    public ResponseEntity<List<BillingRunDTO>> getAllBillingRuns() {
-//        return ResponseEntity.ok(billingRunService.findAll());
-//    }
-
     @GetMapping("/{tenantId}/{clearingPeriodType}/{clearingPeriodIdentifier}")
     public ResponseEntity<List<BillingRunDTO>> getAllBillingRuns(
             @PathVariable(name = "tenantId") final String tenantId,
@@ -114,8 +109,6 @@ public class BillingRunResource {
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
         return billingRunActionLock.export(id, () -> {
-                List<BillingDocumentDTO> billingDocumentDTOs = billingDocumentService.findByBillingRunId(id);
-
                 ByteArrayResource resource = new ByteArrayResource(
                         billingDocumentArchiveService.createArchive(id));
 
@@ -147,21 +140,6 @@ public class BillingRunResource {
         });
 
     }
-
-//    @PostMapping
-//    @ApiResponse(responseCode = "201")
-//    public ResponseEntity<UUID> createBillingRun(
-//            @RequestBody @Valid final BillingRunDTO billingRunDTO) {
-//        final UUID createdId = billingRunService.create(billingRunDTO);
-//        return new ResponseEntity<>(createdId, HttpStatus.CREATED);
-//    }
-//
-//    @PutMapping("/{id}")
-//    public ResponseEntity<Void> updateBillingRun(@PathVariable(name = "id") final UUID id,
-//            @RequestBody @Valid final BillingRunDTO billingRunDTO) {
-//        billingRunService.update(id, billingRunDTO);
-//        return ResponseEntity.ok().build();
-//    }
 
     @DeleteMapping("/{id}")
     @ApiResponse(responseCode = "204")

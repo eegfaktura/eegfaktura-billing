@@ -40,8 +40,31 @@ this changelog highlights the changes relevant for overview and operations.
 ### Fixed
 - **`request.id` and `tenant.id` also on the lines of an error dispatch after `sendError`** (L12); the lines of a
   request and of the asynchronous billing run already carried them and are now covered by tests.
+- **A refused tenant answers 403, unreadable JSON and a malformed id 400 - in every controller** (BI-CQ-6,
+  known-errors #20, #31): until now only the mail template API did so; every other endpoint answered 500 through the
+  catch-all handler. The body is the usual `ErrorResponse` (`exception` `AccessDeniedException`, message
+  `Access denied`, resp. `HttpMessageNotReadableException` / `MethodArgumentTypeMismatchException`). **Callers:**
+  eegfaktura-v3 maps a 500 with `AccessDeniedException` to "not found" (`BillingErrors.kt`) and has to map the 403;
+  eegfaktura-web shows its generic error either way. The mail template API keeps its own 400 body.
+- **The JWT public key is read once at start; without a readable key the service does not start** (BI-CQ-23):
+  before, the key file was read on every request and a missing or broken file refused every token with 403 while the
+  service looked healthy. The claims checked are unchanged. **Operations:** after a key rotation or after the realm
+  certificate is written to the key file, billing must be restarted; a local run with the `dev` profile also needs a
+  readable `app.jwtpublickeyfile`.
+- `mvnw` honours the caller's `JAVA_HOME` (BI-CQ-34); it blanked it and built with the first `javac` on `PATH`.
 
 ### Changed
+- **Code-quality review 2026-11-03, threshold A** (BI-CQ-*): removed the commented-out generated endpoints and the
+  generated CRUD service methods without a caller, an unused repository finder, the unused document query of the
+  archive export, the six-argument `sendEmail` and its `.png` attachment branch, unused Jasper template parameters,
+  three application properties without effect (`dbcp2.validation-query`, `new_generator_mappings`,
+  `spring.mvc.async.request-timeout`), `HELP.md`, the committed `.idea/`, `hamcrest-all` 1.3; `datafaker` is test
+  scope now. No route, response field or printed value changed. Tests: test properties are loaded on top of the
+  main file and validate the schema (`ddl-auto=validate`) like production; the scenario tests run a billing run
+  through accept, claim and execute as BillingResource does, without the launcher's executor
+  (`BillingService.doBilling` is gone); the Postgres tests
+  share one container (except the mail template API tests and the legacy view); stale `@Disabled` known-error tests
+  are enabled.
 - **Logging code-quality review** (eegfaktura-dev#45 Q1–Q8): `LogFormatTests` test the formatters and the start line
   directly, without Spring restarts or global logging state (Q3); `NoDefaultUserTests` without output capture (Q4);
   refusal lines found by logger and level instead of their text (Q5); `RequestLogFilter` catches `Throwable` with

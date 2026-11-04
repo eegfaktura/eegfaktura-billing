@@ -120,8 +120,6 @@ if $mingw ; then
     JAVA_HOME="`(cd "$JAVA_HOME"; pwd)`"
 fi
 
-JAVA_HOME=
-
 if [ -z "$JAVA_HOME" ]; then
   javaExecutable="`which javac`"
   if [ -n "$javaExecutable" ] && ! [ "`expr \"$javaExecutable\" : '\([^ ]*\)'`" = "no" ]; then

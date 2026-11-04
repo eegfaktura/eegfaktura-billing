@@ -1,13 +1,10 @@
 package org.vfeeg.eegfaktura.billing.service;
 
 import jakarta.transaction.Transactional;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
-import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
-import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
 import java.time.LocalDate;
@@ -23,19 +20,9 @@ import static java.time.temporal.TemporalAdjusters.lastDayOfYear;
 public class BillingDocumentService {
 
     private final BillingDocumentRepository billingDocumentRepository;
-    private final BillingRunRepository billingRunRepository;
 
-    public BillingDocumentService(final BillingDocumentRepository billingDocumentRepository,
-            final BillingRunRepository billingRunRepository) {
+    public BillingDocumentService(final BillingDocumentRepository billingDocumentRepository) {
         this.billingDocumentRepository = billingDocumentRepository;
-        this.billingRunRepository = billingRunRepository;
-    }
-
-    public List<BillingDocumentDTO> findAll() {
-        final List<BillingDocument> billingDocuments = billingDocumentRepository.findAll(Sort.by("id"));
-        return billingDocuments.stream()
-                .map((billingDocument) -> mapToDTO(billingDocument, new BillingDocumentDTO()))
-                .toList();
     }
 
     public List<BillingDocumentDTO> findByTenantIdAndYear(String tenantId, Integer year) {
@@ -62,19 +49,6 @@ public class BillingDocumentService {
         return billingDocumentRepository.findById(id)
                 .map(billingDocument -> mapToDTO(billingDocument, new BillingDocumentDTO()))
                 .orElseThrow(NotFoundException::new);
-    }
-
-    public UUID create(final BillingDocumentDTO billingDocumentDTO) {
-        final BillingDocument billingDocument = new BillingDocument();
-        mapToEntity(billingDocumentDTO, billingDocument);
-        return billingDocumentRepository.save(billingDocument).getId();
-    }
-
-    public void update(final UUID id, final BillingDocumentDTO billingDocumentDTO) {
-        final BillingDocument billingDocument = billingDocumentRepository.findById(id)
-                .orElseThrow(NotFoundException::new);
-        mapToEntity(billingDocumentDTO, billingDocument);
-        billingDocumentRepository.save(billingDocument);
     }
 
     public void delete(final UUID id) {
@@ -136,62 +110,6 @@ public class BillingDocumentService {
         billingDocumentDTO.setBillingRunId(billingDocument.getBillingRun() == null ? null
                 : billingDocument.getBillingRun().getId());
         return billingDocumentDTO;
-    }
-
-    private BillingDocument mapToEntity(final BillingDocumentDTO billingDocumentDTO,
-            final BillingDocument billingDocument) {
-        billingDocument.setDocumentNumber(billingDocumentDTO.getDocumentNumber());
-        billingDocument.setDocumentDate(billingDocumentDTO.getDocumentDate());
-        billingDocument.setStatus(billingDocumentDTO.getStatus());
-        billingDocument.setClearingPeriodType(billingDocumentDTO.getClearingPeriodType());
-        billingDocument.setBeforeItemsText(billingDocumentDTO.getBeforeItemsText());
-        billingDocument.setAfterItemsText(billingDocumentDTO.getAfterItemsText());
-        billingDocument.setTermsText(billingDocumentDTO.getTermsText());
-        billingDocument.setFooterText(billingDocumentDTO.getFooterText());
-        billingDocument.setTenantId(billingDocumentDTO.getTenantId());
-        billingDocument.setParticipantId(billingDocumentDTO.getParticipantId());
-        billingDocument.setRecipientName(billingDocumentDTO.getRecipientName());
-        billingDocument.setRecipientFirstname(billingDocumentDTO.getRecipientFirstname());
-        billingDocument.setRecipientLastname(billingDocumentDTO.getRecipientLastname());
-        billingDocument.setRecipientParticipantNumber(billingDocumentDTO.getRecipientParticipantNumber());
-        billingDocument.setRecipientAddressLine1(billingDocumentDTO.getRecipientAddressLine1());
-        billingDocument.setRecipientAddressLine2(billingDocumentDTO.getRecipientAddressLine2());
-        billingDocument.setRecipientAddressLine3(billingDocumentDTO.getRecipientAddressLine3());
-        billingDocument.setRecipientBankIban(billingDocumentDTO.getRecipientBankIban());
-        billingDocument.setRecipientBankName(billingDocumentDTO.getRecipientBankName());
-        billingDocument.setRecipientBankOwner(billingDocumentDTO.getRecipientBankOwner());
-        billingDocument.setRecipientSepaMandateReference(billingDocumentDTO.getRecipientSepaMandateReference());
-        billingDocument.setRecipientSepaMandateIssueDate(billingDocumentDTO.getRecipientSepaMandateIssueDate());
-        billingDocument.setRecipientSepaDirectDebit(billingDocumentDTO.getRecipientSepaDirectDebit());
-        billingDocument.setRecipientEmail(billingDocumentDTO.getRecipientEmail());
-        billingDocument.setRecipientTaxId(billingDocumentDTO.getRecipientTaxId());
-        billingDocument.setRecipientVatId(billingDocumentDTO.getRecipientVatId());
-        billingDocument.setIssuerName(billingDocumentDTO.getIssuerName());
-        billingDocument.setIssuerAddressLine1(billingDocumentDTO.getIssuerAddressLine1());
-        billingDocument.setIssuerAddressLine2(billingDocumentDTO.getIssuerAddressLine2());
-        billingDocument.setIssuerAddressLine3(billingDocumentDTO.getIssuerAddressLine3());
-        billingDocument.setIssuerPhone(billingDocumentDTO.getIssuerPhone());
-        billingDocument.setIssuerMail(billingDocumentDTO.getIssuerMail());
-        billingDocument.setIssuerWebsite(billingDocumentDTO.getIssuerWebsite());
-        billingDocument.setIssuerTaxId(billingDocumentDTO.getIssuerTaxId());
-        billingDocument.setIssuerVatId(billingDocumentDTO.getIssuerVatId());
-        billingDocument.setIssuerCompanyRegisterNumber(billingDocumentDTO.getIssuerCompanyRegisterNumber());
-        billingDocument.setIssuerBankName(billingDocumentDTO.getIssuerBankName());
-        billingDocument.setIssuerBankIBAN(billingDocumentDTO.getIssuerBankIBAN());
-        billingDocument.setIssuerBankOwner(billingDocumentDTO.getIssuerBankOwner());
-        billingDocument.setIssuerBankCreditorId(billingDocumentDTO.getIssuerBankCreditorId());
-        billingDocument.setVat1Percent(billingDocumentDTO.getVat1Percent());
-        billingDocument.setVat1SumInEuro(billingDocumentDTO.getVat1SumInEuro());
-        billingDocument.setVat2Percent(billingDocumentDTO.getVat2Percent());
-        billingDocument.setVat2SumInEuro(billingDocumentDTO.getVat2SumInEuro());
-        billingDocument.setNetAmountInEuro(billingDocumentDTO.getNetAmountInEuro());
-        billingDocument.setGrossAmountInEuro(billingDocumentDTO.getGrossAmountInEuro());
-        billingDocument.setClearingPeriodIdentifier(billingDocumentDTO.getClearingPeriodIdentifier());
-        billingDocument.setBillingDocumentType(billingDocumentDTO.getBillingDocumentType());
-        final BillingRun billingRun = billingDocumentDTO.getBillingRunId() == null ? null : billingRunRepository.findById(billingDocumentDTO.getBillingRunId())
-                .orElseThrow(() -> new NotFoundException("billingRunId not found"));
-        billingDocument.setBillingRun(billingRun);
-        return billingDocument;
     }
 
 }

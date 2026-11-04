@@ -6,12 +6,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartFile;
-import org.vfeeg.eegfaktura.billing.model.ErrorResponse;
 import org.vfeeg.eegfaktura.billing.model.MailTemplateModels.Conflict;
 import org.vfeeg.eegfaktura.billing.model.MailTemplateModels.MailFile;
 import org.vfeeg.eegfaktura.billing.model.MailTemplateModels.MailTemplate;
@@ -47,13 +45,10 @@ public class MailTemplateResource {
         this.mailTemplateService = mailTemplateService;
     }
 
+    /** The tenant of the request; MailTemplateService refuses a missing one and normalises it. */
     private static String requestTenant() {
         var current = TenantContext.getCurrentTenant();
-        String tenant = current == null ? null : current.getAuthority();
-        if (tenant == null || tenant.isBlank()) {
-            throw new AccessDeniedException("No tenant");
-        }
-        return tenant;
+        return current == null ? null : current.getAuthority();
     }
 
     @GetMapping
@@ -127,7 +122,7 @@ public class MailTemplateResource {
         return ResponseEntity.badRequest().body(new ValidationErrors(e.getErrors()));
     }
 
-    /** Unreadable JSON or a malformed file id: 400 instead of the global 500. */
+    /** Unreadable JSON or a malformed file id: 400 in the shape of this API's validation errors (section H). */
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
     public ResponseEntity<ValidationErrors> handleBadRequest(final Exception e) {
         String field = e instanceof MethodArgumentTypeMismatchException mismatch ? mismatch.getName() : "body";
@@ -143,15 +138,5 @@ public class MailTemplateResource {
     @ExceptionHandler(MailTemplateService.ConflictException.class)
     public ResponseEntity<Conflict> handleConflict(final MailTemplateService.ConflictException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new Conflict(e.getMessage(), e.getCurrentVersion()));
-    }
-
-    /** Wrong tenant: 403 with a generic message (the global handler would answer 500). */
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDenied(final AccessDeniedException e) {
-        final ErrorResponse errorResponse = new ErrorResponse();
-        errorResponse.setHttpStatus(HttpStatus.FORBIDDEN.value());
-        errorResponse.setException(AccessDeniedException.class.getSimpleName());
-        errorResponse.setMessage("Access denied");
-        return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
     }
 }

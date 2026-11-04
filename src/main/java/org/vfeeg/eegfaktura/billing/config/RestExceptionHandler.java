@@ -5,11 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 import org.vfeeg.eegfaktura.billing.logging.LogText;
 import org.vfeeg.eegfaktura.billing.service.BillingRunActionLock;
@@ -25,11 +28,8 @@ public class RestExceptionHandler {
 
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(final NotFoundException exception) {
-        final ErrorResponse errorResponse = new ErrorResponse();
-        errorResponse.setHttpStatus(HttpStatus.NOT_FOUND.value());
-        errorResponse.setException(exception.getClass().getSimpleName());
-        errorResponse.setMessage(exception.getMessage());
-        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(errorResponse(HttpStatus.NOT_FOUND.value(), exception.getClass(),
+                exception.getMessage()), HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -45,20 +45,30 @@ public class RestExceptionHandler {
                     return fieldError;
                 })
                 .toList();
-        final ErrorResponse errorResponse = new ErrorResponse();
-        errorResponse.setHttpStatus(HttpStatus.BAD_REQUEST.value());
-        errorResponse.setException(exception.getClass().getSimpleName());
+        final ErrorResponse errorResponse = errorResponse(HttpStatus.BAD_REQUEST.value(), exception.getClass(), null);
         errorResponse.setFieldErrors(fieldErrors);
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    /** A refused tenant (TenantContext.validateTenant): 403 with a generic message. */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(final AccessDeniedException exception) {
+        return new ResponseEntity<>(errorResponse(HttpStatus.FORBIDDEN.value(), AccessDeniedException.class,
+                "Access denied"), HttpStatus.FORBIDDEN);
+    }
+
+    /** Unreadable JSON or a malformed path/query value (e.g. an id that is no UUID): the caller's error. */
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ErrorResponse> handleBadRequest(final Exception exception) {
+        return new ResponseEntity<>(errorResponse(HttpStatus.BAD_REQUEST.value(), exception.getClass(), null),
+                HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatus(
             final ResponseStatusException exception) {
-        final ErrorResponse errorResponse = new ErrorResponse();
-        errorResponse.setHttpStatus(exception.getStatusCode().value());
-        errorResponse.setException(exception.getClass().getSimpleName());
-        errorResponse.setMessage(exception.getMessage());
+        final ErrorResponse errorResponse = errorResponse(exception.getStatusCode().value(), exception.getClass(),
+                exception.getMessage());
         if (exception instanceof BillingRunActionLock.BusyException
                 || exception instanceof BillingRunService.RunNotDeletableException) {
             errorResponse.setError(exception.getReason()); // shown by the web as it is
@@ -79,10 +89,16 @@ public class RestExceptionHandler {
         } else {
             log.error("Unhandled exception", exception);
         }
+        return new ResponseEntity<>(errorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), exception.getClass(),
+                null), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    private static ErrorResponse errorResponse(final int status, final Class<?> exception, final String message) {
         final ErrorResponse errorResponse = new ErrorResponse();
-        errorResponse.setHttpStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-        errorResponse.setException(exception.getClass().getSimpleName());
-        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+        errorResponse.setHttpStatus(status);
+        errorResponse.setException(exception.getSimpleName());
+        errorResponse.setMessage(message);
+        return errorResponse;
     }
 
 }

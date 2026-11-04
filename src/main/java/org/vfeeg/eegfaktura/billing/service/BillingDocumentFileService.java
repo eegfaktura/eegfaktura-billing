@@ -2,12 +2,9 @@ package org.vfeeg.eegfaktura.billing.service;
 
 import java.util.List;
 import java.util.UUID;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentFile;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentFileDTO;
-import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
@@ -16,19 +13,9 @@ import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 public class BillingDocumentFileService {
 
     private final BillingDocumentFileRepository billingDocumentFileRepository;
-    private final BillingDocumentRepository billingDocumentRepository;
 
-    public BillingDocumentFileService(final BillingDocumentFileRepository fileRepository,
-                                      final BillingDocumentRepository billingDocumentRepository) {
+    public BillingDocumentFileService(final BillingDocumentFileRepository fileRepository) {
         this.billingDocumentFileRepository = fileRepository;
-        this.billingDocumentRepository = billingDocumentRepository;
-    }
-
-    public List<BillingDocumentFileDTO> findAll() {
-        final List<BillingDocumentFile> billingDocumentFiles = billingDocumentFileRepository.findAll(Sort.by("id"));
-        return billingDocumentFiles.stream()
-                .map((billingDocumentFile) -> mapToDTO(billingDocumentFile, new BillingDocumentFileDTO()))
-                .toList();
     }
 
     public List<BillingDocumentFileDTO> findByBillingDocumentId(UUID billingDocumentId) {
@@ -53,19 +40,6 @@ public class BillingDocumentFileService {
                 .orElseThrow(NotFoundException::new);
     }
 
-    public UUID create(final BillingDocumentFileDTO billingDocumentfileDTO) {
-        final BillingDocumentFile billingDocumentFile = new BillingDocumentFile();
-        mapToEntity(billingDocumentfileDTO, billingDocumentFile);
-        return billingDocumentFileRepository.save(billingDocumentFile).getId();
-    }
-
-    public void update(final UUID id, final BillingDocumentFileDTO billingDocumentfileDTO) {
-        final BillingDocumentFile billingDocumentFile = billingDocumentFileRepository.findById(id)
-                .orElseThrow(NotFoundException::new);
-        mapToEntity(billingDocumentfileDTO, billingDocumentFile);
-        billingDocumentFileRepository.save(billingDocumentFile);
-    }
-
     public void delete(final UUID id) {
         billingDocumentFileRepository.deleteById(id);
     }
@@ -82,19 +56,6 @@ public class BillingDocumentFileService {
         billingDocumentFileDTO.setBillingDocumentId(billingDocumentFile.getBillingDocument() == null
                 ? null : billingDocumentFile.getBillingDocument().getId());
         return billingDocumentFileDTO;
-    }
-
-    private BillingDocumentFile mapToEntity(final BillingDocumentFileDTO billingDocumentFileDTO
-            , final BillingDocumentFile file) {
-        file.setName(billingDocumentFileDTO.getName());
-        file.setMimeType(billingDocumentFileDTO.getMimeType());
-        file.setTenantId(billingDocumentFileDTO.getTenantId());
-        file.setFileDataId(billingDocumentFileDTO.getFileDataId());
-        final BillingDocument billingDocument = billingDocumentFileDTO.getBillingDocumentId() == null
-                ? null : billingDocumentRepository.findById(billingDocumentFileDTO.getBillingDocumentId())
-                .orElseThrow(() -> new NotFoundException("billingDocument not found"));
-        file.setBillingDocument(billingDocument);
-        return file;
     }
 
 }

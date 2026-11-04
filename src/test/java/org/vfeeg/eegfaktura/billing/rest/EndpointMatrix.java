@@ -1,6 +1,5 @@
 package org.vfeeg.eegfaktura.billing.rest;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -8,6 +7,7 @@ import org.mockito.Mockito;
 import org.mockito.invocation.Invocation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.vfeeg.eegfaktura.billing.rest.TestTokens.FOREIGN;
@@ -28,9 +29,8 @@ import static org.vfeeg.eegfaktura.billing.rest.TestTokens.OWN;
  * is the {@code @WebMvcTest} of one resource; it stubs its mocked services so that every lookup
  * returns a record of a given community ({@link #stubRecordsOf}) or nothing ({@link #stubUnknownIds}).
  *
- * <p>Rows that fail on {@code master} are disabled with their {@code known-errors.md} number: a
- * refused foreign tenant or a missing header ends as 500, not 403 (#20); a header tenant that is not
- * in the token's {@code tenant} claim passes the filter (#1).
+ * <p>A refused foreign tenant or a missing header answers 403 ({@code RestExceptionHandler}); a header
+ * tenant that is not in the token's {@code tenant} claim is refused by {@code JwtRequestFilter}.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class EndpointMatrix extends WebSliceTest {
@@ -100,7 +100,6 @@ public abstract class EndpointMatrix extends WebSliceTest {
         assertOnlyLookupsCalled();
     }
 
-    @Disabled("known-errors #20")
     @ParameterizedTest
     @MethodSource("all")
     void foreignTenantIsForbidden(Endpoint e) throws Exception {
@@ -116,7 +115,6 @@ public abstract class EndpointMatrix extends WebSliceTest {
         assertOnlyLookupsCalled();
     }
 
-    @Disabled("known-errors #20")
     @ParameterizedTest
     @MethodSource("all")
     void missingTenantHeaderIsForbidden(Endpoint e) throws Exception {
@@ -124,14 +122,17 @@ public abstract class EndpointMatrix extends WebSliceTest {
         mvc.perform(e.request(OWN, null, TestTokens.admin())).andExpect(status().isForbidden());
     }
 
-    /** Header, path, body and stored record all name a community the token does not carry. */
-    @Disabled("known-errors #1")
+    /**
+     * Header, path, body and stored record all name a community the token does not carry. The filter
+     * refuses with an exception: MockMvc has no error dispatch, the container turns it into 403.
+     */
     @ParameterizedTest
     @MethodSource("all")
-    void headerTenantNotInTokenClaimIsForbidden(Endpoint e) throws Exception {
+    void headerTenantNotInTokenClaimIsForbidden(Endpoint e) {
         stubRecordsOf(FOREIGN);
-        mvc.perform(e.request(FOREIGN, FOREIGN, TestTokens.admin())).andExpect(status().isForbidden());
-        assertOnlyLookupsCalled();
+        assertThrows(AccessDeniedException.class,
+                () -> mvc.perform(e.request(FOREIGN, FOREIGN, TestTokens.admin())));
+        assertNoServiceCalled();
     }
 
     @ParameterizedTest(allowZeroInvocations = true) // not every resource has such rows

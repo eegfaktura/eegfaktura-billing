@@ -1,5 +1,7 @@
 package org.vfeeg.eegfaktura.billing;
 
+import org.vfeeg.eegfaktura.billing.support.PostgresContainerHolder;
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,9 +10,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
 import org.vfeeg.eegfaktura.billing.model.Allocation;
 import org.vfeeg.eegfaktura.billing.model.AllocationBucket;
@@ -35,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Einfach-Tarif-Regression im gemischten Lauf.
  */
 @SpringBootTest
-@Testcontainers
 @Transactional
 @SqlConfig(encoding = "UTF-8")
 class ZvtBillingTests {
@@ -46,17 +44,10 @@ class ZvtBillingTests {
     static final String SIMPLE_PARTICIPANT = "8126ab63-3f5d-42a4-b6f5-8df17aa68158";
     static final String SIMPLE_ZP = "C0000000000000000000001234";
 
-    @Container
-    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:15-alpine")
-            .withUsername("sa")
-            .withPassword("sa")
-            .withReuse(true);
 
     @DynamicPropertySource
     static void postgresqlProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
-        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
-        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
+        PostgresContainerHolder.register(registry);
     }
 
     @Autowired
@@ -105,7 +96,7 @@ class ZvtBillingTests {
     @Test
     @Sql("/billing_master_data.sql")
     void zvtRunCreatesOnePositionPerBucket() {
-        DoBillingResults results = billingService.doBilling(params("Abr_YQ-2024-1",
+        DoBillingResults results = BillingRuns.bill(billingService, params("Abr_YQ-2024-1",
                 zvtAllocation(new BigDecimal("100"), new BigDecimal("50"), new BigDecimal("30"))));
 
         List<BillingDocumentItem> items = billingDocumentItemRepository
@@ -141,7 +132,7 @@ class ZvtBillingTests {
     @Test
     @Sql("/billing_master_data.sql")
     void zvtLeereBucketsEntfallen() {
-        DoBillingResults results = billingService.doBilling(params("Abr_YQ-2024-2",
+        DoBillingResults results = BillingRuns.bill(billingService, params("Abr_YQ-2024-2",
                 zvtAllocation(new BigDecimal("100"), new BigDecimal("0"), new BigDecimal("30"))));
 
         List<BillingDocumentItem> items = billingDocumentItemRepository
@@ -160,7 +151,7 @@ class ZvtBillingTests {
         allocation.setBuckets(null);
         BillingService.ZvtContractViolationException ex =
                 assertThrows(BillingService.ZvtContractViolationException.class,
-                        () -> billingService.doBilling(params("Abr_YQ-2024-3", allocation)));
+                        () -> BillingRuns.bill(billingService, params("Abr_YQ-2024-3", allocation)));
         assertThat(ex.getMessage(), containsString("keine Fenster-Teilsummen"));
     }
 
@@ -172,7 +163,7 @@ class ZvtBillingTests {
                 window("T1", "06:00", "09:00"), window("T2", "20:00", "06:00")});
         BillingService.ZvtContractViolationException ex =
                 assertThrows(BillingService.ZvtContractViolationException.class,
-                        () -> billingService.doBilling(params("Abr_YQ-2024-4", allocation)));
+                        () -> BillingRuns.bill(billingService, params("Abr_YQ-2024-4", allocation)));
         assertThat(ex.getMessage(), containsString("weicht von den aktuellen Tarif-Stammdaten ab"));
     }
 
@@ -186,7 +177,7 @@ class ZvtBillingTests {
         allocation.setBuckets(new AllocationBucket[]{bucket("BASE", new BigDecimal("100"))});
         BillingService.ZvtContractViolationException ex =
                 assertThrows(BillingService.ZvtContractViolationException.class,
-                        () -> billingService.doBilling(params("Abr_YQ-2024-5", allocation)));
+                        () -> BillingRuns.bill(billingService, params("Abr_YQ-2024-5", allocation)));
         assertThat(ex.getMessage(), containsString("nicht zeitbasiert"));
     }
 
@@ -198,7 +189,7 @@ class ZvtBillingTests {
         simple.setMeteringPoint(SIMPLE_ZP);
         simple.setAllocationKWh(new BigDecimal("100"));
 
-        DoBillingResults results = billingService.doBilling(params("Abr_YQ-2024-6",
+        DoBillingResults results = BillingRuns.bill(billingService, params("Abr_YQ-2024-6",
                 simple, zvtAllocation(new BigDecimal("10"), new BigDecimal("5"), new BigDecimal("3"))));
 
         List<BillingDocumentItem> simpleItems = billingDocumentItemRepository

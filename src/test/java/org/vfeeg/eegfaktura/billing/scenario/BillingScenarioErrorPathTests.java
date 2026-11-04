@@ -1,13 +1,16 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
-import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
 import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
+import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
 import org.vfeeg.eegfaktura.billing.service.BillingRunService;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
@@ -37,6 +40,9 @@ import static org.vfeeg.eegfaktura.billing.domain.BillingDocumentType.INVOICE;
 class BillingScenarioErrorPathTests extends BillingScenarioBase {
 
     private static final LocalDate FUTURE = LocalDate.of(2999, 1, 1);
+
+    @Autowired
+    private BillingRunRepository billingRunRepository;
 
     /** One consumer: 100 kWh × 10 ct = 10.00, no VAT, no fee. */
     private BillingRunFixture oneConsumer(String kwh) {
@@ -259,7 +265,7 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
     @Test
     void s12_deletingAPreviewRunRemovesItsDocumentsAndNothingElse() {
         BillingRunFixture world = oneConsumer("100");
-        DoBillingResults done = billingService.doBilling(params(world, "Abr_YQ-2024-1", false));
+        DoBillingResults done = BillingRuns.bill(billingService, params(world, "Abr_YQ-2024-1", false));
         UUID previewRun = bill(world, true).getBillingRunId();
         int files = count("file_data where tenant_id = ?");
         assertThat(documents(previewRun), hasSize(1));
@@ -318,7 +324,7 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
     /** S12 — a RUNNING run is never deleted, with or without documents. */
     @Test
     void s12_runningRunIsRefused() {
-        UUID runId = billingRunService.create(run(BillingRunStatus.RUNNING));
+        UUID runId = billingRunRepository.save(run(BillingRunStatus.RUNNING)).getId();
 
         assertRefused(runId);
 
@@ -331,7 +337,7 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
      */
     @Test
     void s12_completedRunWithoutDocumentsIsDeleted() {
-        UUID runId = billingRunService.create(run(BillingRunStatus.DONE));
+        UUID runId = billingRunRepository.save(run(BillingRunStatus.DONE)).getId();
 
         billingRunService.delete(runId);
 
@@ -344,8 +350,8 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
         assertThat(refused.getStatusCode(), is(HttpStatus.CONFLICT));
     }
 
-    private BillingRunDTO run(BillingRunStatus status) {
-        BillingRunDTO run = new BillingRunDTO();
+    private BillingRun run(BillingRunStatus status) {
+        BillingRun run = new BillingRun();
         run.setTenantId(tenant);
         run.setClearingPeriodType(PERIOD_TYPE);
         run.setClearingPeriodIdentifier(PERIOD);

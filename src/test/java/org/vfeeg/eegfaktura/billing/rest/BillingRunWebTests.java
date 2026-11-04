@@ -145,6 +145,7 @@ class BillingRunWebTests extends EndpointMatrix {
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"abrechnung_YQ-2024-1_export.zip\""))
                 .andExpect(content().bytes(new byte[]{4, 5}));
+        verify(billingDocumentService, never()).findByBillingRunId(any()); // the archive service loads what it needs
     }
 
     @Test

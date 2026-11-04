@@ -29,8 +29,8 @@ public class TenantContext {
         final String requestTenant = current == null ? null : current.getAuthority();
 
         if (tenant == null || requestTenant == null || !requestTenant.equalsIgnoreCase(tenant)) {
-            // no values: both can be what the caller typed (header, path, body), and the global handler logs the
-            // exception with its message; a valid tenant of the request is on the line as tenant.id
+            // refused and logged here, once; RestExceptionHandler answers 403 without logging. No values: both can
+            // be what the caller typed (header, path, body); a valid tenant of the request is on the line as tenant.id
             log.error("Tenant of the resource does not match the tenant of the request");
             throw new AccessDeniedException("Failed to validate tenant");
         }

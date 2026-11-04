@@ -220,10 +220,4 @@ public class BillingDocumentMailService {
         billingRunRepository.save(billingRun);
         return sendMailProtocol;
     }
-
-    //@TODO: Weitere Versandoption waere sendBillingDocumentsFromBillingRun (dann könnte man Sammelmails senden)
-    //    Map<String[], List<BillingDocumentDTO>> participantNumbersMap = billingDocumentDTOs.stream()
-    //            .collect(Collectors.groupingBy(billingDocumentDTO -> new String[] {
-    //                    billingDocumentDTO.getRecipientParticipantNumber(),
-    //                    billingDocumentDTO.getRecipientEmail()}));
 }

@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing;
 
+import org.vfeeg.eegfaktura.billing.support.PostgresContainerHolder;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,9 +9,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.Allocation;
@@ -34,22 +32,14 @@ import static org.vfeeg.eegfaktura.billing.support.BillingScenarioBase.participa
  * atomarer Claim, FAILED-Neustart, Preview -> NEW, DONE/CANCELLED-Guard.
  */
 @SpringBootTest
-@Testcontainers
 @Transactional
 @SqlConfig(encoding = "UTF-8")
 class AsyncBillingRunTests {
 
-    @Container
-    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:15-alpine")
-            .withUsername("sa")
-            .withPassword("sa")
-            .withReuse(true);
 
     @DynamicPropertySource
     static void postgresqlProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
-        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
-        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
+        PostgresContainerHolder.register(registry);
     }
 
     @Autowired

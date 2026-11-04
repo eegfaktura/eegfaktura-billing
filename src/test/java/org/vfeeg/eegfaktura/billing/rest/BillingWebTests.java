@@ -111,8 +111,11 @@ class BillingWebTests extends EndpointMatrix {
         verify(billingService).revertBillingRunClaim(ID, BillingRunStatus.NEW);
     }
 
-    /** A body without the community must be a validation error, not a refused tenant (500). */
-    @Disabled("known-errors #31")
+    /**
+     * A body without the community must be a validation error. Today it is a refused tenant (403):
+     * {@code DoBillingParams.tenantId} carries no {@code @NotNull}.
+     */
+    @Disabled("known-errors #31 (rest: tenantId not validated)")
     @Test
     void bodyWithoutTenantIsBadRequestWithFieldErrors() throws Exception {
         mvc.perform(post("/api/billing").contentType(MediaType.APPLICATION_JSON)
@@ -123,7 +126,6 @@ class BillingWebTests extends EndpointMatrix {
         verify(billingService, never()).acceptBillingRun(any());
     }
 
-    @Disabled("known-errors #31")
     @Test
     void unreadableJsonIsBadRequest() throws Exception {
         mvc.perform(post("/api/billing").contentType(MediaType.APPLICATION_JSON).content("{\"tenantId\":")
