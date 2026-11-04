@@ -21,8 +21,8 @@ public final class PostgresContainerHolder {
             new PostgreSQLContainer(IMAGE)
                     .withUsername("sa")
                     .withPassword("sa")
-                    // every cached Spring context keeps its own Hikari pool (10) on this one database
-                    .withCommand("postgres", "-c", "max_connections=400");
+                    // Testcontainers default (fsync=off) plus room for the pool of every cached Spring context
+                    .withCommand("postgres", "-c", "fsync=off", "-c", "max_connections=400");
 
     static {
         POSTGRES.start();
