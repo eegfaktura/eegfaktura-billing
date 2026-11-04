@@ -1,14 +1,12 @@
 package org.vfeeg.eegfaktura.billing;
 
+import org.vfeeg.eegfaktura.billing.support.PostgresContainerHolder;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentNumber;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentItemRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentNumberGenerator;
@@ -23,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 @SpringBootTest
-@Testcontainers
 @Transactional
 class DocumentNumbersTests {
 
@@ -54,11 +51,6 @@ class DocumentNumbersTests {
     @Autowired
     BillingDocumentItemRepository billingDocumentItemRepository;
 
-    @Container
-    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:15-alpine")
-            .withUsername("sa")
-            .withPassword("sa")
-            .withReuse(true);
 
     @Test
     void testBillingDocumentNumberGenerator_BeginWithZero() {
@@ -117,9 +109,7 @@ class DocumentNumbersTests {
 
     @DynamicPropertySource
     static void postgresqlProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
-        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
-        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
+        PostgresContainerHolder.register(registry);
     }
 
 }

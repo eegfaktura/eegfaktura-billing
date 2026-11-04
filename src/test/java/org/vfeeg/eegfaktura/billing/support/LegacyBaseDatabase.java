@@ -3,7 +3,7 @@ package org.vfeeg.eegfaktura.billing.support;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -30,8 +30,8 @@ public final class LegacyBaseDatabase {
             "legacy-base/06_20260711120000_zvt_time_tariff.up.sql",
             "legacy-base/07_20261028130000_joining_fee.up.sql");
 
-    public static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>("postgres:15-alpine")
+    public static final PostgreSQLContainer POSTGRES =
+            new PostgreSQLContainer(PostgresContainerHolder.IMAGE)
                     .withDatabaseName("eegfaktura")
                     .withUsername("legacy")
                     .withPassword("legacy");

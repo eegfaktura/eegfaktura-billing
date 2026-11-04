@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing;
 
+import org.vfeeg.eegfaktura.billing.support.PostgresContainerHolder;
 import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
@@ -9,9 +10,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
 import org.vfeeg.eegfaktura.billing.model.Allocation;
 import org.vfeeg.eegfaktura.billing.model.AllocationBucket;
@@ -36,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Einfach-Tarif-Regression im gemischten Lauf.
  */
 @SpringBootTest
-@Testcontainers
 @Transactional
 @SqlConfig(encoding = "UTF-8")
 class ZvtBillingTests {
@@ -47,17 +44,10 @@ class ZvtBillingTests {
     static final String SIMPLE_PARTICIPANT = "8126ab63-3f5d-42a4-b6f5-8df17aa68158";
     static final String SIMPLE_ZP = "C0000000000000000000001234";
 
-    @Container
-    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:15-alpine")
-            .withUsername("sa")
-            .withPassword("sa")
-            .withReuse(true);
 
     @DynamicPropertySource
     static void postgresqlProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
-        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
-        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
+        PostgresContainerHolder.register(registry);
     }
 
     @Autowired

@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing;
 
+import org.vfeeg.eegfaktura.billing.support.PostgresContainerHolder;
 import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
@@ -14,9 +15,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.util.MimeTypeUtils;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vfeeg.eegfaktura.billing.domain.*;
 import org.vfeeg.eegfaktura.billing.model.*;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentItemRepository;
@@ -38,7 +36,6 @@ import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
 
 @SpringBootTest
-@Testcontainers
 @Transactional
 @SqlConfig(encoding = "UTF-8")
 class BillingIntegrationTests {
@@ -81,11 +78,6 @@ class BillingIntegrationTests {
     @Autowired
     BillingDocumentXlsxService billingDocumentXlsxService;
 
-    @Container
-    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:15-alpine")
-            .withUsername("sa")
-            .withPassword("sa")
-            .withReuse(true);
 
     UUID createBillingConfig(boolean createCreditNotesForAllProducers) {
 
@@ -637,9 +629,7 @@ class BillingIntegrationTests {
 
     @DynamicPropertySource
     static void postgresqlProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
-        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
-        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
+        PostgresContainerHolder.register(registry);
     }
 
     void storeDocuments(@NotNull String prefix) {

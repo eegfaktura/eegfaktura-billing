@@ -1,7 +1,7 @@
 package org.vfeeg.eegfaktura.billing.support;
 
 import org.springframework.test.context.DynamicPropertyRegistry;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * One PostgreSQL container for the whole test JVM.
@@ -14,10 +14,15 @@ import org.testcontainers.containers.PostgreSQLContainer;
  */
 public final class PostgresContainerHolder {
 
-    public static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>("postgres:15-alpine")
+    /** The PostgreSQL image of every test database (also {@code LegacyBaseDatabase}). */
+    public static final String IMAGE = "postgres:15-alpine";
+
+    public static final PostgreSQLContainer POSTGRES =
+            new PostgreSQLContainer(IMAGE)
                     .withUsername("sa")
-                    .withPassword("sa");
+                    .withPassword("sa")
+                    // every cached Spring context keeps its own Hikari pool (10) on this one database
+                    .withCommand("postgres", "-c", "max_connections=400");
 
     static {
         POSTGRES.start();
