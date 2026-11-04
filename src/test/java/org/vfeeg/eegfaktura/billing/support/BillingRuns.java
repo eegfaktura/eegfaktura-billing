@@ -6,9 +6,10 @@ import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
 
 /**
- * A billing run the way production starts one (BillingResource): accept, claim (RUNNING), execute - each step in
- * its own transaction, synchronously instead of on the executor. Exceptions of the calculation propagate; in
- * production the launcher would mark the run FAILED (covered by AsyncBillingRunTests).
+ * The steps BillingResource takes for a billing run: accept, claim (RUNNING), execute - synchronously, without
+ * BillingRunLauncher.launch (its executor and its catch-all that marks a failed run FAILED, covered by
+ * AsyncBillingRunTests). Each step is its own transaction; in a {@code @Transactional} test class all three join the
+ * test transaction. Exceptions of the calculation propagate.
  */
 public final class BillingRuns {
 
