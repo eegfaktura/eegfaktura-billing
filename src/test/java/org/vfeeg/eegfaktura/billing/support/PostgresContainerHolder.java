@@ -20,9 +20,7 @@ public final class PostgresContainerHolder {
     public static final PostgreSQLContainer POSTGRES =
             new PostgreSQLContainer(IMAGE)
                     .withUsername("sa")
-                    .withPassword("sa")
-                    // Testcontainers default (fsync=off) plus room for the pool of every cached Spring context
-                    .withCommand("postgres", "-c", "fsync=off", "-c", "max_connections=400");
+                    .withPassword("sa");
 
     static {
         POSTGRES.start();
