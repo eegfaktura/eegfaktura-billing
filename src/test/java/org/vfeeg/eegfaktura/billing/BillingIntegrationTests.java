@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing;
 
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
 import org.opentest4j.AssertionFailedError;
@@ -568,7 +569,7 @@ class BillingIntegrationTests {
     void testBillingServicePreview() {
         createBillingConfig(false);
         LocalDate runDay = LocalDate.now();
-        DoBillingResults doBillingResults = billingService.doBilling(params(true, null));
+        DoBillingResults doBillingResults = BillingRuns.bill(billingService, params(true, null));
         assertRun(doBillingResults, BillingRunStatus.NEW);
         assertBillingRunValid(doBillingResults.getBillingRunId(), true, null, runDay, false);
         storeDocuments("testBillingServicePreview");
@@ -579,7 +580,7 @@ class BillingIntegrationTests {
     void testBillingServiceFinal() {
         createBillingConfig(false);
         LocalDate runDay = LocalDate.now();
-        DoBillingResults doBillingResults = billingService.doBilling(params(false, null));
+        DoBillingResults doBillingResults = BillingRuns.bill(billingService, params(false, null));
         assertRun(doBillingResults, BillingRunStatus.DONE);
         assertBillingRunValid(doBillingResults.getBillingRunId(), false, null, runDay, false);
         storeDocuments("testBillingServiceFinal");
@@ -590,7 +591,7 @@ class BillingIntegrationTests {
     void testBillingServiceFinalWithDocumentDate()  {
         createBillingConfig(false);
         LocalDate documentDate = LocalDate.parse("2022-12-31");
-        DoBillingResults doBillingResults = billingService.doBilling(params(false, documentDate));
+        DoBillingResults doBillingResults = BillingRuns.bill(billingService, params(false, documentDate));
         assertRun(doBillingResults, BillingRunStatus.DONE);
         assertBillingRunValid(doBillingResults.getBillingRunId(), false, documentDate, null, false);
         storeDocuments("testBillingServiceFinalWithDocumentDate");
@@ -601,7 +602,7 @@ class BillingIntegrationTests {
     void testBillingServiceFinalWithDocumentDate_reverseChargeCreditNotes()  {
         createBillingConfig(true);
         LocalDate documentDate = LocalDate.parse("2022-12-31");
-        DoBillingResults doBillingResults = billingService.doBilling(params(false, documentDate));
+        DoBillingResults doBillingResults = BillingRuns.bill(billingService, params(false, documentDate));
         assertRun(doBillingResults, BillingRunStatus.DONE);
         assertBillingRunValid(doBillingResults.getBillingRunId(), false, documentDate, null, true);
         storeDocuments("testBillingServiceFinalWithDocumentDate_reverseChargeCreditNotes");
@@ -612,7 +613,7 @@ class BillingIntegrationTests {
     @Sql("/billing_master_data.sql")
     void testBillingXlsxService() throws IOException {
         createBillingConfig(false);
-        DoBillingResults doBillingResults = billingService.doBilling(params(false, LocalDate.parse("2023-12-31")));
+        DoBillingResults doBillingResults = BillingRuns.bill(billingService, params(false, LocalDate.parse("2023-12-31")));
         assertRun(doBillingResults, BillingRunStatus.DONE);
 
         byte[] xlsx = billingDocumentXlsxService.createXlsx(doBillingResults.getBillingRunId());

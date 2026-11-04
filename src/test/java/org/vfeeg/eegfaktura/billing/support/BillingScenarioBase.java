@@ -43,7 +43,7 @@ import static org.hamcrest.Matchers.nullValue;
  * Base of the billing scenarios (M3) and of the concurrency/mail tests (M5).
  *
  * <p>One Spring context on the JVM-wide {@link PostgresContainerHolder}. The tests are <b>not</b>
- * {@code @Transactional}: {@code doBilling} commits or rolls back on its own, so what survives a failed run
+ * {@code @Transactional}: each step of {@link BillingRuns#bill} commits or rolls back on its own, so what survives a failed run
  * is visible (known-errors #12). Every test gets its own community id ({@link #tenant}); {@link #cleanUp()}
  * deletes all rows of that community afterwards, including the committed rows of
  * {@code base.billing_masterdata}. Dates come from {@link #REFERENCE_DATE}, never from {@code LocalDate.now()}.
@@ -155,7 +155,7 @@ public abstract class BillingScenarioBase {
     protected DoBillingResults bill(BillingRunFixture world, boolean preview, LocalDate documentDate) {
         DoBillingParams params = world.params(PERIOD_TYPE, PERIOD, preview);
         params.setClearingDocumentDate(documentDate);
-        return billingService.doBilling(params);
+        return BillingRuns.bill(billingService, params);
     }
 
     // ---- reading ---------------------------------------------------------------------------------

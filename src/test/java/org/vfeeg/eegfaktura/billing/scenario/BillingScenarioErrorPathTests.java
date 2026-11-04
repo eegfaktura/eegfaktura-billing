@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -264,7 +265,7 @@ class BillingScenarioErrorPathTests extends BillingScenarioBase {
     @Test
     void s12_deletingAPreviewRunRemovesItsDocumentsAndNothingElse() {
         BillingRunFixture world = oneConsumer("100");
-        DoBillingResults done = billingService.doBilling(params(world, "Abr_YQ-2024-1", false));
+        DoBillingResults done = BillingRuns.bill(billingService, params(world, "Abr_YQ-2024-1", false));
         UUID previewRun = bill(world, true).getBillingRunId();
         int files = count("file_data where tenant_id = ?");
         assertThat(documents(previewRun), hasSize(1));

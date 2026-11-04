@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItemType;
@@ -31,7 +32,7 @@ abstract class JoiningFeeScenarioBase extends BillingScenarioBase {
             params.setAllocations(allocations);
         }
         params.setClearingDocumentDate(REFERENCE_DATE);
-        return billingService.doBilling(params);
+        return BillingRuns.bill(billingService, params);
     }
 
     /** Joining-fee items of the tenant on documents of final runs (DONE). */

@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.concurrency;
 
+import org.vfeeg.eegfaktura.billing.support.BillingRuns;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -211,7 +212,7 @@ class ConcurrentBillingRunTests extends ConcurrencyAndMailBase {
 
         assertTimeoutPreemptively(WHOLE_TEST, () -> {
             List<Future<DoBillingResults>> runs = List.of("Abr_YQ-2024-2", "Abr_YQ-2024-3").stream()
-                    .map(period -> pool.submit(() -> billingService.doBilling(
+                    .map(period -> pool.submit(() -> BillingRuns.bill(billingService, 
                             withDate(world.params(PERIOD_TYPE, period, false)))))
                     .toList();
 
