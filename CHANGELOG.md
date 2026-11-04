@@ -48,7 +48,9 @@ this changelog highlights the changes relevant for overview and operations.
   eegfaktura-web shows its generic error either way. The mail template API keeps its own 400 body.
 - **The JWT public key is read once at start; without a readable key the service does not start** (BI-CQ-23):
   before, the key file was read on every request and a missing or broken file refused every token with 403 while the
-  service looked healthy. The claims checked are unchanged.
+  service looked healthy. The claims checked are unchanged. **Operations:** after a key rotation or after the realm
+  certificate is written to the key file, billing must be restarted; a local run with the `dev` profile also needs a
+  readable `app.jwtpublickeyfile`.
 - `mvnw` honours the caller's `JAVA_HOME` (BI-CQ-34); it blanked it and built with the first `javac` on `PATH`.
 
 ### Changed
@@ -59,7 +61,8 @@ this changelog highlights the changes relevant for overview and operations.
   `spring.mvc.async.request-timeout`), `HELP.md`, the committed `.idea/`, `hamcrest-all` 1.3; `datafaker` is test
   scope now. No route, response field or printed value changed. Tests: test properties are loaded on top of the
   main file and validate the schema (`ddl-auto=validate`) like production; the scenario tests run a billing run
-  through accept, claim and execute as production does (`BillingService.doBilling` is gone); the Postgres tests
+  through accept, claim and execute as BillingResource does, without the launcher's executor
+  (`BillingService.doBilling` is gone); the Postgres tests
   share one container (except the mail template API tests and the legacy view); stale `@Disabled` known-error tests
   are enabled.
 - **Logging code-quality review** (eegfaktura-dev#45 Q1–Q8): `LogFormatTests` test the formatters and the start line

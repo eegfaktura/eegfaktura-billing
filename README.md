@@ -97,7 +97,7 @@ The container is accepting the following environment variables as configuration:
 * `MAIL_SMTP_AUTH` (default = true)
 * `MAIL_SMTP_STARTTLS_ENABLE` (default = false)
 * `MAIL_NO_REPLY_TO` e-mail address to use as sender for automated mails (default = no-reply@eegfaktura.at)
-* `JWT_PUBLICKEYFILE` full path to the JWT public key file (X.509 certificate), used to verify the JWT tokens from header (default = /billing/zertifikat-pub.pem); read once at start, the service does not start without a readable key
+* `JWT_PUBLICKEYFILE` full path to the JWT public key file (X.509 certificate), used to verify the JWT tokens from header (default = /billing/zertifikat-pub.pem); read once at start, the service does not start without a readable key (also with the local `dev` profile); restart billing after a key rotation or after the realm certificate was written to the file
 * `LOG_FORMAT` `json` (default: one JSON object per line on stdout, flat ECS field names) or `text`
   (`EcsTextFormatter`: the same fields, masked the same way, as one plain line `@timestamp LEVEL logger: message key=value …`
   with control characters escaped); any other value stops the start
