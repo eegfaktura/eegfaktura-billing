@@ -131,6 +131,13 @@ class EmailServiceTests {
     }
 
     @Test
+    void plainTextDecodesNamedAndNumericEntities() {
+        assertThat(EmailService.htmlToPlainText("<p>office&#64;eeg.at &#43;43&nbsp;1 234</p>"
+                        + "<p>A &amp; B &lt;x&gt; &quot;q&quot; &#39;a&#39; Gr&uuml;&szlig;e &#xdf;</p>"),
+                is("office@eeg.at +43 1 234\nA & B <x> \"q\" 'a' Grüße ß"));
+    }
+
+    @Test
     void inlineImageIsEmbeddedAndAttachmentsAreAttachedAsPdf() throws Exception {
         Map<String, byte[]> attachments = new LinkedHashMap<>();
         attachments.put("Rechnung-R202400001.pdf", new byte[]{4, 5});
