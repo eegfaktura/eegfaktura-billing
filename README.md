@@ -61,7 +61,7 @@ to have a look on the generated billing documents (PDF) to see if this service i
 
 The generated documents are only written when "app.test.store-documents-path" is set (default: empty, nothing is
 written); set it with the environment variable `APP_TEST_STOREDOCUMENTSPATH` (CI does) or in
-src/test/resources/application.properties.
+src/test/resources/config/application.properties (the test overrides, loaded on top of the main file).
 
 ### Deploying / Publishing
 
