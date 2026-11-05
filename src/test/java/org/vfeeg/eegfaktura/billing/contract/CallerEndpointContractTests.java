@@ -69,16 +69,19 @@ class CallerEndpointContractTests {
         }
     }
 
-    /** The routes used by the two callers, as read from their code (M6): 18 web, 20 v3, 21 distinct. */
+    /**
+     * The routes used by the two callers, as read from their code (M6): 18 web, 20 v3, 21 distinct; plus the web's
+     * settlement state 2026-11-05 (eegfaktura-web#262): 19 web, 22 distinct.
+     */
     @Test
-    void theCallersUseTwentyOneOfTheThirtyOneEndpoints() {
+    void theCallersUseTwentyTwoOfTheEndpoints() {
         Set<String> web = routes("eegfaktura-web");
         Set<String> v3 = routes("eegfaktura-v3");
         Set<String> all = new TreeSet<>(web);
         all.addAll(v3);
-        assertThat(web, hasSize(18));
+        assertThat(web, hasSize(19));
         assertThat(v3, hasSize(20));
-        assertThat(all, hasSize(21));
+        assertThat(all, hasSize(22));
     }
 
     @Test

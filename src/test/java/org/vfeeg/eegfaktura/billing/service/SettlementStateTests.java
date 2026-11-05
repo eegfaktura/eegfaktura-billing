@@ -22,8 +22,6 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -68,7 +66,7 @@ class SettlementStateTests {
 
     /** A running calculation counts whatever it is (billing does not store whether it is a preview). */
     @Test
-    void runningPeriodsAreListedWithoutAskingForDocuments() {
+    void runningPeriodsAreListedEvenWithoutDocuments() {
         BillingRun running = run("Abr_YM-2026-4", false);
         when(billingRunRepository.findByTenantIdIgnoreCaseAndRunStatus(TENANT, BillingRunStatus.RUNNING))
                 .thenReturn(List.of(running));
@@ -77,7 +75,6 @@ class SettlementStateTests {
 
         assertThat(state.getRunningPeriods(), contains("Abr_YM-2026-4"));
         assertThat(state.getFinalPeriods(), empty());
-        verify(billingDocumentRepository, never()).existsByBillingRunId(running.getId());
     }
 
     @Test
