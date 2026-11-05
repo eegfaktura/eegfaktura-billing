@@ -52,6 +52,13 @@ this changelog highlights the changes relevant for overview and operations.
   interval change) until an operator fixed it. Assumes one billing instance at a time (one replica, strategy
   `Recreate` in eegfaktura-gitops `base/billing.yaml`); with several instances this would fail a run another instance
   is still calculating.
+- **A final run with an unknown period identifier is refused** (eegfaktura-dev#54 #9b): `POST /api/billing` with
+  `preview: false` and a `clearingPeriodIdentifier` that does not name a year, half year, quarter or month
+  (`Abr_Y-<year>[-<n>]`, `Abr_YH-<year>-1..2`, `Abr_YQ-<year>-1..4`, `Abr_YM-<year>-1..12`) answers 400 with
+  „Unbekannter Abrechnungszeitraum: endgültig abgerechnet wird nur ein Jahr, Halbjahr, Quartal oder Monat.“ and creates
+  no run. Before, such a run skipped the overlap check against final runs (R4) and could bill the same energy twice.
+  eegfaktura-web and eegfaktura-v3 send only these forms (`Abr_<type>-<year>-<segment>`, a year with segment 0), so
+  their runs are unchanged; previews are not checked, as before.
 - **`request.id` and `tenant.id` also on the lines of an error dispatch after `sendError`** (L12); the lines of a
   request and of the asynchronous billing run already carried them and are now covered by tests.
 

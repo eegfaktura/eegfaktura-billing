@@ -37,6 +37,8 @@ public class BillingService {
     public static final String JOINING_FEE_TEXT = "Beitrittsgebühr";
     static final String NO_ALLOCATIONS_TEXT = "Keine Energiemengen für die Abrechnung übergeben – bitte die Seite"
             + " neu laden und die Energiedaten des Zeitraums laden.";
+    static final String UNKNOWN_PERIOD_TEXT = "Unbekannter Abrechnungszeitraum: endgültig abgerechnet wird"
+            + " nur ein Jahr, Halbjahr, Quartal oder Monat.";
     static final String NO_MATCHING_ALLOCATIONS_TEXT = "Keine der übergebenen Energiemengen passt zu einem"
             + " Mitglied/Zählpunkt der Stammdaten – es wurde kein Beleg erstellt.";
     private final BillingMasterdataRepository billingMasterdataRepository;
@@ -151,12 +153,17 @@ public class BillingService {
     /**
      * Ein endgueltiger Lauf ueberschneidet sich nicht mit einem endgueltigen Lauf mit Belegen, egal welcher Art:
      * Maerz und 1. Quartal haetten sonst dieselbe Energie auf zwei Belegen (tracking billing 261031-mm5). Ein
-     * Lauf ohne Belege (platform#189) hat nichts abgerechnet und sperrt nicht.
+     * Lauf ohne Belege (platform#189) hat nichts abgerechnet und sperrt nicht. Ein endgueltiger Lauf mit einer
+     * Kennung, deren Monate unbekannt sind, wird abgelehnt: sonst liefe er an dieser Pruefung vorbei
+     * (eegfaktura-dev#54 #9b). Vorschau-Laeufe pruefen nichts.
      */
     private void refuseOverlappingFinalRun(DoBillingParams doBillingParams) {
-        Optional<ClearingPeriodMonths> months = ClearingPeriodMonths.of(doBillingParams.getClearingPeriodIdentifier());
-        if (months.isEmpty() || doBillingParams.isPreview()) {
+        if (doBillingParams.isPreview()) {
             return;
+        }
+        Optional<ClearingPeriodMonths> months = ClearingPeriodMonths.of(doBillingParams.getClearingPeriodIdentifier());
+        if (months.isEmpty()) {
+            throw new IllegalArgumentException(UNKNOWN_PERIOD_TEXT);
         }
         for (BillingRun run : billingRunRepository.findByTenantIdIgnoreCaseAndRunStatus(
                 doBillingParams.getTenantId(), BillingRunStatus.DONE)) {
