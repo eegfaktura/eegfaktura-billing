@@ -31,6 +31,9 @@ repository, file (with lines), commit and date in `source`.
   follow the contract of the joining-fee brief (konzept-beitrittsgebuehr.md, platform#217); the web code on branch
   `feat/joining-fee` was not committed when they were written — refresh `readBy` and `web/endpoints.json` from the
   web commit. The view columns come from `../legacy-base/07_…` (see the README there).
+- **Settlement state (2026-11-05)**: `responses/SettlementState.json` follows the contract of the settlement-interval
+  brief (konzept-abrechnungsintervall.md, platform#230); the web code was not committed when it was written —
+  refresh `readBy` and `web/endpoints.json` from the web commit.
 
 ## Decisions the tests pin (as the code decides today)
 

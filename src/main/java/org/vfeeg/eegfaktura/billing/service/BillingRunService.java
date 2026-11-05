@@ -13,6 +13,7 @@ import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
+import org.vfeeg.eegfaktura.billing.model.SettlementState;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentItemRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
@@ -71,6 +72,28 @@ public class BillingRunService {
                 );
         return billingRuns.stream()
                 .map((billingRun) -> mapToDTO(billingRun, new BillingRunDTO()))
+                .toList();
+    }
+
+    /**
+     * Final periods (DONE with documents, the same runs {@code BillingService#refuseOverlappingFinalRun} counts) and
+     * running periods of the community; the tenant is compared case-insensitively.
+     */
+    public SettlementState findSettlementState(final String tenantId) {
+        final SettlementState state = new SettlementState();
+        state.setFinalPeriods(periods(tenantId, BillingRunStatus.DONE, true));
+        state.setRunningPeriods(periods(tenantId, BillingRunStatus.RUNNING, false));
+        return state;
+    }
+
+    private List<String> periods(final String tenantId, final BillingRunStatus status,
+                                 final boolean withDocumentsOnly) {
+        return billingRunRepository.findByTenantIdIgnoreCaseAndRunStatus(tenantId, status).stream()
+                .filter(run -> run.getClearingPeriodIdentifier() != null)
+                .filter(run -> !withDocumentsOnly || billingDocumentRepository.existsByBillingRunId(run.getId()))
+                .map(BillingRun::getClearingPeriodIdentifier)
+                .distinct()
+                .sorted()
                 .toList();
     }
 

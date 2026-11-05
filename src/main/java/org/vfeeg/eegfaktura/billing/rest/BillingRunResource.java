@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
+import org.vfeeg.eegfaktura.billing.model.SettlementState;
 import org.vfeeg.eegfaktura.billing.security.TenantContext;
 import org.vfeeg.eegfaktura.billing.service.*;
 
@@ -59,6 +60,14 @@ public class BillingRunResource {
         return ResponseEntity.ok(billingRunService.findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(
                 tenantId, clearingPeriodType, clearingPeriodIdentifier
         ));
+    }
+
+    /** Final and running periods of the community for the change of the settlement interval (platform#230). */
+    @GetMapping("/tenant/{tenantId}/settlementState")
+    public ResponseEntity<SettlementState> getSettlementState(
+            @PathVariable(name = "tenantId") final String tenantId) {
+        TenantContext.validateTenant(tenantId);
+        return ResponseEntity.ok(billingRunService.findSettlementState(tenantId));
     }
 
     @GetMapping("/{id}")
