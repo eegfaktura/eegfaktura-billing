@@ -74,10 +74,9 @@ public class RestExceptionHandler {
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(final AccessDeniedException exception) {
-        final ErrorResponse errorResponse = new ErrorResponse();
-        errorResponse.setHttpStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-        errorResponse.setException(exception.getClass().getSimpleName());
-        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+        // TenantContext.validateTenant already wrote the WARN (event.action=tenant.refused); type only, no message
+        log.atDebug().addKeyValue("error.type", exception.getClass().getName()).log("Refused tenant answered with 500");
+        return internalServerError(exception);
     }
 
     @ExceptionHandler(Throwable.class)
@@ -93,6 +92,11 @@ public class RestExceptionHandler {
         } else {
             log.error("Unhandled exception", exception);
         }
+        return internalServerError(exception);
+    }
+
+    /** 500 with the type of the exception and no message (no detail leaks). */
+    private static ResponseEntity<ErrorResponse> internalServerError(final Throwable exception) {
         final ErrorResponse errorResponse = new ErrorResponse();
         errorResponse.setHttpStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
         errorResponse.setException(exception.getClass().getSimpleName());
