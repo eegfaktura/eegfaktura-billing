@@ -55,7 +55,8 @@ this changelog highlights the changes relevant for overview and operations.
 - **Recovery also covers a RUNNING run without a claim time and names every run** (eegfaktura-dev#54 #11): a RUNNING
   run whose `run_status_date_time` is `NULL` (the column is nullable) is set to FAILED like one claimed before the
   start; before, it kept blocking its period and an interval change. Instead of one line with the count, one WARN per
-  run with the run id in the text, `event.action=billing_run.recovered` and the community as `tenant.id`. A run whose
+  run with the run id in the text, `event.action=billing_run.recovered` and the community as `tenant.id` (if a run
+  changed between the read and the update, one summary line with the counts instead). A run whose
   claim time lies in the future at the check (clock or time zone changed) stays RUNNING and gets a WARN naming it
   (`event.action=billing_run.claimed_in_future`). The `tenant.id` format rule now lives in `LogFields.tenant`, used by
   `LogContextFilter` and the recovery.

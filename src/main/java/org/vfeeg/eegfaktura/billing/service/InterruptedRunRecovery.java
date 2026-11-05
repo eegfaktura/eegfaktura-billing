@@ -68,7 +68,14 @@ public class InterruptedRunRecovery {
             return 0;
         }
         final int failed = billingRunRepository.failRunning(interrupted.stream().map(BillingRun::getId).toList(),
-                ERROR_SUMMARY, now);
+                startedAt, ERROR_SUMMARY, now);
+        if (failed != interrupted.size()) {
+            // a run changed between the read and the update: which ones were set is not known, so no ids
+            log.atWarn().addKeyValue(LogFields.EVENT_ACTION, "billing_run.recovered")
+                    .log("{} of {} billing runs left RUNNING by an earlier process set to FAILED", failed,
+                            interrupted.size());
+            return failed;
+        }
         for (BillingRun run : interrupted) {
             log.atWarn().addKeyValue(LogFields.EVENT_ACTION, "billing_run.recovered")
                     .addKeyValue(LogFields.TENANT_ID, LogFields.tenant(run.getTenantId()))

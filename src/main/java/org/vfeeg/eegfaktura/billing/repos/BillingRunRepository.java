@@ -53,18 +53,21 @@ public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
     int releaseClaim(@Param("id") UUID id, @Param("to") BillingRunStatus to,
                      @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
 
+    /** The runs of every community in this status: for the recovery at start only, not for requests. */
     List<BillingRun> findByRunStatus(BillingRunStatus runStatus);
 
     /**
-     * Sets the runs among {@code ids} that are still RUNNING to FAILED: their calculation died with an earlier
-     * process (tracking billing 261105-mm1). FAILED can be claimed again, so the run can be restarted.
+     * Sets the runs among {@code ids} that are still RUNNING and were claimed before {@code startedAt} (or have no
+     * claim time) to FAILED: their calculation died with an earlier process (tracking billing 261105-mm1,
+     * eegfaktura-dev#54 #11). FAILED can be claimed again, so the run can be restarted.
      */
     @Modifying
     @Transactional
     @Query("update BillingRun b set b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.FAILED, "
             + "b.runStatusDateTime = :now, b.errorSummary = :errorSummary "
-            + "where b.id in :ids and b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.RUNNING")
-    int failRunning(@Param("ids") Collection<UUID> ids,
+            + "where b.id in :ids and b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.RUNNING "
+            + "and (b.runStatusDateTime is null or b.runStatusDateTime < :startedAt)")
+    int failRunning(@Param("ids") Collection<UUID> ids, @Param("startedAt") LocalDateTime startedAt,
                     @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
 
     /** The run with its row locked until the transaction ends: its status cannot change under a deletion. */

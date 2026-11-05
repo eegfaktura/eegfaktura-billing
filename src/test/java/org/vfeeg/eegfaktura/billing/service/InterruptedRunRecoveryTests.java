@@ -7,6 +7,7 @@ import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
@@ -97,13 +98,37 @@ class InterruptedRunRecoveryTests extends BillingScenarioBase {
     void aRunClaimedInTheFutureIsKeptWithAWarning() {
         UUID future = save("Abr_YM-2024-9", BillingRunStatus.RUNNING, LocalDateTime.now().plusDays(1), null);
 
-        recovery.failRunsClaimedBefore(STARTED_AT);
-
-        assertThat(billingRunRepository.findById(future).orElseThrow().getRunStatus(), is(BillingRunStatus.RUNNING));
+        try {
+            recovery.failRunsClaimedBefore(STARTED_AT);
+            assertThat(billingRunRepository.findById(future).orElseThrow().getRunStatus(),
+                    is(BillingRunStatus.RUNNING));
+        } finally {
+            // a RUNNING row in the future would stay RUNNING for every later recovery of the shared database
+            billingRunRepository.deleteById(future);
+        }
         assertThat(own(), hasSize(1));
         assertThat(own().get(0).getLevel(), is(Level.WARN));
         assertThat(own().get(0).getFormattedMessage(), containsString(future.toString()));
         assertThat(fields(own().get(0)).get("event.action"), is("billing_run.claimed_in_future"));
+    }
+
+    /** A run changed between the read and the update: one summary line without ids, none naming a run. */
+    @Test
+    void aRunChangedMeanwhileGivesOneSummaryLine() {
+        BillingRunRepository repository = Mockito.mock(BillingRunRepository.class);
+        BillingRun run = new BillingRun();
+        run.setId(UUID.randomUUID());
+        run.setTenantId(tenant);
+        run.setRunStatus(BillingRunStatus.RUNNING);
+        run.setRunStatusDateTime(BEFORE);
+        Mockito.when(repository.findByRunStatus(BillingRunStatus.RUNNING)).thenReturn(List.of(run));
+        Mockito.when(repository.failRunning(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(0);
+
+        new InterruptedRunRecovery(repository).failRunsClaimedBefore(STARTED_AT);
+
+        assertThat(lines.list, hasSize(1));
+        assertThat(fields(lines.list.get(0)).get("event.action"), is("billing_run.recovered"));
+        assertThat(lines.list.get(0).getFormattedMessage().contains(run.getId().toString()), is(false));
     }
 
     /** The lines of this test's community: the query sees every community of the shared database. */
