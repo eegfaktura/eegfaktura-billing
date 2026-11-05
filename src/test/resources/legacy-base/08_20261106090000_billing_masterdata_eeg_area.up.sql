@@ -1,6 +1,7 @@
--- Typ der Gemeinschaft fuer billing (platform#229, P2P/EVA): base.eeg.area als letzte
--- Spalte eeg_area. CREATE OR REPLACE ohne DROP, Spalten nur hinten dazu (billing liest
--- billing_masterdata ueber m.*, ein altes billing ignoriert die Spalte).
+-- P2P und Eigenversorgung (konzept-buergerenergie-eigenversorgung-p2p.md, platform#229): billing lehnt
+-- Abrechnungslaeufe fuer P2P/EVA ab und braucht dafuer den Gemeinschaftstyp. Neue Spalte eeg_area (= base.eeg.area)
+-- am Ende; Definition sonst wie 20261028130000_joining_fee. CREATE OR REPLACE ohne DROP genuegt (billing liest
+-- billing_masterdata ueber m.*, eine zusaetzliche Spalte stoert ein altes billing nicht). Keine Datenaenderung.
 CREATE OR REPLACE VIEW
     base.billing_masterdata AS
 SELECT p.id                                                    AS participant_id,
