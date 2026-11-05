@@ -45,6 +45,13 @@ this changelog highlights the changes relevant for overview and operations.
   JSON line; unset, the field is left out.
 
 ### Fixed
+- **A run left RUNNING by a crash or restart is no longer stuck** (tracking billing 261105-mm1): at start, every run
+  with status RUNNING claimed before the JVM started is set to FAILED with the error summary „Berechnung abgebrochen
+  (billing wurde neu gestartet). Bitte den Lauf erneut starten.“ and one WARN line with the count. FAILED can be
+  claimed again, so the run can be restarted; before, the row blocked its period (and, with the settlement state, an
+  interval change) until an operator fixed it. Assumes one billing instance at a time (one replica, strategy
+  `Recreate` in eegfaktura-gitops `base/billing.yaml`); with several instances this would fail a run another instance
+  is still calculating.
 - **`request.id` and `tenant.id` also on the lines of an error dispatch after `sendError`** (L12); the lines of a
   request and of the asynchronous billing run already carried them and are now covered by tests.
 

@@ -52,6 +52,19 @@ public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
     int releaseClaim(@Param("id") UUID id, @Param("to") BillingRunStatus to,
                      @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
 
+    /**
+     * Sets every run claimed (RUNNING) before {@code startedAt} to FAILED: its calculation died with an earlier
+     * process (tracking billing 261105-mm1). FAILED can be claimed again, so the run can be restarted.
+     */
+    @Modifying
+    @Transactional
+    @Query("update BillingRun b set b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.FAILED, "
+            + "b.runStatusDateTime = :now, b.errorSummary = :errorSummary "
+            + "where b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.RUNNING "
+            + "and b.runStatusDateTime < :startedAt")
+    int failRunsClaimedBefore(@Param("startedAt") LocalDateTime startedAt,
+                              @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
+
     /** The run with its row locked until the transaction ends: its status cannot change under a deletion. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from BillingRun b where b.id = :id")
