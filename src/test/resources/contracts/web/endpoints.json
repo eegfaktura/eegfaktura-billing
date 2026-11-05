@@ -28,6 +28,7 @@
     {"method": "POST", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/footerImage", "source": "eeg.service.ts:348 uploadImageBillingConfig('footer')", "multipart": "file"},
     {"method": "DELETE", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/logoImage", "source": "eeg.service.ts:363 deleteImageBillingConfig('logo')"},
     {"method": "DELETE", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/footerImage", "source": "eeg.service.ts:363 deleteImageBillingConfig('footer')"},
-    {"method": "GET", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/logoImage", "source": "eeg.service.ts:376 getImageBillingConfig, called with 'logo' only (EegBillingConfigCard.component.tsx:108)"}
+    {"method": "GET", "path": "/api/billingConfigs/00000000-0000-0000-0000-00000000a001/logoImage", "source": "eeg.service.ts:376 getImageBillingConfig, called with 'logo' only (EegBillingConfigCard.component.tsx:108)"},
+    {"method": "GET", "path": "/api/billingRuns/tenant/RC100001/settlementState", "source": "eeg.service.ts:312 fetchSettlementState (tenant upper-cased; eegfaktura-web#262, branch feat/settlement-interval-change, commit 634f3d6, 2026-11-05)"}
   ]
 }

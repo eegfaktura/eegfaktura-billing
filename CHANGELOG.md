@@ -28,6 +28,13 @@ this changelog highlights the changes relevant for overview and operations.
   body or record. The messages changed accordingly; the status codes and the response bodies did not.
 
 ### Added
+- **Settlement state of a community** (platform#230, konzept-abrechnungsintervall.md): new read-only endpoint
+  `GET /api/billingRuns/tenant/{tenantId}/settlementState` (bearer, `TenantContext.validateTenant`) answers
+  `{"finalPeriods": [...], "runningPeriods": [...]}`: the clearing period identifiers of the final runs with documents
+  (the runs the overlap check counts) and of the runs being calculated, without duplicates, `[]` when empty; sorted
+  as text, not by time, callers must not rely on the order.
+  Previews, failed runs and final runs without documents are not listed. eegfaktura-web passes it to
+  eegfaktura-backend `POST /eeg/settlementinterval`. No schema change; existing endpoints unchanged.
 - **Never-log test** (L11): `NeverLogSourceTests` reads the source and fails the build on a log statement that names
   personal data or credentials, or logs a whole value of a record with a personal component (Q1: identifiers split
   into words and compared with the common word list, string literals not scanned). An exception needs an allowlist
@@ -38,6 +45,13 @@ this changelog highlights the changes relevant for overview and operations.
   JSON line; unset, the field is left out.
 
 ### Fixed
+- **A run left RUNNING by a crash or restart is no longer stuck** (tracking billing 261105-mm1): at start, every run
+  with status RUNNING claimed before the JVM started is set to FAILED with the error summary „Berechnung abgebrochen
+  (billing wurde neu gestartet). Bitte den Lauf erneut starten.“ and one WARN line with the count. FAILED can be
+  claimed again, so the run can be restarted; before, the row blocked its period (and, with the settlement state, an
+  interval change) until an operator fixed it. Assumes one billing instance at a time (one replica, strategy
+  `Recreate` in eegfaktura-gitops `base/billing.yaml`); with several instances this would fail a run another instance
+  is still calculating.
 - **`request.id` and `tenant.id` also on the lines of an error dispatch after `sendError`** (L12); the lines of a
   request and of the asynchronous billing run already carried them and are now covered by tests.
 

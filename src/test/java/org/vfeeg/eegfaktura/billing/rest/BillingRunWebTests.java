@@ -5,9 +5,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.json.JsonCompareMode;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
+import org.vfeeg.eegfaktura.billing.model.SettlementState;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentArchiveService;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentMailService;
 import org.vfeeg.eegfaktura.billing.service.BillingDocumentService;
@@ -71,6 +73,7 @@ class BillingRunWebTests extends EndpointMatrix {
                     anyString(), anyString(), anyString())).thenReturn(List.of(run(tenant)));
             when(participantAmountService.getParticipantAmountsByBillingRunId(ID))
                     .thenReturn(List.of(new ParticipantAmount()));
+            when(billingRunService.findSettlementState(tenant)).thenReturn(settlementState());
             when(billingDocumentService.findByBillingRunId(ID)).thenReturn(List.of(document(tenant)));
             when(billingDocumentXlsxService.createXlsx(ID)).thenReturn(new byte[]{1, 2, 3});
             when(billingDocumentArchiveService.createArchive(ID)).thenReturn(new byte[]{4, 5});
@@ -109,6 +112,12 @@ class BillingRunWebTests extends EndpointMatrix {
         return document;
     }
 
+    private static SettlementState settlementState() {
+        SettlementState state = new SettlementState();
+        state.setFinalPeriods(List.of("Abr_YM-2026-3", "Abr_YQ-2025-4"));
+        return state;
+    }
+
     private Endpoint row(HttpMethod method, String pattern) {
         return endpoint(method, "/api/billingRuns" + pattern);
     }
@@ -123,6 +132,35 @@ class BillingRunWebTests extends EndpointMatrix {
                 .andExpect(jsonPath("$[0].clearingPeriodIdentifier").value("YQ-2024-1"));
         verify(billingRunService).findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(
                 OWN, "YQ", "2024-Q1");
+    }
+
+    /**
+     * The contract with eegfaktura-web (platform#230): both lists, an empty one as {@code []}; the path is not taken
+     * for {@code /{tenantId}/{clearingPeriodType}/{clearingPeriodIdentifier}}.
+     */
+    @Test
+    void settlementStateIsWrittenForTheOwnTenant() throws Exception {
+        stubRecordsOf(OWN);
+        mvc.perform(row(HttpMethod.GET, "/tenant/{tenantId}/settlementState").request(OWN, OWN, TestTokens.admin()))
+                .andExpect(status().isOk())
+                .andExpect(content().json(
+                        "{\"finalPeriods\":[\"Abr_YM-2026-3\",\"Abr_YQ-2025-4\"],\"runningPeriods\":[]}", JsonCompareMode.STRICT));
+        verify(billingRunService).findSettlementState(OWN);
+        verify(billingRunService, never()).findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(
+                anyString(), anyString(), anyString());
+    }
+
+    /**
+     * A path tenant that is not the request's tenant is refused through {@code AccessDeniedException} before the
+     * service runs; the status (500 instead of 403) is known-errors #20, pinned as disabled rows of the matrix.
+     */
+    @Test
+    void settlementStateOfAnotherTenantIsRefused() throws Exception {
+        stubRecordsOf(TestTokens.FOREIGN);
+        mvc.perform(row(HttpMethod.GET, "/tenant/{tenantId}/settlementState")
+                        .request(TestTokens.FOREIGN, OWN, TestTokens.admin()))
+                .andExpect(jsonPath("$.exception").value("AccessDeniedException"));
+        verify(billingRunService, never()).findSettlementState(anyString());
     }
 
     @Test

@@ -15,7 +15,7 @@ import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.ID;
 import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.PATH_TENANT;
 
 /**
- * The 43 mapped handlers under {@code /api/**} (counted 2026-10-01, 31; plus 9 mail-text handlers 2026-10-25; plus 3 joining-fee handlers 2026-10-27; commented-out mappings do not
+ * The 44 mapped handlers under {@code /api/**} (counted 2026-10-01, 31; plus 9 mail-text handlers 2026-10-25; plus 3 joining-fee handlers 2026-10-27; plus the settlement state 2026-11-05; commented-out mappings do not
  * count, {@code known-errors.md} #29). {@code EndpointMappingGuardTests} compares this table with
  * the live mappings in both directions: a new endpoint without a row fails it.
  */
@@ -34,9 +34,10 @@ public final class EndpointTable {
     static final String JOINING_FEE_RECORD = "/api/billingDocuments/tenant/{tenantId}/participants/{participantId}/joiningFee";
 
     public static final List<Endpoint> ALL = List.of(
-            // BillingRunResource (8)
+            // BillingRunResource (9)
             row(BillingRunResource.class, GET, RUNS + "/{tenantId}/{clearingPeriodType}/{clearingPeriodIdentifier}",
                     PATH_TENANT, 200),
+            row(BillingRunResource.class, GET, RUNS + "/tenant/{tenantId}/settlementState", PATH_TENANT, 200),
             row(BillingRunResource.class, GET, RUNS + "/{id}", ID, 200),
             row(BillingRunResource.class, GET, RUNS + "/{id}/participantAmounts", ID, 200),
             row(BillingRunResource.class, GET, RUNS + "/{id}/billingDocuments", ID, 200),

@@ -31,6 +31,10 @@ repository, file (with lines), commit and date in `source`.
   follow the contract of the joining-fee brief (konzept-beitrittsgebuehr.md, platform#217); the web code on branch
   `feat/joining-fee` was not committed when they were written — refresh `readBy` and `web/endpoints.json` from the
   web commit. The view columns come from `../legacy-base/07_…` (see the README there).
+- **Settlement state (2026-11-05)**: `responses/SettlementState.json` follows the contract of the settlement-interval
+  brief (konzept-abrechnungsintervall.md, platform#230); `readBy` and the `settlementState` call in
+  `web/endpoints.json` come from eegfaktura-web#262, branch `feat/settlement-interval-change`, commit `634f3d6`
+  (2026-11-05).
 
 ## Decisions the tests pin (as the code decides today)
 
