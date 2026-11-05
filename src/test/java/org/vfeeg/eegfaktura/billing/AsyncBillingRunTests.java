@@ -37,6 +37,9 @@ import static org.vfeeg.eegfaktura.billing.support.BillingScenarioBase.participa
 @Testcontainers
 @Transactional
 @SqlConfig(encoding = "UTF-8")
+// legt base.billing_masterdata an (View-Ersatz im Testcontainer); seit platform#229 liest schon die Annahme
+// des Laufs die Stammdaten (Gemeinschaftstyp), also jeder Test
+@Sql("/billing_master_data.sql")
 class AsyncBillingRunTests {
 
     @Container
@@ -121,7 +124,6 @@ class AsyncBillingRunTests {
     }
 
     @Test
-    @Sql("/billing_master_data.sql") // legt base.billing_masterdata an (View-Ersatz im Testcontainer)
     void previewRunEndsAsNew_finalRunEndsAsDone() {
         // Seit platform#189 endet ein Lauf ohne passende Stammdaten FAILED: je Tenant
         // das Mitglied 1 mit Zaehlpunkt C1, passend zur Menge aus params().

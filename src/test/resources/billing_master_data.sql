@@ -83,6 +83,10 @@ alter table base.billing_masterdata
     add column if not exists tariff_joining_fee_use_vat        boolean default false,
     add column if not exists tariff_joining_fee_vat_in_percent numeric default 0;
 
+-- community type (base.eeg.area, platform#229), last column of the view
+alter table base.billing_masterdata
+    add column if not exists eeg_area text default 'LOCAL';
+
 -- ZVT-Testdaten: Verbraucher-ZP mit zeitbasiertem Tarif (Basis 12.83 ct,
 -- Tag 06:00-08:00 22.5 ct, Nacht 20:00-06:00 (Mitternachtsueberlauf) 5.5 ct,
 -- Rabatt 10%). Eigener Teilnehmer, damit Bestands-Tests unberuehrt bleiben.

@@ -44,6 +44,7 @@ class LegacyMasterdataViewContractTests {
             LegacyBaseDatabase.SCRIPTS.get(3), "699253d230b57cc7be72416a92d6634ca38a311f5ae0565fed0e46e709812113",
             LegacyBaseDatabase.SCRIPTS.get(4), "a9a044f46addea0740eda1188617b2a31ac59558491de8a405b353600e9161cd",
             LegacyBaseDatabase.SCRIPTS.get(5), "db5bf408eec9640d586b32b6705821ecd6e46bf1416df9ea74029e6d6b882e61",
+            LegacyBaseDatabase.SCRIPTS.get(6), "3ef2f5c08ced4b0783c2c4302d3394217a6ae1ccc79719274c8563b3574b7f63",
             V3_VIEW, "cb9434d332850c2eae8e2e704bc74aa53bbf6f248c4e48bdeb228094301e3dc9");
 
     static Map<String, String> view;
@@ -56,18 +57,22 @@ class LegacyMasterdataViewContractTests {
     }
 
     @Test
-    void theRealViewIsBuiltWithItsSeventyEightColumns() {
+    void theRealViewIsBuiltWithItsSeventyNineColumns() {
         // 64 plus the 11 ZVT columns (backend migration 2026-07-11) plus 3 joining-fee columns (2026-10-27)
-        assertThat(view.keySet(), hasSize(78));
+        // plus eeg_area (platform#229)
+        assertThat(view.keySet(), hasSize(79));
         assertThat(view.get("tariff_joining_fee"), is("numeric"));
         assertThat(view.get("tariff_joining_fee_use_vat"), is("boolean"));
         assertThat(view.get("tariff_joining_fee_vat_in_percent"), is("numeric"));
+        // appended last, so an older billing (m.*) is not affected
+        assertThat(List.copyOf(view.keySet()).get(78), is("eeg_area"));
+        assertThat(view.get("eeg_area"), is("text"));
     }
 
     @Test
     void everyEntityColumnExistsInTheViewWithAReadableType() {
-        // 62 plus the 11 ZVT columns (billing 1.0.8) plus the 3 joining-fee columns
-        assertThat(MasterdataColumns.entityColumns().keySet(), hasSize(76));
+        // 62 plus the 11 ZVT columns (billing 1.0.8) plus the 3 joining-fee columns plus eeg_area
+        assertThat(MasterdataColumns.entityColumns().keySet(), hasSize(77));
         assertThat(MasterdataColumns.problems(MasterdataColumns.entityColumns(), view), is(empty()));
     }
 
