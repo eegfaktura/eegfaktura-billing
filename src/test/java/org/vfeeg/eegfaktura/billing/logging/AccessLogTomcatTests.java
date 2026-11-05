@@ -127,9 +127,39 @@ class AccessLogTomcatTests {
 
         get("/api/billingConfigs/tenant/" + path, header, TestTokens.superuserAdmin());
 
-        assertTrue(refused(TenantContext.class, Level.ERROR), "the refusal was logged: " + refusals.list);
+        assertTrue(refused(TenantContext.class, Level.WARN), "the refusal was logged: " + refusals.list);
         assertFalse(output.getAll().contains(header), output.getAll());
         assertFalse(output.getAll().contains(path), output.getAll());
+    }
+
+    /**
+     * eegfaktura-dev#54 #10: a resource of another community is the caller's error, not the service's: one WARN with
+     * {@code event.action}, no ERROR, no second record from the exception handler or the container. The status stays
+     * as it is (500, known-errors #20; the 403 is billing#101).
+     */
+    @Test
+    void aFailedTenantComparisonIsOneWarning() throws Exception {
+        Logger root = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+        ListAppender<ILoggingEvent> all = new ListAppender<>();
+        all.start();
+        root.addAppender(all);
+        HttpResponse<String> response;
+        try {
+            response = get("/api/billingRuns/tenant/" + TestTokens.FOREIGN + "/settlementState", TestTokens.OWN,
+                    TestTokens.admin());
+        } finally {
+            root.detachAppender(all);
+        }
+
+        assertEquals(500, response.statusCode());
+        assertTrue(response.body().contains("\"exception\":\"AccessDeniedException\""), response.body());
+        List<ILoggingEvent> warnings = all.list.stream().filter(e -> e.getLevel().isGreaterOrEqual(Level.WARN)).toList();
+        assertEquals(1, warnings.size(), "one record: " + warnings);
+        ILoggingEvent line = warnings.get(0);
+        assertEquals(Level.WARN, line.getLevel());
+        assertEquals(TenantContext.class.getName(), line.getLoggerName());
+        assertTrue(line.getKeyValuePairs().stream().anyMatch(kv -> kv.key.equals("event.action")
+                && kv.value.equals("tenant.refused")), "event.action: " + line.getKeyValuePairs());
     }
 
     @Test

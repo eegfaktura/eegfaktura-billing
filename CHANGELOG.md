@@ -52,6 +52,13 @@ this changelog highlights the changes relevant for overview and operations.
   interval change) until an operator fixed it. Assumes one billing instance at a time (one replica, strategy
   `Recreate` in eegfaktura-gitops `base/billing.yaml`); with several instances this would fail a run another instance
   is still calculating.
+- **A refused tenant writes one WARN instead of two ERRORs** (eegfaktura-dev#54 #10): a resource of another community
+  (`TenantContext.validateTenant`) is the caller's error. Before, one request wrote `ERROR Tenant of the resource does
+  not match…` and `ERROR Unhandled exception` with the stack trace, so any admin could raise the ERROR count at will.
+  Now one `WARN` with `event.action=tenant.refused`; a new handler for `AccessDeniedException` in `RestExceptionHandler`
+  answers as the catch-all did (500, `exception: AccessDeniedException`, no message) without logging. The status is
+  unchanged (known-errors #20); the 403 comes with billing#101. A `Tenant` header the token does not grant
+  (`JwtRequestFilter`, 403) still writes its WARN and Tomcat's `Servlet.service()` ERROR, unchanged.
 - **A final run with an unknown period identifier is refused** (eegfaktura-dev#54 #9b): `POST /api/billing` with
   `preview: false` and a `clearingPeriodIdentifier` that does not name a year, half year, quarter or month
   (`Abr_Y-<year>[-<n>]`, `Abr_YH-<year>-1..2`, `Abr_YQ-<year>-1..4`, `Abr_YM-<year>-1..12`) answers 400 with

@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -64,6 +65,19 @@ public class RestExceptionHandler {
             errorResponse.setError(exception.getReason()); // shown by the web as it is
         }
         return new ResponseEntity<>(errorResponse, exception.getStatusCode());
+    }
+
+    /**
+     * A refused tenant ({@code TenantContext.validateTenant}): the caller's error, logged once as WARN where it is
+     * refused (eegfaktura-dev#54 #10), so no ERROR here. The answer stays the one of the catch-all handler: 500 with
+     * the type and no message (known-errors #20; the 403 is billing#101).
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(final AccessDeniedException exception) {
+        final ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.setHttpStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+        errorResponse.setException(exception.getClass().getSimpleName());
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(Throwable.class)
