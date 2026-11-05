@@ -110,7 +110,18 @@ class CommunityTypeBillingTests extends BillingScenarioBase {
     @ParameterizedTest(name = "{0} preview={1}")
     @CsvSource({"LOCAL, true", "LOCAL, false", "GEA, true", "GEA, false", "REGIONAL, false", "BEG, false"})
     void otherCommunityTypesBillAsBefore(String area, boolean preview) {
-        BillingRunFixture world = community(area);
+        billsOneDocument(community(area), preview);
+    }
+
+    /** No base.eeg row for the tenant (LEFT JOIN in the view): eeg_area is NULL and the run bills as before. */
+    @Test
+    void aMissingCommunityTypeBillsAsBefore() {
+        BillingRunFixture world = community("LOCAL");
+        jdbc.update("update base.billing_masterdata set eeg_area = null where tenant_id = ?", tenant);
+        billsOneDocument(world, false);
+    }
+
+    private void billsOneDocument(BillingRunFixture world, boolean preview) {
         DoBillingParams params = params(world, preview);
 
         BillingRun accepted = billingService.acceptBillingRun(params);

@@ -33,7 +33,10 @@ this changelog highlights the changes relevant for overview and operations.
   `base.eeg.area`) of the backend view `base.billing_masterdata`. `POST /api/billing` (preview and final) answers
   **400** with „Für Peer-to-Peer und Eigenversorgung ist in eegfaktura keine Abrechnung vorgesehen.“ when a master-data
   row of the tenant has `eeg_area` `P2P` or `EVA`; checked after the tenant check and before a run is created or an
-  existing run continued, so no `billing_run` row is written. LOCAL, REGIONAL, BEG and GEA bill as before. No Flyway
+  existing run continued, so no `billing_run` row is written. The view has one row per participant: a P2P/EVA
+  community **without participants** is not caught; its run is created and ends FAILED („Keine der übergebenen
+  Energiemengen passt …“), without documents or mails. LOCAL, REGIONAL, BEG, GEA and a missing type (`NULL`) bill as
+  before. No Flyway
   migration. **Deploy after the backend** migration that adds the column: without it every master-data read fails.
   Deploy order: eda-xp → backend → billing, admin-backend → admin, web → operator SQL.
 - **Settlement state of a community** (platform#230, konzept-abrechnungsintervall.md): new read-only endpoint
