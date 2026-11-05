@@ -52,6 +52,13 @@ this changelog highlights the changes relevant for overview and operations.
   interval change) until an operator fixed it. Assumes one billing instance at a time (one replica, strategy
   `Recreate` in eegfaktura-gitops `base/billing.yaml`); with several instances this would fail a run another instance
   is still calculating.
+- **Recovery also covers a RUNNING run without a claim time and names every run** (eegfaktura-dev#54 #11): a RUNNING
+  run whose `run_status_date_time` is `NULL` (the column is nullable) is set to FAILED like one claimed before the
+  start; before, it kept blocking its period and an interval change. Instead of one line with the count, one WARN per
+  run with the run id in the text, `event.action=billing_run.recovered` and the community as `tenant.id`. A run whose
+  claim time lies in the future at the check (clock or time zone changed) stays RUNNING and gets a WARN naming it
+  (`event.action=billing_run.claimed_in_future`). The `tenant.id` format rule now lives in `LogFields.tenant`, used by
+  `LogContextFilter` and the recovery.
 - **A refused tenant writes one WARN instead of two ERRORs** (eegfaktura-dev#54 #10): a resource of another community
   (`TenantContext.validateTenant`) is the caller's error. Before, one request wrote `ERROR Tenant of the resource does
   not match…` and `ERROR Unhandled exception` with the stack trace, so any admin could raise the ERROR count at will.
