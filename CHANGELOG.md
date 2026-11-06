@@ -28,6 +28,19 @@ this changelog highlights the changes relevant for overview and operations.
   body or record. The messages changed accordingly; the status codes and the response bodies did not.
 
 ### Added
+- **No billing for peer-to-peer (P2P) and self-supply (EVA) communities** (vfeeg-development/eegfaktura-platform#229,
+  konzept-buergerenergie-eigenversorgung-p2p.md): `BillingMasterdata` reads the new last column `eeg_area` (text,
+  `base.eeg.area`) of the backend view `base.billing_masterdata`. `POST /api/billing` (preview and final) answers
+  **400** with „Für Peer-to-Peer und Eigenversorgung ist in eegfaktura keine Abrechnung vorgesehen.“ when a master-data
+  row of the tenant has `eeg_area` `P2P` or `EVA`; checked after the tenant check and before a run is created or an
+  existing run continued, so no `billing_run` row is written. The view has one row per participant: a P2P/EVA
+  community **without participants** is not caught; its run is created and ends FAILED („Keine der übergebenen
+  Energiemengen passt …“), without documents or mails. LOCAL, REGIONAL, BEG, GEA and a missing type (`NULL`) bill as
+  before. No Flyway
+  migration. **Deploy after the backend** migration that adds the column: without it every master-data read fails.
+  Deploy order: eda-xp → backend → billing, admin-backend → admin, web → operator SQL.
+  The refusal writes a WARN line `event.action=billing.run.refused` with the request's `tenant.id` and the community
+  type in the message (eegfaktura-dev#56 #12); before, only the access line showed the 400.
 - **Settlement state of a community** (platform#230, konzept-abrechnungsintervall.md): new read-only endpoint
   `GET /api/billingRuns/tenant/{tenantId}/settlementState` (bearer, `TenantContext.validateTenant`) answers
   `{"finalPeriods": [...], "runningPeriods": [...]}`: the clearing period identifiers of the final runs with documents

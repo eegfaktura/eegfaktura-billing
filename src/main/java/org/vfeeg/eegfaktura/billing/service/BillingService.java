@@ -5,6 +5,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.vfeeg.eegfaktura.billing.domain.*;
+import org.vfeeg.eegfaktura.billing.logging.LogFields;
 import org.vfeeg.eegfaktura.billing.model.*;
 import org.vfeeg.eegfaktura.billing.repos.*;
 import org.vfeeg.eegfaktura.billing.util.BigDecimalTools;
@@ -39,6 +40,10 @@ public class BillingService {
             + " neu laden und die Energiedaten des Zeitraums laden.";
     static final String NO_MATCHING_ALLOCATIONS_TEXT = "Keine der übergebenen Energiemengen passt zu einem"
             + " Mitglied/Zählpunkt der Stammdaten – es wurde kein Beleg erstellt.";
+    static final String NO_BILLING_FOR_AREA_TEXT = "Für Peer-to-Peer und Eigenversorgung ist in eegfaktura keine"
+            + " Abrechnung vorgesehen.";
+    // Gemeinschaftstypen ohne Abrechnung (base.eeg.area, platform#229)
+    static final Set<String> AREAS_WITHOUT_BILLING = Set.of("P2P", "EVA");
     private final BillingMasterdataRepository billingMasterdataRepository;
     private final BillingDocumentNumberGenerator billingDocumentNumberGenerator;
     private final BillingRunRepository billingRunRepository;
@@ -86,6 +91,16 @@ public class BillingService {
      */
     @Transactional
     public BillingRun acceptBillingRun(DoBillingParams doBillingParams) {
+
+        // Peer-to-Peer und Eigenversorgung rechnet eegfaktura nicht ab: ablehnen, bevor ein Lauf angelegt
+        // wird, Vorschau wie endgueltig (platform#229). tenant.id kommt aus dem MDC (LogContextFilter).
+        Optional<String> areaWithoutBilling = billingMasterdataRepository.findFirstByTenantIdIgnoreCaseAndEegAreaIn(
+                doBillingParams.getTenantId(), AREAS_WITHOUT_BILLING).map(BillingMasterdata::getEegArea);
+        if (areaWithoutBilling.isPresent()) {
+            log.atWarn().addKeyValue(LogFields.EVENT_ACTION, "billing.run.refused")
+                    .log("Billing run refused: community type {} is not billed in eegfaktura", areaWithoutBilling.get());
+            throw new IllegalArgumentException(NO_BILLING_FOR_AREA_TEXT);
+        }
 
         // Ohne Energiemengen gibt es nichts abzurechnen: ablehnen, bevor ein Lauf angelegt wird (platform#189)
         if (doBillingParams.getAllocations() == null || doBillingParams.getAllocations().length == 0) {

@@ -79,7 +79,9 @@ create table if not exists base.billing_masterdata
     -- joining fee (backend 20261028130000): the view's fallback is 0/false like tariff_participant_fee_*
     tariff_joining_fee                    numeric default 0,
     tariff_joining_fee_use_vat            boolean default false,
-    tariff_joining_fee_vat_in_percent     numeric default 0
+    tariff_joining_fee_vat_in_percent     numeric default 0,
+    -- community type (base.eeg.area, platform#229), last column of the view
+    eeg_area                              text default 'LOCAL'
 );
 
 -- joining fee (backend 20261028130000); also for a reused container whose table predates the columns
@@ -87,3 +89,7 @@ alter table base.billing_masterdata
     add column if not exists tariff_joining_fee                numeric default 0,
     add column if not exists tariff_joining_fee_use_vat        boolean default false,
     add column if not exists tariff_joining_fee_vat_in_percent numeric default 0;
+
+-- community type (platform#229); also for a reused container whose table predates the column
+alter table base.billing_masterdata
+    add column if not exists eeg_area text default 'LOCAL';
