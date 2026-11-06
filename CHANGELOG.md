@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.10.0] – 2026-11-06
+
 ### Security
 - **The log encoder masks e-mail addresses, IBANs, JWTs and password values** (eegfaktura-dev#45 L8): `message`,
   `error.message` and `error.stack_trace` of the JSON format go through one filter (`LogText.masked`). Tenants, UUIDs,
