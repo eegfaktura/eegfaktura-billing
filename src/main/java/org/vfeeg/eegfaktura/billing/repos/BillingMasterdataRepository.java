@@ -16,6 +16,6 @@ public interface BillingMasterdataRepository extends JpaRepository<BillingMaster
      */
     Optional<BillingMasterdata> findFirstByTenantIdIgnoreCase(String tenantId);
 
-    /** Whether a row of the tenant (any case) has one of the community types {@code eegAreas}. */
-    boolean existsByTenantIdIgnoreCaseAndEegAreaIn(String tenantId, Collection<String> eegAreas);
+    /** A row of the tenant (any case) with one of the community types {@code eegAreas}, if there is one. */
+    Optional<BillingMasterdata> findFirstByTenantIdIgnoreCaseAndEegAreaIn(String tenantId, Collection<String> eegAreas);
 }

@@ -1,15 +1,21 @@
 package org.vfeeg.eegfaktura.billing.scenario;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
+import org.vfeeg.eegfaktura.billing.logging.LogFields;
 import org.vfeeg.eegfaktura.billing.model.Allocation;
 import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
 import org.vfeeg.eegfaktura.billing.model.DoBillingResults;
@@ -18,9 +24,12 @@ import org.vfeeg.eegfaktura.billing.rest.BillingResource;
 import org.vfeeg.eegfaktura.billing.security.Authority;
 import org.vfeeg.eegfaktura.billing.security.TenantContext;
 import org.vfeeg.eegfaktura.billing.service.BillingRunLauncher;
+import org.vfeeg.eegfaktura.billing.service.BillingService;
 import org.vfeeg.eegfaktura.billing.support.AllocationBuilder;
 import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
 import org.vfeeg.eegfaktura.billing.support.BillingScenarioBase;
+
+import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -41,14 +50,22 @@ class CommunityTypeBillingTests extends BillingScenarioBase {
     @Autowired
     private BillingRunRepository billingRunRepository;
 
+    private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    private final Logger serviceLogger = (Logger) LoggerFactory.getLogger(BillingService.class);
+
     @BeforeEach
     void requestTenant() {
         TenantContext.setCurrentTenant(new Authority(tenant));
+        MDC.put(LogFields.TENANT_ID, tenant); // LogContextFilter of the request
+        appender.start();
+        serviceLogger.addAppender(appender);
     }
 
     @AfterEach
     void clearRequestTenant() {
         TenantContext.setCurrentTenant(null);
+        serviceLogger.detachAppender(appender);
+        MDC.remove(LogFields.TENANT_ID);
     }
 
     private BillingRunFixture community(String area) {
@@ -75,6 +92,13 @@ class CommunityTypeBillingTests extends BillingScenarioBase {
         assertThat(response.getBody().getAbstractText(), is(NO_BILLING));
         assertThat(response.getBody().getBillingRunId(), nullValue());
         assertThat(count("billing_run where tenant_id = ?"), is(0));
+        // eegfaktura-dev#56 #12: the refusal has a line of its own, not only the access line
+        List<ILoggingEvent> refused = appender.list.stream()
+                .filter(line -> line.getKeyValuePairs() != null && line.getKeyValuePairs().stream().anyMatch(
+                        pair -> LogFields.EVENT_ACTION.equals(pair.key) && "billing.run.refused".equals(pair.value)))
+                .toList();
+        assertThat(refused.size(), is(1));
+        assertThat(refused.get(0).getMDCPropertyMap().get(LogFields.TENANT_ID), is(tenant));
     }
 
     /** The request may carry the tenant in another case than the master data (upper case). */

@@ -39,6 +39,8 @@ this changelog highlights the changes relevant for overview and operations.
   before. No Flyway
   migration. **Deploy after the backend** migration that adds the column: without it every master-data read fails.
   Deploy order: eda-xp → backend → billing, admin-backend → admin, web → operator SQL.
+  The refusal writes a WARN line `event.action=billing.run.refused` with the request's `tenant.id` and the community
+  type in the message (eegfaktura-dev#56 #12); before, only the access line showed the 400.
 - **Settlement state of a community** (platform#230, konzept-abrechnungsintervall.md): new read-only endpoint
   `GET /api/billingRuns/tenant/{tenantId}/settlementState` (bearer, `TenantContext.validateTenant`) answers
   `{"finalPeriods": [...], "runningPeriods": [...]}`: the clearing period identifiers of the final runs with documents
