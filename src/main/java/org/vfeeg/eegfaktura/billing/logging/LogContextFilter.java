@@ -10,21 +10,16 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.vfeeg.eegfaktura.billing.security.JwtAuthentication;
 
 import java.io.IOException;
-import java.util.Locale;
-import java.util.regex.Pattern;
 
 /**
  * Runs in the security chain right after {@code JwtRequestFilter}: once the token is valid and the requested tenant
  * was checked against it, puts {@code tenant.id} (the tenant the request works on, when the token grants it) and
  * {@code client.id} (the token's {@code azp}, the Keycloak client — not a person) into the MDC. A superuser on a
  * tenant its token does not name gets {@code support.access=true}. {@code tenant.id} is written only when the
- * upper-cased header has the format of a tenant (the one place of that rule). Without a valid token both stay empty.
+ * upper-cased header has the format of a tenant ({@link LogFields#tenant}). Without a valid token both stay empty.
  * Not a {@code @Component}, so it runs only inside the security chain; {@link RequestLogFilter} clears the MDC.
  */
 public class LogContextFilter extends OncePerRequestFilter {
-
-    // e.g. RC100123, GC100123-001
-    private static final Pattern TENANT = Pattern.compile("[A-Z0-9][A-Z0-9_-]{0,63}");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -49,8 +44,8 @@ public class LogContextFilter extends OncePerRequestFilter {
 
     /** The header is a raw value: it goes into the log only if it looks like a tenant, otherwise the field stays out. */
     private static void putTenant(String header) {
-        String tenant = header.strip().toUpperCase(Locale.ROOT);
-        if (TENANT.matcher(tenant).matches()) {
+        String tenant = LogFields.tenant(header);
+        if (tenant != null) {
             MDC.put(LogFields.TENANT_ID, tenant);
         }
     }

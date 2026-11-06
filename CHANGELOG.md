@@ -8,6 +8,30 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Fixed
+- **Recovery also covers a RUNNING run without a claim time and names every run** (eegfaktura-dev#54 #11): a RUNNING
+  run whose `run_status_date_time` is `NULL` (the column is nullable) is set to FAILED like one claimed before the
+  start; before, it kept blocking its period and an interval change. Instead of one line with the count, one WARN per
+  run with the run id in the text, `event.action=billing_run.recovered` and the community as `tenant.id` (if a run
+  changed between the read and the update, one summary line with the counts instead). A run whose
+  claim time lies in the future at the check (clock or time zone changed) stays RUNNING and gets a WARN naming it
+  (`event.action=billing_run.claimed_in_future`). The `tenant.id` format rule now lives in `LogFields.tenant`, used by
+  `LogContextFilter` and the recovery.
+- **A refused tenant writes one WARN instead of two ERRORs** (eegfaktura-dev#54 #10): a resource of another community
+  (`TenantContext.validateTenant`) is the caller's error. Before, one request wrote `ERROR Tenant of the resource does
+  not match…` and `ERROR Unhandled exception` with the stack trace, so any admin could raise the ERROR count at will.
+  Now one `WARN` with `event.action=tenant.refused`; a new handler for `AccessDeniedException` in `RestExceptionHandler`
+  answers as the catch-all did (500, `exception: AccessDeniedException`, no message) without logging. The status is
+  unchanged (known-errors #20); the 403 comes with billing#101. A `Tenant` header the token does not grant
+  (`JwtRequestFilter`, 403) still writes its WARN and Tomcat's `Servlet.service()` ERROR, unchanged.
+- **A final run with an unknown period identifier is refused** (eegfaktura-dev#54 #9b): `POST /api/billing` with
+  `preview: false` and a `clearingPeriodIdentifier` that does not name a year, half year, quarter or month
+  (`Abr_Y-<year>[-<n>]`, `Abr_YH-<year>-1..2`, `Abr_YQ-<year>-1..4`, `Abr_YM-<year>-1..12`) answers 400 with
+  „Unbekannter Abrechnungszeitraum: endgültig abgerechnet wird nur ein Jahr, Halbjahr, Quartal oder Monat.“ and creates
+  no run. Before, such a run skipped the overlap check against final runs (R4) and could bill the same energy twice.
+  eegfaktura-web and eegfaktura-v3 send only these forms (`Abr_<type>-<year>-<segment>`, a year with segment 0), so
+  their runs are unchanged; previews are not checked, as before.
+
 ## [1.10.0] – 2026-11-06
 
 ### Security

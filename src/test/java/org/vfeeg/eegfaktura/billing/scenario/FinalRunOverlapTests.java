@@ -175,4 +175,39 @@ class FinalRunOverlapTests extends BillingScenarioBase {
         assertThrows(BillingService.BillingPeriodOverlapException.class,
                 () -> billingService.executeBillingRun(accepted.getId(), params(FIRST_QUARTER, false)));
     }
+
+    /**
+     * eegfaktura-dev#54 #9b: a final run whose identifier names no known months would pass the overlap check, so it
+     * is refused with 400 before a run is created; web and v3 send {@code Abr_<Y|YH|YQ|YM>-<year>-<segment>}.
+     */
+    @Test
+    void aFinalRunWithAnUnknownIdentifierIsRefusedWithoutARun() {
+        billFinal(MARCH);
+
+        for (String unknown : new String[]{"Abr_YQ-2024-01x", "Abr_YM-2024-13", "ABR_YM-2024-3", "Abr_YM-2024-3 ",
+                "Abr_D-2024-60", "foo", ""}) {
+            ResponseEntity<DoBillingResults> response = billingResource.startBilling(params(unknown, false));
+
+            assertThat(unknown, response.getStatusCode(), is(HttpStatus.BAD_REQUEST));
+            assertThat(response.getBody().getAbstractText(), containsString("Unbekannter Abrechnungszeitraum"));
+        }
+        assertThat(count("billing_run where tenant_id = ?"), is(1));
+    }
+
+    @Test
+    void aPreviewWithAnUnknownIdentifierStillRuns() {
+        billingService.doBilling(params("Abr_YM-2024-13", true));
+
+        assertThat(count("billing_run where tenant_id = ?"), is(1));
+    }
+
+    @Test
+    void theIdentifiersOfWebAndV3AreAccepted() {
+        billFinal("Abr_Y-2023-0");
+        billFinal("Abr_YH-2024-1");
+        billFinal("Abr_YQ-2024-3");
+        billFinal("Abr_YM-2024-12");
+
+        assertThat(count("billing_run where tenant_id = ?"), is(4));
+    }
 }

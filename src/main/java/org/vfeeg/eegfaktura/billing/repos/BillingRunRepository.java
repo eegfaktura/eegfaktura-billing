@@ -11,6 +11,7 @@ import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,18 +53,22 @@ public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
     int releaseClaim(@Param("id") UUID id, @Param("to") BillingRunStatus to,
                      @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
 
+    /** The runs of every community in this status: for the recovery at start only, not for requests. */
+    List<BillingRun> findByRunStatus(BillingRunStatus runStatus);
+
     /**
-     * Sets every run claimed (RUNNING) before {@code startedAt} to FAILED: its calculation died with an earlier
-     * process (tracking billing 261105-mm1). FAILED can be claimed again, so the run can be restarted.
+     * Sets the runs among {@code ids} that are still RUNNING and were claimed before {@code startedAt} (or have no
+     * claim time) to FAILED: their calculation died with an earlier process (tracking billing 261105-mm1,
+     * eegfaktura-dev#54 #11). FAILED can be claimed again, so the run can be restarted.
      */
     @Modifying
     @Transactional
     @Query("update BillingRun b set b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.FAILED, "
             + "b.runStatusDateTime = :now, b.errorSummary = :errorSummary "
-            + "where b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.RUNNING "
-            + "and b.runStatusDateTime < :startedAt")
-    int failRunsClaimedBefore(@Param("startedAt") LocalDateTime startedAt,
-                              @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
+            + "where b.id in :ids and b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.RUNNING "
+            + "and (b.runStatusDateTime is null or b.runStatusDateTime < :startedAt)")
+    int failRunning(@Param("ids") Collection<UUID> ids, @Param("startedAt") LocalDateTime startedAt,
+                    @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
 
     /** The run with its row locked until the transaction ends: its status cannot change under a deletion. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
