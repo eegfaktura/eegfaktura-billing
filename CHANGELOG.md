@@ -8,6 +8,32 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Fixed
+- **Recovery also covers a RUNNING run without a claim time and names every run** (eegfaktura-dev#54 #11): a RUNNING
+  run whose `run_status_date_time` is `NULL` (the column is nullable) is set to FAILED like one claimed before the
+  start; before, it kept blocking its period and an interval change. Instead of one line with the count, one WARN per
+  run with the run id in the text, `event.action=billing_run.recovered` and the community as `tenant.id` (if a run
+  changed between the read and the update, one summary line with the counts instead). A run whose
+  claim time lies in the future at the check (clock or time zone changed) stays RUNNING and gets a WARN naming it
+  (`event.action=billing_run.claimed_in_future`). The `tenant.id` format rule now lives in `LogFields.tenant`, used by
+  `LogContextFilter` and the recovery.
+- **A refused tenant writes one WARN instead of two ERRORs** (eegfaktura-dev#54 #10): a resource of another community
+  (`TenantContext.validateTenant`) is the caller's error. Before, one request wrote `ERROR Tenant of the resource does
+  not match…` and `ERROR Unhandled exception` with the stack trace, so any admin could raise the ERROR count at will.
+  Now one `WARN` with `event.action=tenant.refused`; a new handler for `AccessDeniedException` in `RestExceptionHandler`
+  answers as the catch-all did (500, `exception: AccessDeniedException`, no message) without logging. The status is
+  unchanged (known-errors #20); the 403 comes with billing#101. A `Tenant` header the token does not grant
+  (`JwtRequestFilter`, 403) still writes its WARN and Tomcat's `Servlet.service()` ERROR, unchanged.
+- **A final run with an unknown period identifier is refused** (eegfaktura-dev#54 #9b): `POST /api/billing` with
+  `preview: false` and a `clearingPeriodIdentifier` that does not name a year, half year, quarter or month
+  (`Abr_Y-<year>[-<n>]`, `Abr_YH-<year>-1..2`, `Abr_YQ-<year>-1..4`, `Abr_YM-<year>-1..12`) answers 400 with
+  „Unbekannter Abrechnungszeitraum: endgültig abgerechnet wird nur ein Jahr, Halbjahr, Quartal oder Monat.“ and creates
+  no run. Before, such a run skipped the overlap check against final runs (R4) and could bill the same energy twice.
+  eegfaktura-web and eegfaktura-v3 send only these forms (`Abr_<type>-<year>-<segment>`, a year with segment 0), so
+  their runs are unchanged; previews are not checked, as before.
+
+## [1.10.0] – 2026-11-06
+
 ### Security
 - **The log encoder masks e-mail addresses, IBANs, JWTs and password values** (eegfaktura-dev#45 L8): `message`,
   `error.message` and `error.stack_trace` of the JSON format go through one filter (`LogText.masked`). Tenants, UUIDs,
@@ -28,6 +54,19 @@ this changelog highlights the changes relevant for overview and operations.
   body or record. The messages changed accordingly; the status codes and the response bodies did not.
 
 ### Added
+- **No billing for peer-to-peer (P2P) and self-supply (EVA) communities** (vfeeg-development/eegfaktura-platform#229,
+  konzept-buergerenergie-eigenversorgung-p2p.md): `BillingMasterdata` reads the new last column `eeg_area` (text,
+  `base.eeg.area`) of the backend view `base.billing_masterdata`. `POST /api/billing` (preview and final) answers
+  **400** with „Für Peer-to-Peer und Eigenversorgung ist in eegfaktura keine Abrechnung vorgesehen.“ when a master-data
+  row of the tenant has `eeg_area` `P2P` or `EVA`; checked after the tenant check and before a run is created or an
+  existing run continued, so no `billing_run` row is written. The view has one row per participant: a P2P/EVA
+  community **without participants** is not caught; its run is created and ends FAILED („Keine der übergebenen
+  Energiemengen passt …“), without documents or mails. LOCAL, REGIONAL, BEG, GEA and a missing type (`NULL`) bill as
+  before. No Flyway
+  migration. **Deploy after the backend** migration that adds the column: without it every master-data read fails.
+  Deploy order: eda-xp → backend → billing, admin-backend → admin, web → operator SQL.
+  The refusal writes a WARN line `event.action=billing.run.refused` with the request's `tenant.id` and the community
+  type in the message (eegfaktura-dev#56 #12); before, only the access line showed the 400.
 - **Settlement state of a community** (platform#230, konzept-abrechnungsintervall.md): new read-only endpoint
   `GET /api/billingRuns/tenant/{tenantId}/settlementState` (bearer, `TenantContext.validateTenant`) answers
   `{"finalPeriods": [...], "runningPeriods": [...]}`: the clearing period identifiers of the final runs with documents
@@ -52,28 +91,6 @@ this changelog highlights the changes relevant for overview and operations.
   interval change) until an operator fixed it. Assumes one billing instance at a time (one replica, strategy
   `Recreate` in eegfaktura-gitops `base/billing.yaml`); with several instances this would fail a run another instance
   is still calculating.
-- **Recovery also covers a RUNNING run without a claim time and names every run** (eegfaktura-dev#54 #11): a RUNNING
-  run whose `run_status_date_time` is `NULL` (the column is nullable) is set to FAILED like one claimed before the
-  start; before, it kept blocking its period and an interval change. Instead of one line with the count, one WARN per
-  run with the run id in the text, `event.action=billing_run.recovered` and the community as `tenant.id` (if a run
-  changed between the read and the update, one summary line with the counts instead). A run whose
-  claim time lies in the future at the check (clock or time zone changed) stays RUNNING and gets a WARN naming it
-  (`event.action=billing_run.claimed_in_future`). The `tenant.id` format rule now lives in `LogFields.tenant`, used by
-  `LogContextFilter` and the recovery.
-- **A refused tenant writes one WARN instead of two ERRORs** (eegfaktura-dev#54 #10): a resource of another community
-  (`TenantContext.validateTenant`) is the caller's error. Before, one request wrote `ERROR Tenant of the resource does
-  not match…` and `ERROR Unhandled exception` with the stack trace, so any admin could raise the ERROR count at will.
-  Now one `WARN` with `event.action=tenant.refused`; a new handler for `AccessDeniedException` in `RestExceptionHandler`
-  answers as the catch-all did (500, `exception: AccessDeniedException`, no message) without logging. The status is
-  unchanged (known-errors #20); the 403 comes with billing#101. A `Tenant` header the token does not grant
-  (`JwtRequestFilter`, 403) still writes its WARN and Tomcat's `Servlet.service()` ERROR, unchanged.
-- **A final run with an unknown period identifier is refused** (eegfaktura-dev#54 #9b): `POST /api/billing` with
-  `preview: false` and a `clearingPeriodIdentifier` that does not name a year, half year, quarter or month
-  (`Abr_Y-<year>[-<n>]`, `Abr_YH-<year>-1..2`, `Abr_YQ-<year>-1..4`, `Abr_YM-<year>-1..12`) answers 400 with
-  „Unbekannter Abrechnungszeitraum: endgültig abgerechnet wird nur ein Jahr, Halbjahr, Quartal oder Monat.“ and creates
-  no run. Before, such a run skipped the overlap check against final runs (R4) and could bill the same energy twice.
-  eegfaktura-web and eegfaktura-v3 send only these forms (`Abr_<type>-<year>-<segment>`, a year with segment 0), so
-  their runs are unchanged; previews are not checked, as before.
 - **`request.id` and `tenant.id` also on the lines of an error dispatch after `sendError`** (L12); the lines of a
   request and of the asynchronous billing run already carried them and are now covered by tests.
 

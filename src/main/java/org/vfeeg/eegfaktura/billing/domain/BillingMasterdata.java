@@ -120,6 +120,9 @@ public class BillingMasterdata {
     private Boolean tariffJoiningFeeUseVat;
     private BigDecimal tariffJoiningFeeVatInPercent;
 
+    // Typ der Gemeinschaft (base.eeg.area: LOCAL, REGIONAL, BEG, GEA, P2P, EVA), platform#229
+    private String eegArea;
+
     public Boolean getTariffUseVat() {
         return Objects.requireNonNullElse(tariffUseVat, Boolean.FALSE);
     }
