@@ -15,6 +15,9 @@ on:
       - 'env/**'
     tags:
       - v*
+    # a commit that only changes the CHANGELOG (release PR) builds no image; the release promotes the image of the
+    # commit before (platform#239). Tag pushes still build: path filters do not apply to tags.
+    paths-ignore: ['CHANGELOG.md']
 
 env:
   REGISTRY: "ghcr.io"
