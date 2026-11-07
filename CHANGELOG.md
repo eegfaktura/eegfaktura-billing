@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.10.1] – 2026-11-07
+
 ### Fixed
 - **Recovery also covers a RUNNING run without a claim time and names every run** (eegfaktura-dev#54 #11): a RUNNING
   run whose `run_status_date_time` is `NULL` (the column is nullable) is set to FAILED like one claimed before the
