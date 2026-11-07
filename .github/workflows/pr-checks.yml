@@ -14,6 +14,8 @@ name: PR Checks
 
 on:
   pull_request:
+    # a commit that only changes the CHANGELOG (release PR) runs no checks (platform#239); schedules still run
+    paths-ignore: ['CHANGELOG.md']
   workflow_dispatch:
 
 permissions:
