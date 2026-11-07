@@ -35,8 +35,12 @@ name: Security Scan
 
 on:
   pull_request:
+    # a commit that only changes the CHANGELOG (release PR) runs no checks (platform#239); schedules still run
+    paths-ignore: ['CHANGELOG.md']
   push:
     branches: [master, main]
+    # a commit that only changes the CHANGELOG (release PR) runs no checks (platform#239); schedules still run
+    paths-ignore: ['CHANGELOG.md']
   schedule:
     - cron: '17 5 * * 1'
   workflow_dispatch:

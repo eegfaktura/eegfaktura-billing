@@ -10,7 +10,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ### Changed
 - **CI: no image build for a commit that only changes `CHANGELOG.md`** (platform#239): pushes and pull requests whose
-  only change is the CHANGELOG, such as the release PR, skip the image build. Tag pushes still build. A release promotes
+  only change is the CHANGELOG, such as the release PR, skip the image build and the checks (PR checks, security
+  scan, Snyk Code; the weekly schedules still run). Tag pushes still build. A release promotes
   the image of the last commit before the release PR; it has the same content.
 
 ## [1.10.1] – 2026-11-07

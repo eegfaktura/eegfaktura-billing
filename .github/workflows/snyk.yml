@@ -3,6 +3,8 @@ name: Snyk Code (SAST)
 on:
   push:
     branches: ["master"]
+    # a commit that only changes the CHANGELOG (release PR) runs no checks (platform#239); schedules still run
+    paths-ignore: ['CHANGELOG.md']
   schedule:
     - cron: "23 6 * * 1"
   workflow_dispatch:
