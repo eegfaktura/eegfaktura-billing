@@ -7,7 +7,7 @@ import java.util.Locale;
 
 public class BigDecimalTools {
 
-    // German digits with a thousands separator, e.g. "21.345,00" (platform#250); a new format per call: DecimalFormat is not thread-safe, and billing runs render documents at the same time
+    // "21.345,00" (platform#250); a new instance per call instead of a shared, changeable public field
     private static DecimalFormat germanFormat() {
         return new DecimalFormat("#,##0.00", new DecimalFormatSymbols(Locale.GERMAN));
     }
