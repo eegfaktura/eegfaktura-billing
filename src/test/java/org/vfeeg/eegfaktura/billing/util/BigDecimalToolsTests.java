@@ -65,6 +65,31 @@ class BigDecimalToolsTests {
         assertThat(BigDecimalTools.makeGermanString(new BigDecimal("0.004")), is("0,00"));
     }
 
+    // several billing runs render documents at the same time; a shared DecimalFormat mixed up their digits
+    @Test
+    void germanStringIsThreadSafe() throws Exception {
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(8);
+        try {
+            java.util.List<java.util.concurrent.Future<Boolean>> results = new java.util.ArrayList<>();
+            for (int t = 0; t < 8; t++) {
+                final int seed = t;
+                results.add(pool.submit(() -> {
+                    for (int i = 0; i < 20_000; i++) {
+                        BigDecimal value = BigDecimal.valueOf(seed * 1_000_003L + i, 2);
+                        String expected = value.setScale(2, java.math.RoundingMode.HALF_EVEN).toPlainString().replace('.', ',');
+                        if (!BigDecimalTools.makeGermanString(value).replace(".", "").equals(expected)) return false;
+                    }
+                    return true;
+                }));
+            }
+            for (java.util.concurrent.Future<Boolean> r : results) {
+                assertThat(r.get(), is(true));
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     @Test
     void germanStringOfNullIsEmpty() {
         assertThat(BigDecimalTools.makeGermanString(null), is(emptyString()));
