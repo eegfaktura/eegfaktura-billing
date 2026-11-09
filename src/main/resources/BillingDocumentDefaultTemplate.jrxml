@@ -246,9 +246,9 @@
 					<datasetRun uuid="61bee552-efe9-44ea-9856-4791122c6a6f" subDataset="tblItems">
 						<dataSourceExpression><![CDATA[$P{items}]]></dataSourceExpression>
 					</datasetRun>
-					<column kind="single" uuid="74718589-aca3-4b66-8593-1929c47c23a7" width="180">
+					<column kind="single" uuid="74718589-aca3-4b66-8593-1929c47c23a7" width="200">
 						<columnHeader height="25" rowSpan="1">
-							<element kind="staticText" uuid="f89327a9-9bfc-4304-8b0c-027c911ef8a7" x="0" y="0" width="174" height="19" fontSize="8.0" bold="true" vTextAlign="Middle">
+							<element kind="staticText" uuid="f89327a9-9bfc-4304-8b0c-027c911ef8a7" x="0" y="0" width="194" height="19" fontSize="8.0" bold="true" vTextAlign="Middle">
 								<text><![CDATA[Positionstext]]></text>
 								<property name="com.jaspersoft.studio.unit.width" value="pixel"/>
 								<property name="com.jaspersoft.studio.unit.height" value="pixel"/>
@@ -260,15 +260,15 @@
 							</box>
 						</columnHeader>
 						<detailCell height="16">
-							<element kind="line" uuid="10000001-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="180" height="1" forecolor="#D0D0D0" positionType="FixRelativeToTop">
+							<element kind="line" uuid="10000001-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="200" height="1" forecolor="#D0D0D0" positionType="FixRelativeToTop">
 								<printWhenExpression><![CDATA["S".equals($F{rowType})]]></printWhenExpression>
 								<pen lineWidth="0.5" lineColor="#D0D0D0"/>
 							</element>
-							<element kind="line" uuid="20000001-aaaa-bbbb-cccc-000000000000" x="0" y="15" width="180" height="1" forecolor="#D0D0D0" positionType="FixRelativeToBottom">
+							<element kind="line" uuid="20000001-aaaa-bbbb-cccc-000000000000" x="0" y="15" width="200" height="1" forecolor="#D0D0D0" positionType="FixRelativeToBottom">
 								<printWhenExpression><![CDATA["S".equals($F{rowType})]]></printWhenExpression>
 								<pen lineWidth="0.5" lineColor="#D0D0D0"/>
 							</element>
-							<element kind="textField" uuid="076bb6e8-fa9a-4d53-a9fc-9e6f61986264" x="3" y="2" width="174" height="12" fontSize="8.0" markup="styled" textAdjust="StretchHeight">
+							<element kind="textField" uuid="076bb6e8-fa9a-4d53-a9fc-9e6f61986264" x="3" y="2" width="194" height="12" fontSize="8.0" markup="styled" textAdjust="StretchHeight">
 								<expression><![CDATA[$F{text}
 +(!T($F{discountPercent}).startsWith("0,00") ? "\nRabatt: "+$F{discountPercent} : "")]]></expression>
 							</element>
@@ -279,9 +279,9 @@
 						<property name="com.jaspersoft.studio.components.table.model.column.name" value="Column1"/>
 						<property name="com.jaspersoft.studio.unit.width" value="px"/>
 					</column>
-					<column kind="single" uuid="e8a1562b-0854-4c84-9648-eda778ec5bba" width="80">
+					<column kind="single" uuid="e8a1562b-0854-4c84-9648-eda778ec5bba" width="60">
 						<columnHeader height="25" rowSpan="1">
-							<element kind="staticText" uuid="a4744684-6d9c-47e3-b9da-de495e64dc76" x="0" y="0" width="74" height="19" fontSize="8.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
+							<element kind="staticText" uuid="a4744684-6d9c-47e3-b9da-de495e64dc76" x="0" y="0" width="54" height="19" fontSize="8.0" bold="true" hTextAlign="Right" vTextAlign="Middle">
 								<text><![CDATA[Menge]]></text>
 							</element>
 							<property name="com.jaspersoft.studio.unit.width" value="px"/>
@@ -290,15 +290,15 @@
 							</box>
 						</columnHeader>
 						<detailCell height="16">
-							<element kind="line" uuid="10000002-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="80" height="1" forecolor="#D0D0D0" positionType="FixRelativeToTop">
+							<element kind="line" uuid="10000002-aaaa-bbbb-cccc-000000000000" x="0" y="0" width="60" height="1" forecolor="#D0D0D0" positionType="FixRelativeToTop">
 								<printWhenExpression><![CDATA["S".equals($F{rowType})]]></printWhenExpression>
 								<pen lineWidth="0.5" lineColor="#D0D0D0"/>
 							</element>
-							<element kind="line" uuid="20000002-aaaa-bbbb-cccc-000000000000" x="0" y="15" width="80" height="1" forecolor="#D0D0D0" positionType="FixRelativeToBottom">
+							<element kind="line" uuid="20000002-aaaa-bbbb-cccc-000000000000" x="0" y="15" width="60" height="1" forecolor="#D0D0D0" positionType="FixRelativeToBottom">
 								<printWhenExpression><![CDATA["S".equals($F{rowType})]]></printWhenExpression>
 								<pen lineWidth="0.5" lineColor="#D0D0D0"/>
 							</element>
-							<element kind="textField" uuid="4c381b98-0be0-4cdf-84c1-4a380301f8eb" x="3" y="2" width="74" height="12" fontSize="8.0" markup="styled" textAdjust="StretchHeight" hTextAlign="Right">
+							<element kind="textField" uuid="4c381b98-0be0-4cdf-84c1-4a380301f8eb" x="3" y="2" width="54" height="12" fontSize="8.0" markup="styled" textAdjust="ScaleFont" hTextAlign="Right">
 								<expression><![CDATA[$F{amount}]]></expression>
 								<property name="com.jaspersoft.studio.unit.width" value="pixel"/>
 							</element>
