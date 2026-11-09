@@ -12,7 +12,8 @@ import static org.hamcrest.Matchers.sameInstance;
 
 /**
  * The German number strings are printed on every invoice and credit note (BillingPdfService).
- * Rounding: DecimalFormat's default HALF_EVEN on the exact BigDecimal value; no thousands separator.
+ * Rounding: DecimalFormat's default HALF_EVEN on the exact BigDecimal value; a dot as thousands separator
+ * (platform#250).
  * Whether the print should round HALF_UP is part of an open rounding question.
  */
 class BigDecimalToolsTests {
@@ -46,13 +47,15 @@ class BigDecimalToolsTests {
         assertThat(BigDecimalTools.makeGermanString(BigDecimal.ZERO), is("0,00"));
         assertThat(BigDecimalTools.makeGermanString(new BigDecimal("0.00")), is("0,00"));
         assertThat(BigDecimalTools.makeGermanString(new BigDecimal("-1.5")), is("-1,50"));
-        assertThat(BigDecimalTools.makeGermanString(new BigDecimal("-1234.567")), is("-1234,57"));
+        assertThat(BigDecimalTools.makeGermanString(new BigDecimal("-1234.567")), is("-1.234,57"));
     }
 
     @Test
-    void germanStringHasNoThousandsSeparator() {
-        assertThat(BigDecimalTools.makeGermanString(new BigDecimal("1234567.891")), is("1234567,89"));
-        assertThat(BigDecimalTools.makeGermanString(new BigDecimal("1000")), is("1000,00"));
+    void germanStringHasThousandsSeparator() {
+        assertThat(BigDecimalTools.makeGermanString(new BigDecimal("1234567.891")), is("1.234.567,89"));
+        assertThat(BigDecimalTools.makeGermanString(new BigDecimal("1000")), is("1.000,00"));
+        assertThat(BigDecimalTools.makeGermanString(new BigDecimal("999.99")), is("999,99"));
+        assertThat(BigDecimalTools.makeGermanString(new BigDecimal("21345"), "kWh"), is("21.345,00 kWh"));
     }
 
     @Test

@@ -363,7 +363,7 @@ class BillingIntegrationTests {
                 containsString("Anlage-Nr.: Anlagenr 3333"),
                 containsString("P0000000000000000000003333")
         ));
-        assertThat(BigDecimalTools.makeGermanString(item0.getAmount()), is("3355,33"));
+        assertThat(BigDecimalTools.makeGermanString(item0.getAmount()), is("3.355,33"));
         assertThat(BigDecimalTools.makeGermanString(item0.getPricePerUnit()), is("7,77"));
         assertThat(BigDecimalTools.makeGermanString(item0.getNetValue()), is("260,71"));
         assertThat(BigDecimalTools.makeGermanString(item0.getVatPercent()), is("10,00"));
@@ -375,7 +375,7 @@ class BillingIntegrationTests {
                 containsString("Anlage-Nr.: Anlagenr 4444"),
                 containsString("P0000000000000000000004444")
         ));
-        assertThat(BigDecimalTools.makeGermanString(item1.getAmount()), is("4477,45"));
+        assertThat(BigDecimalTools.makeGermanString(item1.getAmount()), is("4.477,45"));
         assertThat(BigDecimalTools.makeGermanString(item1.getPricePerUnit()), is("9,66"));
         assertThat(BigDecimalTools.makeGermanString(item1.getNetValue()), is("432,52"));
         assertThat(BigDecimalTools.makeGermanString(item1.getVatPercent()), is("10,00"));
@@ -498,7 +498,7 @@ class BillingIntegrationTests {
                 containsString("Anlage-Nr.: Anlagenr 2222"),
                 containsString("P0000000000000000000002222")
         ));
-        assertThat(BigDecimalTools.makeGermanString(item.getAmount()), is("2233,22"));
+        assertThat(BigDecimalTools.makeGermanString(item.getAmount()), is("2.233,22"));
         assertThat(BigDecimalTools.makeGermanString(item.getPricePerUnit()), is("19,33"));
         assertThat(BigDecimalTools.makeGermanString(item.getNetValue()), is("431,68"));
         assertThat(item.getVatPercent(), comparesEqualTo(BigDecimal.ZERO));
