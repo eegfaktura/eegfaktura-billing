@@ -14,8 +14,9 @@ this changelog highlights the changes relevant for overview and operations.
   „1.234,56“ € instead of „21345,00 kWh“ and „1234,56“; values below 1.000 are unchanged. Texts billing writes into a
   document (e.g. the free kWh note) follow the same format. Applies to documents created from now on; existing
   documents keep their PDF. The Excel export writes numbers as number cells and is unchanged. In the column „Menge“
-  a value that does not fit (from „100.000,00 kWh“) is printed in a smaller font instead of moving „kWh“ to a
-  second line.
+  a value that does not fit is printed in a smaller font (7 pt from about 100.000 kWh, a bold subtotal from about
+  40.000 kWh) instead of moving „kWh“ to a second line — before, six-digit quantities wrapped already, and a large
+  bold subtotal lost its number. Column widths are unchanged.
 - **CI: no image build for a commit that only changes `CHANGELOG.md`** (platform#239): pushes and pull requests whose
   only change is the CHANGELOG, such as the release PR, skip the image build and the checks (PR checks, security
   scan, Snyk Code; the weekly schedules still run). Tag pushes still build. A release promotes
