@@ -9,10 +9,20 @@ this changelog highlights the changes relevant for overview and operations.
 ## [Unreleased]
 
 ### Changed
+- **Invoice PDF: thousands separator for all numbers** (platform#250, decision 09.11.2026): amounts of energy, prices,
+  net, VAT and gross values and percentages print with a dot every three digits, e.g. „21.345,00 kWh“ and
+  „1.234,56“ € instead of „21345,00 kWh“ and „1234,56“; values below 1.000 are unchanged. Texts billing writes into a
+  document (e.g. the free kWh note) follow the same format. Applies to documents created from now on; existing
+  documents keep their PDF. The Excel export writes numbers as number cells and is unchanged.
 - **CI: no image build for a commit that only changes `CHANGELOG.md`** (platform#239): pushes and pull requests whose
   only change is the CHANGELOG, such as the release PR, skip the image build and the checks (PR checks, security
   scan, Snyk Code; the weekly schedules still run). Tag pushes still build. A release promotes
   the image of the last commit before the release PR; it has the same content.
+
+### Fixed
+- **Numbers in the PDF with several billing runs at the same time** (pre-existing, found with platform#250): all PDFs
+  shared one `DecimalFormat`, which is not thread-safe, so documents rendered at the same time could get mixed-up
+  digits. Each number now gets its own format.
 
 ## [1.10.1] – 2026-11-07
 
