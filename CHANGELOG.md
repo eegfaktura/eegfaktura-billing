@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.11.0] – 2026-11-10
+
 ### Changed
 - **Invoice PDF: thousands separator for all numbers** (platform#250, decision 09.11.2026): amounts of energy, prices,
   net, VAT and gross values and percentages print with a dot every three digits, e.g. „21.345,00 kWh“ and
