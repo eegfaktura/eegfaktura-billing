@@ -8,6 +8,21 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Changed
+- **Peer-to-peer and self-supply: preview yes, final run no** (platform#255, decision 11.11.2026): a billing run for a
+  community of type P2P or EVA (`base.billing_masterdata.eeg_area`) is accepted as a **preview** and bills like any
+  community („Vorlage-Rechnungen“). A **final** run is still refused before a run row is created, now with
+  „Für Peer-to-Peer und Eigenversorgung erstellt eegfaktura nur eine Vorschau, keine endgültige Abrechnung.“ Before
+  (since platform#229) preview and final were both refused. A preview run from before a switch to P2P/EVA can be
+  repeated but not finalised.
+
+### Fixed
+- **Only a final run is mailed** (platform#255, pre-existing error): `GET /api/billingRuns/{id}/billingDocuments/sendmail`
+  checked the mail status only, so a direct call could mail the documents of a preview (status NEW) to all members.
+  Now it refuses every run that is not DONE before it claims the mail run, with „… nicht moeglich. Nur eine
+  endgueltige Abrechnung wird versendet, Status = NEW“. web offers sending for DONE runs only, so nothing changes in
+  the UI; it matters most for P2P/EVA, which have preview runs only.
+
 ## [1.11.0] – 2026-11-10
 
 ### Changed

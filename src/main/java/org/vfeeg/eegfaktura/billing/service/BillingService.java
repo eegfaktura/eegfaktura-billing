@@ -42,10 +42,10 @@ public class BillingService {
             + " nur ein Jahr, Halbjahr, Quartal oder Monat.";
     static final String NO_MATCHING_ALLOCATIONS_TEXT = "Keine der übergebenen Energiemengen passt zu einem"
             + " Mitglied/Zählpunkt der Stammdaten – es wurde kein Beleg erstellt.";
-    static final String NO_BILLING_FOR_AREA_TEXT = "Für Peer-to-Peer und Eigenversorgung ist in eegfaktura keine"
-            + " Abrechnung vorgesehen.";
-    // Gemeinschaftstypen ohne Abrechnung (base.eeg.area, platform#229)
-    static final Set<String> AREAS_WITHOUT_BILLING = Set.of("P2P", "EVA");
+    static final String PREVIEW_ONLY_FOR_AREA_TEXT = "Für Peer-to-Peer und Eigenversorgung erstellt eegfaktura nur"
+            + " eine Vorschau, keine endgültige Abrechnung.";
+    // Gemeinschaftstypen mit Vorschau, aber ohne endgueltigen Lauf (base.eeg.area; platform#229, seit platform#255)
+    static final Set<String> AREAS_PREVIEW_ONLY = Set.of("P2P", "EVA");
     private final BillingMasterdataRepository billingMasterdataRepository;
     private final BillingDocumentNumberGenerator billingDocumentNumberGenerator;
     private final BillingRunRepository billingRunRepository;
@@ -94,14 +94,16 @@ public class BillingService {
     @Transactional
     public BillingRun acceptBillingRun(DoBillingParams doBillingParams) {
 
-        // Peer-to-Peer und Eigenversorgung rechnet eegfaktura nicht ab: ablehnen, bevor ein Lauf angelegt
-        // wird, Vorschau wie endgueltig (platform#229). tenant.id kommt aus dem MDC (LogContextFilter).
-        Optional<String> areaWithoutBilling = billingMasterdataRepository.findFirstByTenantIdIgnoreCaseAndEegAreaIn(
-                doBillingParams.getTenantId(), AREAS_WITHOUT_BILLING).map(BillingMasterdata::getEegArea);
-        if (areaWithoutBilling.isPresent()) {
-            log.atWarn().addKeyValue(LogFields.EVENT_ACTION, "billing.run.refused")
-                    .log("Billing run refused: community type {} is not billed in eegfaktura", areaWithoutBilling.get());
-            throw new IllegalArgumentException(NO_BILLING_FOR_AREA_TEXT);
+        // Peer-to-Peer und Eigenversorgung: nur Vorschau ("Vorlage-Rechnungen"), ein endgueltiger Lauf wird
+        // abgelehnt, bevor er angelegt wird (platform#229, platform#255). tenant.id kommt aus dem MDC (LogContextFilter).
+        if (!doBillingParams.isPreview()) {
+            Optional<String> previewOnlyArea = billingMasterdataRepository.findFirstByTenantIdIgnoreCaseAndEegAreaIn(
+                    doBillingParams.getTenantId(), AREAS_PREVIEW_ONLY).map(BillingMasterdata::getEegArea);
+            if (previewOnlyArea.isPresent()) {
+                log.atWarn().addKeyValue(LogFields.EVENT_ACTION, "billing.run.refused")
+                        .log("Final billing run refused: community type {} gets a preview only", previewOnlyArea.get());
+                throw new IllegalArgumentException(PREVIEW_ONLY_FOR_AREA_TEXT);
+            }
         }
 
         // Ohne Energiemengen gibt es nichts abzurechnen: ablehnen, bevor ein Lauf angelegt wird (platform#189)
