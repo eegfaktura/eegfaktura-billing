@@ -123,7 +123,7 @@ class CommunityTypeBillingTests extends BillingScenarioBase {
         assertThat(count("billing_run where upper(tenant_id) = ?"), is(0));
     }
 
-    /** A preview run from before the switch to P2P is not finalised either. */
+    /** A preview run from before the switch to P2P is not finalised, but can be repeated as a preview. */
     @Test
     void anExistingRunOfACommunitySwitchedToP2pIsRefused() {
         BillingRunFixture world = community("LOCAL");
@@ -137,6 +137,10 @@ class CommunityTypeBillingTests extends BillingScenarioBase {
         assertThat(count("billing_run where tenant_id = ?"), is(1));
         assertThat(billingRunRepository.findById(earlier.getId()).orElseThrow().getRunStatus(),
                 is(BillingRunStatus.NEW));
+
+        // the preview itself can be repeated: same run, still NEW
+        billsOneDocument(world, true);
+        assertThat(count("billing_run where tenant_id = ?"), is(1));
     }
 
     @ParameterizedTest(name = "{0} preview={1}")
