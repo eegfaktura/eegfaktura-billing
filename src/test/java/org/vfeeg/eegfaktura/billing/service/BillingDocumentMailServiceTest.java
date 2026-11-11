@@ -10,6 +10,7 @@ import org.vfeeg.eegfaktura.billing.domain.BillingDocumentType;
 import org.vfeeg.eegfaktura.billing.domain.BillingMailTemplate;
 import org.vfeeg.eegfaktura.billing.domain.BillingMailTemplateFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
+import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.domain.FileData;
 import org.vfeeg.eegfaktura.billing.repos.BillingConfigRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
@@ -73,7 +74,7 @@ class BillingDocumentMailServiceTest {
                 new AppProperties(), runRepository, documentRepository, mailTemplateService);
 
         run = BillingRun.builder().id(UUID.randomUUID()).tenantId(TENANT)
-                .clearingPeriodIdentifier("Abr_YQ-2026-3").build();
+                .clearingPeriodIdentifier("Abr_YQ-2026-3").runStatus(BillingRunStatus.DONE).build();
         when(runRepository.findById(run.getId())).thenReturn(Optional.of(run));
         when(runRepository.claimMailRun(run.getId(), "IN PROGRESS")).thenReturn(1);
 

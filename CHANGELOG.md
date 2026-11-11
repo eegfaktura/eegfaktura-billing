@@ -16,6 +16,13 @@ this changelog highlights the changes relevant for overview and operations.
   (since platform#229) preview and final were both refused. A preview run from before a switch to P2P/EVA can be
   repeated but not finalised.
 
+### Fixed
+- **Only a final run is mailed** (platform#255, pre-existing error): `GET /api/billingRuns/{id}/billingDocuments/sendmail`
+  checked the mail status only, so a direct call could mail the documents of a preview (status NEW) to all members.
+  Now it refuses every run that is not DONE before it claims the mail run, with „… nicht moeglich. Nur eine
+  endgueltige Abrechnung wird versendet, Status = NEW“. web offers sending for DONE runs only, so nothing changes in
+  the UI; it matters most for P2P/EVA, which have preview runs only.
+
 ## [1.11.0] – 2026-11-10
 
 ### Changed

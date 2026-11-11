@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
+import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.domain.FileData;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
@@ -143,6 +144,13 @@ public class BillingDocumentMailService {
                 .findById(billingRunId)
                         .orElseThrow(() -> new EntityNotFoundException(billingRunId.toString()));
 
+        // only a final run is mailed: a preview (NEW), a running or failed run never (platform#255; before, a direct
+        // call could mail preview PDFs, the web UI offers sending for DONE runs only)
+        if (billingRun.getRunStatus() != BillingRunStatus.DONE) {
+            throw new RuntimeException("Mailversand fuer "+billingRun.getClearingPeriodIdentifier()+" ("
+                    +billingRun.getId()+") nicht moeglich. Nur eine endgueltige Abrechnung wird versendet, Status = "
+                    +billingRun.getRunStatus());
+        }
         var mailStatus = billingRun.getMailStatus();
         if (mailStatus!=null && !mailStatus.isEmpty() && !STATUS_FAILED.equals(mailStatus)) {
             var errorText = "Mailversand fuer "+billingRun.getClearingPeriodIdentifier()+" ("

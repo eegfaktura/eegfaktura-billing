@@ -5,6 +5,8 @@ import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -12,6 +14,7 @@ import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentType;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
+import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.domain.FileData;
 import org.vfeeg.eegfaktura.billing.logging.EcsJsonFormatter;
 import org.vfeeg.eegfaktura.billing.logging.EcsTextFormatter;
@@ -86,7 +89,7 @@ class BillingDocumentMailServiceTests {
                     List.of(LOGO));
         });
         run = BillingRun.builder().id(RUN_ID).tenantId("TE100100").clearingPeriodIdentifier("Abr_YQ-2024-3")
-                .build();
+                .runStatus(BillingRunStatus.DONE).build();
         lenient().when(billingRunRepository.findById(RUN_ID)).thenReturn(Optional.of(run));
         lenient().when(billingRunRepository.claimMailRun(RUN_ID, "IN PROGRESS")).thenAnswer(invocation -> {
             savedStatuses.add("claim:IN PROGRESS");
@@ -267,6 +270,19 @@ class BillingDocumentMailServiceTests {
         RuntimeException error = assertThrows(RuntimeException.class, () -> service.sendAllBillingDocuments(RUN_ID));
 
         assertThat(error.getMessage(), containsString("Status = SENT"));
+        verify(billingRunRepository, never()).claimMailRun(any(), any());
+        verifyNoInteractions(emailService, billingDocumentRepository);
+    }
+
+    /** platform#255: only a final run is mailed; a preview, a running or a failed run is refused before the claim. */
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(value = BillingRunStatus.class, names = {"NEW", "RUNNING", "FAILED"})
+    void aRunThatIsNotFinalIsNotMailed(BillingRunStatus status) {
+        run.setRunStatus(status);
+
+        RuntimeException error = assertThrows(RuntimeException.class, () -> service.sendAllBillingDocuments(RUN_ID));
+
+        assertThat(error.getMessage(), containsString("Nur eine endgueltige Abrechnung wird versendet, Status = " + status));
         verify(billingRunRepository, never()).claimMailRun(any(), any());
         verifyNoInteractions(emailService, billingDocumentRepository);
     }
