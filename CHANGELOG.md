@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.12.0] – 2026-11-11
+
 ### Changed
 - **Peer-to-peer and self-supply: preview yes, final run no** (platform#255, decision 11.11.2026): a billing run for a
   community of type P2P or EVA (`base.billing_masterdata.eeg_area`) is accepted as a **preview** and bills like any
