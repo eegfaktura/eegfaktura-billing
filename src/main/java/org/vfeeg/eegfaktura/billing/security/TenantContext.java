@@ -2,8 +2,7 @@ package org.vfeeg.eegfaktura.billing.security;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
-
-import java.text.MessageFormat;
+import org.vfeeg.eegfaktura.billing.logging.LogFields;
 
 @Slf4j
 public class TenantContext {
@@ -31,8 +30,12 @@ public class TenantContext {
         final String requestTenant = current == null ? null : current.getAuthority();
 
         if (tenant == null || requestTenant == null || !requestTenant.equalsIgnoreCase(tenant)) {
-            log.error(MessageFormat.format("Access denied for {0} in {1}", tenant, requestTenant));
-            throw new AccessDeniedException("Failed to validate tenant ("+tenant+")");
+            // no values: both can be what the caller typed (header, path, body); a valid tenant of the request is on
+            // the line as tenant.id. The caller's error, not the service's: one WARN, the exception handler and the
+            // container write no second record (eegfaktura-dev#54 #10)
+            log.atWarn().addKeyValue(LogFields.EVENT_ACTION, "tenant.refused")
+                    .log("Tenant of the resource does not match the tenant of the request");
+            throw new AccessDeniedException("Failed to validate tenant");
         }
     }
 

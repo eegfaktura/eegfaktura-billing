@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentNumber;
@@ -55,19 +55,10 @@ class DocumentNumbersTests {
     BillingDocumentItemRepository billingDocumentItemRepository;
 
     @Container
-    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
+    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:15-alpine")
             .withUsername("sa")
             .withPassword("sa")
             .withReuse(true);
-
-    @Test
-    void contextLoads() {
-    }
-
-    @Test
-    void testContainer() {
-       assertThat(postgreSQLContainer.isRunning(), is(true));
-    }
 
     @Test
     void testBillingDocumentNumberGenerator_BeginWithZero() {

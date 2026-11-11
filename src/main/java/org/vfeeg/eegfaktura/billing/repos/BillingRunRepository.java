@@ -1,6 +1,9 @@
 package org.vfeeg.eegfaktura.billing.repos;
 
+import jakarta.persistence.LockModeType;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -8,7 +11,9 @@ import org.vfeeg.eegfaktura.billing.domain.BillingRun;
 import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -18,6 +23,8 @@ public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
                                                                                                 String billingPeriodType,
                                                                                                 String billingPeriodIdentifier,
                                                                                                 BillingRunStatus runStatus);
+
+    List<BillingRun> findByTenantIdIgnoreCaseAndRunStatus(String tenantId, BillingRunStatus runStatus);
 
     List<BillingRun> findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(String tenantId,
                                                                                     String clearingPeriodType,
@@ -45,5 +52,34 @@ public interface BillingRunRepository extends JpaRepository<BillingRun, UUID> {
             + "where b.id = :id and b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.RUNNING")
     int releaseClaim(@Param("id") UUID id, @Param("to") BillingRunStatus to,
                      @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
+
+    /** The runs of every community in this status: for the recovery at start only, not for requests. */
+    List<BillingRun> findByRunStatus(BillingRunStatus runStatus);
+
+    /**
+     * Sets the runs among {@code ids} that are still RUNNING and were claimed before {@code startedAt} (or have no
+     * claim time) to FAILED: their calculation died with an earlier process (tracking billing 261105-mm1,
+     * eegfaktura-dev#54 #11). FAILED can be claimed again, so the run can be restarted.
+     */
+    @Modifying
+    @Transactional
+    @Query("update BillingRun b set b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.FAILED, "
+            + "b.runStatusDateTime = :now, b.errorSummary = :errorSummary "
+            + "where b.id in :ids and b.runStatus = org.vfeeg.eegfaktura.billing.domain.BillingRunStatus.RUNNING "
+            + "and (b.runStatusDateTime is null or b.runStatusDateTime < :startedAt)")
+    int failRunning(@Param("ids") Collection<UUID> ids, @Param("startedAt") LocalDateTime startedAt,
+                    @Param("errorSummary") String errorSummary, @Param("now") LocalDateTime now);
+
+    /** The run with its row locked until the transaction ends: its status cannot change under a deletion. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from BillingRun b where b.id = :id")
+    Optional<BillingRun> findForDeletion(@Param("id") UUID id);
+
+    /** Atomic claim of the mail run: only a run without a status or one that sent nothing (exactly one winner). */
+    @Modifying
+    @Transactional
+    @Query("update BillingRun b set b.mailStatus = :status "
+            + "where b.id = :id and (b.mailStatus is null or b.mailStatus = '' or b.mailStatus = 'FAILED')")
+    int claimMailRun(@Param("id") UUID id, @Param("status") String status);
 
 }

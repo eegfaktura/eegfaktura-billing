@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.vfeeg.eegfaktura.billing.model.BillingDocumentDTO;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
-import org.vfeeg.eegfaktura.billing.repos.InMemoryLockRepository;
+import org.vfeeg.eegfaktura.billing.model.SettlementState;
 import org.vfeeg.eegfaktura.billing.security.TenantContext;
 import org.vfeeg.eegfaktura.billing.service.*;
 
@@ -27,7 +27,7 @@ public class BillingRunResource {
     private final BillingDocumentArchiveService billingDocumentArchiveService;
     private final BillingDocumentMailService billingDocumentMailService;
     private final ParticipantAmountService participantAmountService;
-    private final InMemoryLockRepository inMemoryLockRepository;
+    private final BillingRunActionLock billingRunActionLock;
 
     public BillingRunResource(final BillingRunService billingRunService,
                               final BillingDocumentService billingDocumentService,
@@ -35,7 +35,7 @@ public class BillingRunResource {
                               final BillingDocumentArchiveService billingDocumentArchiveService,
                               final BillingDocumentMailService billingDocumentMailService,
                               final ParticipantAmountService participantAmountService,
-                              final InMemoryLockRepository inMemoryLockRepository
+                              final BillingRunActionLock billingRunActionLock
     ) {
         this.billingRunService = billingRunService;
         this.billingDocumentService = billingDocumentService;
@@ -43,7 +43,7 @@ public class BillingRunResource {
         this.billingDocumentArchiveService = billingDocumentArchiveService;
         this.billingDocumentMailService = billingDocumentMailService;
         this.participantAmountService = participantAmountService;
-        this.inMemoryLockRepository = inMemoryLockRepository;
+        this.billingRunActionLock = billingRunActionLock;
     }
 
 //    @GetMapping
@@ -60,6 +60,14 @@ public class BillingRunResource {
         return ResponseEntity.ok(billingRunService.findByTenantIdAndClearingPeriodTypeAndClearingPeriodIdentifier(
                 tenantId, clearingPeriodType, clearingPeriodIdentifier
         ));
+    }
+
+    /** Final and running periods of the community for the change of the settlement interval (platform#230). */
+    @GetMapping("/tenant/{tenantId}/settlementState")
+    public ResponseEntity<SettlementState> getSettlementState(
+            @PathVariable(name = "tenantId") final String tenantId) {
+        TenantContext.validateTenant(tenantId);
+        return ResponseEntity.ok(billingRunService.findSettlementState(tenantId));
     }
 
     @GetMapping("/{id}")
@@ -91,9 +99,7 @@ public class BillingRunResource {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
-        Object lock = inMemoryLockRepository.getLock(billingRunDTO.getTenantId());
-        synchronized (lock) {
-            try {
+        return billingRunActionLock.export(id, () -> {
                 ByteArrayResource resource = new ByteArrayResource(
                         billingDocumentXlsxService.createXlsx(billingRunDTO.getId()));
 
@@ -105,10 +111,7 @@ public class BillingRunResource {
                                         .filename("abrechnung_"+billingRunDTO.getClearingPeriodIdentifier()+"_export.xlsx")
                                         .build().toString())
                         .body(resource);
-            } finally {
-                inMemoryLockRepository.releaseLock(billingRunDTO.getTenantId());
-            }
-        }
+        });
 
     }
 
@@ -119,9 +122,7 @@ public class BillingRunResource {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
-        Object lock = inMemoryLockRepository.getLock(billingRunDTO.getTenantId());
-        synchronized (lock) {
-            try {
+        return billingRunActionLock.export(id, () -> {
                 List<BillingDocumentDTO> billingDocumentDTOs = billingDocumentService.findByBillingRunId(id);
 
                 ByteArrayResource resource = new ByteArrayResource(
@@ -135,31 +136,24 @@ public class BillingRunResource {
                                         .filename("abrechnung_"+billingRunDTO.getClearingPeriodIdentifier()+"_export.zip")
                                         .build().toString())
                         .body(resource);
-            } finally {
-                inMemoryLockRepository.releaseLock(billingRunDTO.getTenantId());
-            }
-        }
+        });
     }
 
     @GetMapping("/{id}/billingDocuments/sendmail")
     public ResponseEntity<String> sendAllBillingDocuments(
-            @PathVariable(name = "id") final UUID id) {
+            @PathVariable(name = "id") final UUID id) throws IOException {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
-        Object lock = inMemoryLockRepository.getLock(billingRunDTO.getTenantId());
-        synchronized (lock) {
-            try {
+        // eigene Verbindung fuer die Sperre: der Mailversand schreibt seinen Status schrittweise (kein Gesamt-Rollback)
+        return billingRunActionLock.mailRun(id, () -> {
                 try {
                     String sendProtocol = billingDocumentMailService.sendAllBillingDocuments(id);
                     return new ResponseEntity<>(sendProtocol, HttpStatus.OK);
                 } catch (Exception e) {
                     return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
                 }
-            } finally {
-                inMemoryLockRepository.releaseLock(billingRunDTO.getTenantId());
-            }
-        }
+        });
 
     }
 
@@ -180,19 +174,15 @@ public class BillingRunResource {
 
     @DeleteMapping("/{id}")
     @ApiResponse(responseCode = "204")
-    public ResponseEntity<Void> deleteBillingRun(@PathVariable(name = "id") final UUID id) {
+    public ResponseEntity<Void> deleteBillingRun(@PathVariable(name = "id") final UUID id) throws IOException {
         BillingRunDTO billingRunDTO = billingRunService.get(id);
         TenantContext.validateTenant(billingRunDTO.getTenantId());
 
-        Object lock = inMemoryLockRepository.getLock(billingRunDTO.getTenantId());
-        synchronized (lock) {
-            try {
+        billingRunActionLock.delete(id, () -> {
                 billingRunService.delete(id);
-                return ResponseEntity.noContent().build();
-            } finally {
-                inMemoryLockRepository.releaseLock(billingRunDTO.getTenantId());
-            }
-        }
+                return null;
+        });
+        return ResponseEntity.noContent().build();
 
     }
 

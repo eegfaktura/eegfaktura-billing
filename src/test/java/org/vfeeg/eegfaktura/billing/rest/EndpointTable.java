@@ -1,0 +1,114 @@
+package org.vfeeg.eegfaktura.billing.rest;
+
+import org.springframework.http.HttpMethod;
+
+import java.util.List;
+import java.util.function.Function;
+
+import static org.springframework.http.HttpMethod.DELETE;
+import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.http.HttpMethod.PUT;
+import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.BODY_TENANT;
+import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.HEADER_TENANT;
+import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.ID;
+import static org.vfeeg.eegfaktura.billing.rest.Endpoint.Kind.PATH_TENANT;
+
+/**
+ * The 44 mapped handlers under {@code /api/**} (counted 2026-10-01, 31; plus 9 mail-text handlers 2026-10-25; plus 3 joining-fee handlers 2026-10-27; plus the settlement state 2026-11-05; commented-out mappings do not
+ * count, {@code known-errors.md} #29). {@code EndpointMappingGuardTests} compares this table with
+ * the live mappings in both directions: a new endpoint without a row fails it.
+ */
+public final class EndpointTable {
+
+    static final Function<String, String> CONFIG_BODY =
+            tenant -> "{\"tenantId\":\"" + tenant + "\",\"documentNumberSequenceLength\":5}";
+    static final String CONFIG_WITHOUT_TENANT = "{\"documentNumberSequenceLength\":5}";
+    static final Function<String, String> BILLING_BODY = tenant -> "{\"tenantId\":\"" + tenant + "\","
+            + "\"clearingPeriodType\":\"YQ\",\"clearingPeriodIdentifier\":\"YQ-2024-1\","
+            + "\"clearingDocumentDate\":\"2024-04-02\",\"allocations\":[],\"preview\":true}";
+
+    private static final String RUNS = "/api/billingRuns";
+    private static final String CONFIGS = "/api/billingConfigs";
+    private static final String MAIL = "/api/mailtemplates";
+    static final String JOINING_FEE_RECORD = "/api/billingDocuments/tenant/{tenantId}/participants/{participantId}/joiningFee";
+
+    public static final List<Endpoint> ALL = List.of(
+            // BillingRunResource (9)
+            row(BillingRunResource.class, GET, RUNS + "/{tenantId}/{clearingPeriodType}/{clearingPeriodIdentifier}",
+                    PATH_TENANT, 200),
+            row(BillingRunResource.class, GET, RUNS + "/tenant/{tenantId}/settlementState", PATH_TENANT, 200),
+            row(BillingRunResource.class, GET, RUNS + "/{id}", ID, 200),
+            row(BillingRunResource.class, GET, RUNS + "/{id}/participantAmounts", ID, 200),
+            row(BillingRunResource.class, GET, RUNS + "/{id}/billingDocuments", ID, 200),
+            row(BillingRunResource.class, GET, RUNS + "/{id}/billingDocuments/xlsx", ID, 200),
+            row(BillingRunResource.class, GET, RUNS + "/{id}/billingDocuments/archive", ID, 200),
+            row(BillingRunResource.class, GET, RUNS + "/{id}/billingDocuments/sendmail", ID, 200),
+            row(BillingRunResource.class, DELETE, RUNS + "/{id}", ID, 204),
+            // BillingConfigResource (11): CRUD 5, images 6
+            row(BillingConfigResource.class, GET, CONFIGS + "/tenant/{tenantId}", PATH_TENANT, 200),
+            row(BillingConfigResource.class, GET, CONFIGS + "/{id}", ID, 200),
+            new Endpoint(BillingConfigResource.class, POST, CONFIGS, BODY_TENANT, 201,
+                    CONFIG_BODY, false, CONFIG_WITHOUT_TENANT),
+            new Endpoint(BillingConfigResource.class, PUT, CONFIGS + "/{id}", ID, 200,
+                    CONFIG_BODY, false, CONFIG_WITHOUT_TENANT),
+            row(BillingConfigResource.class, DELETE, CONFIGS + "/{id}", ID, 204),
+            image(POST, CONFIGS + "/{id}/logoImage", true),
+            image(POST, CONFIGS + "/{id}/footerImage", true),
+            image(DELETE, CONFIGS + "/{id}/logoImage", false),
+            image(DELETE, CONFIGS + "/{id}/footerImage", false),
+            image(GET, CONFIGS + "/{id}/logoImage", false),
+            // demands a multipart part although it is a GET (known-errors #21); the matrix sends one
+            image(GET, CONFIGS + "/{id}/footerImage", true),
+            // BillingDocumentResource (6)
+            row(BillingDocumentResource.class, GET, "/api/billingDocuments/tenant/{id}/{year}", PATH_TENANT, 200),
+            row(BillingDocumentResource.class, GET, "/api/billingDocuments/tenant/{tenantId}/joiningFeeState",
+                    PATH_TENANT, 200),
+            new Endpoint(BillingDocumentResource.class, PUT, JOINING_FEE_RECORD, PATH_TENANT, 204,
+                    tenant -> "{\"kind\":\"CHARGE_REQUESTED\"}", false, null),
+            row(BillingDocumentResource.class, DELETE, JOINING_FEE_RECORD, PATH_TENANT, 204),
+            row(BillingDocumentResource.class, GET, "/api/billingDocuments/{id}", ID, 200),
+            row(BillingDocumentResource.class, DELETE, "/api/billingDocuments/{id}", ID, 204),
+            // BillingDocumentFileResource (3)
+            row(BillingDocumentFileResource.class, GET, "/api/billingDocumentFiles/{id}", ID, 200),
+            row(BillingDocumentFileResource.class, GET, "/api/billingDocumentFiles/tenant/{id}", PATH_TENANT, 200),
+            row(BillingDocumentFileResource.class, DELETE, "/api/billingDocumentFiles/{id}", ID, 204),
+            // BillingDocumentItemResource (2)
+            row(BillingDocumentItemResource.class, GET, "/api/billingDocumentItems/{id}", ID, 200),
+            row(BillingDocumentItemResource.class, DELETE, "/api/billingDocumentItems/{id}", ID, 204),
+            // BillingDocumentNumberResource (2)
+            row(BillingDocumentNumberResource.class, GET, "/api/billingDocumentNumbers/{id}", ID, 200),
+            row(BillingDocumentNumberResource.class, DELETE, "/api/billingDocumentNumbers/{id}", ID, 204),
+            // BillingResource (1): since 1.0.8 the run is accepted with 202; validates nothing (known-errors #31)
+            new Endpoint(BillingResource.class, POST, "/api/billing", BODY_TENANT, 202,
+                    BILLING_BODY, false, null),
+            // FileDataResource (1)
+            row(FileDataResource.class, GET, "/api/fileData/{id}", ID, 200),
+            // MailTemplateResource (9): the tenant only from the header; own tests in MailTemplateIntegrationTests
+            row(MailTemplateResource.class, GET, MAIL, HEADER_TENANT, 200),
+            row(MailTemplateResource.class, GET, MAIL + "/{key}", HEADER_TENANT, 200),
+            row(MailTemplateResource.class, PUT, MAIL + "/{key}", HEADER_TENANT, 200),
+            row(MailTemplateResource.class, DELETE, MAIL + "/{key}", HEADER_TENANT, 204),
+            row(MailTemplateResource.class, POST, MAIL + "/{key}/files", HEADER_TENANT, 201),
+            row(MailTemplateResource.class, GET, MAIL + "/{key}/files/{id}", HEADER_TENANT, 200),
+            row(MailTemplateResource.class, DELETE, MAIL + "/{key}/files/{id}", HEADER_TENANT, 204),
+            row(MailTemplateResource.class, POST, MAIL + "/{key}/preview", HEADER_TENANT, 200),
+            row(MailTemplateResource.class, POST, MAIL + "/{key}/test", HEADER_TENANT, 200)
+    );
+
+    private EndpointTable() {
+    }
+
+    public static List<Endpoint> of(Class<?> resource) {
+        return ALL.stream().filter(e -> e.resource() == resource).toList();
+    }
+
+    private static Endpoint row(Class<?> resource, HttpMethod method, String pattern, Endpoint.Kind kind,
+                                int ownStatus) {
+        return new Endpoint(resource, method, pattern, kind, ownStatus, null, false, null);
+    }
+
+    private static Endpoint image(HttpMethod method, String pattern, boolean multipart) {
+        return new Endpoint(BillingConfigResource.class, method, pattern, ID, 200, null, multipart, null);
+    }
+}

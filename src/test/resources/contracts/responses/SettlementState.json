@@ -1,0 +1,24 @@
+{
+  "dto": "org.vfeeg.eegfaktura.billing.model.SettlementState",
+  "endpoints": [
+    "GET /api/billingRuns/tenant/{tenantId}/settlementState"
+  ],
+  "note": "fields = every JSON field billing writes (a change needs a conscious update of this file and a CHANGELOG entry); readBy = what each caller reads, must stay a subset. Both are string arrays of clearing period identifiers (Abr_YM-2026-3, Abr_YQ-2025-4, ...), without duplicates, [] when empty; sorted as text, not by time (Abr_YM-2026-10 before Abr_YM-2026-3), callers must not rely on the order (platform#230)",
+  "refresh": "src/test/resources/contracts/README.md",
+  "fields": [
+    "finalPeriods",
+    "runningPeriods"
+  ],
+  "readBy": {
+    "eegfaktura-web": {
+      "repository": "eegfaktura-web",
+      "commit": "634f3d6d37f45a430a1d802d250b56cc36a36808 (eegfaktura-web#262, branch feat/settlement-interval-change); web passes the object unchanged to eegfaktura-backend POST /eeg/settlementinterval as billingState",
+      "date": "2026-11-05",
+      "file": "src/service/eeg.service.ts:310 fetchSettlementState, type SettlementState in src/models/eeg.model.ts, used in src/components/dialogs/SettlementIntervalChange.dialog.tsx",
+      "fields": [
+        "finalPeriods",
+        "runningPeriods"
+      ]
+    }
+  }
+}

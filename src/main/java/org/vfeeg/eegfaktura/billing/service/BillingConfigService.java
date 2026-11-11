@@ -11,6 +11,7 @@ import org.vfeeg.eegfaktura.billing.model.BillingConfigDTO;
 import org.vfeeg.eegfaktura.billing.model.BillingConfigImageType;
 import org.vfeeg.eegfaktura.billing.repos.BillingConfigRepository;
 import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
+import org.vfeeg.eegfaktura.billing.util.FileTypeDetector;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
 import java.util.List;
@@ -60,15 +61,13 @@ public class BillingConfigService {
             FileData fileData = new FileData();
             fileData.setData(multipartFile.getInputStream().readAllBytes());
             fileData.setName(multipartFile.getOriginalFilename());
-            String contentType = multipartFile.getContentType();
-            if (contentType!=null
-                    &&!contentType.equals("image/png")
-                    &&!contentType.equals("image/jpg")
-                    &&!contentType.equals("image/jpeg")
-                    &&!contentType.equals("image/gif")) {
-                throw new IllegalArgumentException("Filetype not supported (only png/jpg/gif)");
-            }
+            // Typ am Inhalt, nicht am Content-Type des Clients: ein Upload ohne oder mit
+            // falschem Content-Type kam frueher ungeprueft durch.
+            String contentType = FileTypeDetector.detect(fileData.getData())
+                    .filter(type -> !type.equals(FileTypeDetector.PDF))
+                    .orElseThrow(() -> new IllegalArgumentException("Filetype not supported (only png/jpg/gif)"));
             fileData.setMimeType(contentType);
+            fileData.setTenantId(billingConfigDTO.getTenantId());
             fileData = fileDataRepository.save(fileData);
             if (billingConfigImageType==BillingConfigImageType.LOGO_IMAGE) {
                 if (billingConfigDTO.getHeaderImageFileDataId()!=null) {
@@ -199,12 +198,17 @@ public class BillingConfigService {
         billingConfig.setFooterText(billingConfigDTO.getFooterText());
         billingConfig.setDocumentNumberSequenceLength(billingConfigDTO.getDocumentNumberSequenceLength());
 
-        billingConfig.setInvoiceNumberPrefix(billingConfigDTO.getInvoiceNumberPrefix());
-        billingConfig.setCreditNoteNumberPrefix(billingConfigDTO.getCreditNoteNumberPrefix());
+        // trimmed (known-errors #15): " R" and "R" print the same number, so they are one prefix
+        billingConfig.setInvoiceNumberPrefix(trimmed(billingConfigDTO.getInvoiceNumberPrefix()));
+        billingConfig.setCreditNoteNumberPrefix(trimmed(billingConfigDTO.getCreditNoteNumberPrefix()));
         billingConfig.setInvoiceNumberStart(billingConfigDTO.getInvoiceNumberStart());
         billingConfig.setCreditNoteNumberStart(billingConfigDTO.getCreditNoteNumberStart());
 
         return billingConfig;
+    }
+
+    private static String trimmed(String prefix) {
+        return prefix == null ? null : prefix.trim();
     }
 
 }

@@ -6,11 +6,19 @@ import java.util.UUID;
 
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
+import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.BillingRunDTO;
 import org.vfeeg.eegfaktura.billing.model.ParticipantAmount;
+import org.vfeeg.eegfaktura.billing.model.SettlementState;
+import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
+import org.vfeeg.eegfaktura.billing.repos.BillingDocumentItemRepository;
+import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
+import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
 import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
 
@@ -19,10 +27,33 @@ import org.vfeeg.eegfaktura.billing.util.NotFoundException;
 
 public class BillingRunService {
 
-    private final BillingRunRepository billingRunRepository;
+    /** 409: the run holds final documents or is being calculated. */
+    public static class RunNotDeletableException extends ResponseStatusException {
+        public static final String MESSAGE = "Dieser Abrechnungslauf kann nicht gelöscht werden: er läuft gerade"
+                + " oder enthält endgültige Belege.";
 
-    public BillingRunService(final BillingRunRepository billingRunRepository) {
+        public RunNotDeletableException() { super(HttpStatus.CONFLICT, MESSAGE); }
+    }
+
+    /** Document number of an INFO document, also in a preview: no number that was issued. */
+    private static final String NO_NUMBER = "-";
+
+    private final BillingRunRepository billingRunRepository;
+    private final BillingDocumentRepository billingDocumentRepository;
+    private final BillingDocumentItemRepository billingDocumentItemRepository;
+    private final BillingDocumentFileRepository billingDocumentFileRepository;
+    private final FileDataRepository fileDataRepository;
+
+    public BillingRunService(final BillingRunRepository billingRunRepository,
+                             final BillingDocumentRepository billingDocumentRepository,
+                             final BillingDocumentItemRepository billingDocumentItemRepository,
+                             final BillingDocumentFileRepository billingDocumentFileRepository,
+                             final FileDataRepository fileDataRepository) {
         this.billingRunRepository = billingRunRepository;
+        this.billingDocumentRepository = billingDocumentRepository;
+        this.billingDocumentItemRepository = billingDocumentItemRepository;
+        this.billingDocumentFileRepository = billingDocumentFileRepository;
+        this.fileDataRepository = fileDataRepository;
     }
 
     public List<BillingRunDTO> findAll() {
@@ -41,6 +72,28 @@ public class BillingRunService {
                 );
         return billingRuns.stream()
                 .map((billingRun) -> mapToDTO(billingRun, new BillingRunDTO()))
+                .toList();
+    }
+
+    /**
+     * Final periods (DONE with documents, the same runs {@code BillingService#refuseOverlappingFinalRun} counts) and
+     * running periods of the community; the tenant is compared case-insensitively.
+     */
+    public SettlementState findSettlementState(final String tenantId) {
+        final SettlementState state = new SettlementState();
+        state.setFinalPeriods(periods(tenantId, BillingRunStatus.DONE, true));
+        state.setRunningPeriods(periods(tenantId, BillingRunStatus.RUNNING, false));
+        return state;
+    }
+
+    private List<String> periods(final String tenantId, final BillingRunStatus status,
+                                 final boolean withDocumentsOnly) {
+        return billingRunRepository.findByTenantIdIgnoreCaseAndRunStatus(tenantId, status).stream()
+                .filter(run -> run.getClearingPeriodIdentifier() != null)
+                .filter(run -> !withDocumentsOnly || billingDocumentRepository.existsByBillingRunId(run.getId()))
+                .map(BillingRun::getClearingPeriodIdentifier)
+                .distinct()
+                .sorted()
                 .toList();
     }
 
@@ -63,8 +116,37 @@ public class BillingRunService {
         billingRunRepository.save(billingRun);
     }
 
+    /**
+     * Deletes a run with its preview documents (items, files, PDFs). Final documents are never deleted: a run that
+     * holds them is refused (known-errors #22), as is a RUNNING one. A run without documents goes in any other
+     * status (platform#189: an empty DONE run would block its period). The row lock holds a concurrent start back
+     * until the deletion ended: its claim then finds no run.
+     */
     public void delete(final UUID id) {
-        billingRunRepository.deleteById(id);
+        final BillingRun billingRun = billingRunRepository.findForDeletion(id)
+                .orElseThrow(NotFoundException::new);
+        if (!isDeletable(billingRun)) {
+            throw new RunNotDeletableException();
+        }
+        fileDataRepository.deleteByBillingRunId(id);
+        billingDocumentFileRepository.deleteByBillingRunId(id);
+        billingDocumentItemRepository.deleteByBillingRunId(id);
+        billingDocumentRepository.deleteByBillingRunId(id);
+        billingRunRepository.delete(billingRun);
+    }
+
+    private boolean isDeletable(final BillingRun billingRun) {
+        final BillingRunStatus status = billingRun.getRunStatus();
+        if (status == BillingRunStatus.RUNNING) {
+            return false;
+        }
+        // a final number protects the document whatever the status of the run says
+        if (billingDocumentRepository.existsByBillingRunIdAndDocumentNumberIsNotNullAndDocumentNumberNot(
+                billingRun.getId(), NO_NUMBER)) {
+            return false;
+        }
+        return status == BillingRunStatus.NEW || status == BillingRunStatus.FAILED
+                || !billingDocumentRepository.existsByBillingRunId(billingRun.getId());
     }
 
     private BillingRunDTO mapToDTO(final BillingRun billingRun, final BillingRunDTO billingRunDTO) {

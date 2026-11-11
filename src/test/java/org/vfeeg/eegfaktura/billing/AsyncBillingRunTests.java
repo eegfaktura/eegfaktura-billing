@@ -8,7 +8,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
@@ -16,11 +16,18 @@ import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.model.Allocation;
 import org.vfeeg.eegfaktura.billing.model.DoBillingParams;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
+import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
+import org.vfeeg.eegfaktura.billing.service.BillingConfigService;
 import org.vfeeg.eegfaktura.billing.service.BillingService;
+import org.vfeeg.eegfaktura.billing.support.AllocationBuilder;
+import org.vfeeg.eegfaktura.billing.support.BillingRunFixture;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.vfeeg.eegfaktura.billing.support.BillingScenarioBase.consumer;
+import static org.vfeeg.eegfaktura.billing.support.BillingScenarioBase.participant;
 
 /**
  * Statusmaschine des asynchronen Abrechnungslaufs (konzept-async-billing-run.md):
@@ -30,10 +37,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Testcontainers
 @Transactional
 @SqlConfig(encoding = "UTF-8")
+// legt base.billing_masterdata an (View-Ersatz im Testcontainer); seit platform#229 liest schon die Annahme
+// des Laufs die Stammdaten (Gemeinschaftstyp), also jeder Test
+@Sql("/billing_master_data.sql")
 class AsyncBillingRunTests {
 
     @Container
-    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine")
+    public static PostgreSQLContainer postgreSQLContainer = new PostgreSQLContainer("postgres:15-alpine")
             .withUsername("sa")
             .withPassword("sa")
             .withReuse(true);
@@ -51,13 +61,23 @@ class AsyncBillingRunTests {
     @Autowired
     BillingRunRepository billingRunRepository;
 
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @Autowired
+    BillingConfigService billingConfigService;
+
+    @Autowired
+    FileDataRepository fileDataRepository;
+
     private DoBillingParams params(String tenant, boolean preview) {
         DoBillingParams params = new DoBillingParams();
         params.setTenantId(tenant);
         params.setClearingPeriodType("QUARTERLY");
         params.setClearingPeriodIdentifier("Abr_YQ-2023-3");
         params.setPreview(preview);
-        params.setAllocations(new Allocation[0]);
+        // Seit platform#189 lehnt der Start leere Energiemengen ab: eine Menge fuer Mitglied 1, Zaehlpunkt C1
+        params.setAllocations(new Allocation[]{AllocationBuilder.of(participant(1), "C1", "100")});
         return params;
     }
 
@@ -104,10 +124,13 @@ class AsyncBillingRunTests {
     }
 
     @Test
-    @Sql("/billing_master_data.sql") // legt base.billing_masterdata an (View-Ersatz im Testcontainer)
     void previewRunEndsAsNew_finalRunEndsAsDone() {
-        // Ohne Masterdata-Fixture rechnet der Lauf 0 Teilnehmer - fuer die
-        // Statusmaschine genau richtig (kein Dokument, aber Statuswechsel).
+        // Seit platform#189 endet ein Lauf ohne passende Stammdaten FAILED: je Tenant
+        // das Mitglied 1 mit Zaehlpunkt C1, passend zur Menge aus params().
+        for (String tenant : new String[]{"TE900004", "TE900005"}) {
+            BillingRunFixture.forTenant(tenant).master(consumer(1, "C1"), "100").insertInto(jdbc)
+                    .createConfig(billingConfigService, fileDataRepository, false);
+        }
         BillingRun previewRun = billingService.acceptBillingRun(params("TE900004", true));
         billingService.claimBillingRun(previewRun.getId());
         billingService.executeBillingRun(previewRun.getId(), params("TE900004", true));

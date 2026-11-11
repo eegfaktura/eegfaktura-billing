@@ -1,28 +1,24 @@
 package org.vfeeg.eegfaktura.billing.service;
 
-import freemarker.cache.ClassTemplateLoader;
-import freemarker.cache.TemplateLoader;
-import freemarker.template.Configuration;
-import freemarker.template.Template;
+import jakarta.mail.MessagingException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.mail.MailException;
 import org.springframework.stereotype.Service;
-import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
-import org.springframework.web.servlet.view.freemarker.FreeMarkerConfigurer;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocument;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentFile;
 import org.vfeeg.eegfaktura.billing.domain.BillingRun;
+import org.vfeeg.eegfaktura.billing.domain.BillingRunStatus;
 import org.vfeeg.eegfaktura.billing.domain.FileData;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentFileRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingDocumentRepository;
 import org.vfeeg.eegfaktura.billing.repos.BillingRunRepository;
 import org.vfeeg.eegfaktura.billing.repos.FileDataRepository;
 import org.vfeeg.eegfaktura.billing.util.AppProperties;
-import org.vfeeg.eegfaktura.billing.util.ClearingPeriodIdentifierTool;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,60 +29,49 @@ import java.util.UUID;
 @Slf4j
 public class BillingDocumentMailService {
 
-    public static final String ATTACHMENT_LOGO_NAME = "attachment-logo.png";
-    private Template defaultTemplate;
+    /** Run protocol note when the EEG's mail text could not be used (concept: default + notice). */
+    static final String TEMPLATE_FALLBACK_NOTE = "HINWEIS: Die angepasste E-Mail-Vorlage konnte nicht verwendet "
+            + "werden, es wurde der Standardtext versendet. ";
+    /** Run protocol note when the mail run ended on an exception instead of a result. */
+    static final String ABORTED_NOTE = "ABBRUCH: Der Mailversand wurde wegen eines Fehlers beendet. ";
 
-    private byte[] defaultLogo;
+    static final String STATUS_IN_PROGRESS = "IN PROGRESS";
+    /** At least one mail went out, or there was nothing to send; failures are in the run protocol. */
+    static final String STATUS_SENT = "SENT";
+    /** No send reported success although there were documents. Unlike the others it allows a further mail run. */
+    static final String STATUS_FAILED = "FAILED";
+
     private final EmailService emailService;
     private final BillingDocumentFileRepository billingDocumentFileRepository;
     private final FileDataRepository fileDataRepository;
     private final AppProperties appProperties;
     private final BillingRunRepository billingRunRepository;
     private final BillingDocumentRepository billingDocumentRepository;
+    private final MailTemplateService mailTemplateService;
 
     public BillingDocumentMailService(final EmailService emailservice,
                                       final BillingDocumentFileRepository billingDocumentFileRepository,
                                       final FileDataRepository fileDataRepository,
                                       final AppProperties appProperties,
                                       BillingRunRepository billingRunRepository,
-                                      BillingDocumentRepository billingDocumentRepository) {
+                                      BillingDocumentRepository billingDocumentRepository,
+                                      MailTemplateService mailTemplateService) {
         this.emailService = emailservice;
         this.billingDocumentFileRepository = billingDocumentFileRepository;
         this.fileDataRepository = fileDataRepository;
         this.appProperties = appProperties;
         this.billingRunRepository = billingRunRepository;
         this.billingDocumentRepository = billingDocumentRepository;
+        this.mailTemplateService = mailTemplateService;
     }
 
-    private byte[] getDefaultLogo()  {
-        if (defaultLogo==null) {
-            try {
-                defaultLogo = new ClassPathResource("eeg-faktura-logo.png").getContentAsByteArray();
-            } catch (Exception e) {
-                defaultLogo = null;
-            }
-        }
-        return defaultLogo;
-    }
-
-    private Template getDefaultTemplate() {
-        if (defaultTemplate == null) {
-            try {
-                Configuration configuration = new Configuration(Configuration.VERSION_2_3_27);
-                TemplateLoader templateLoader = new ClassTemplateLoader(this.getClass(), "/");
-                configuration.setTemplateLoader(templateLoader);
-                FreeMarkerConfigurer freeMarkerConfigurer = new FreeMarkerConfigurer();
-                freeMarkerConfigurer.setConfiguration(configuration);
-                defaultTemplate = freeMarkerConfigurer.getConfiguration()
-                        .getTemplate("BillingEmailDefaultTemplate.ftl");
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to create and save PDF for BillingDocument due to "+e.getMessage(), e);
-            }
-        }
-        return defaultTemplate;
-    }
-
-    private List<String> createAndSendMail(BillingDocument billingDocument) {
+    /**
+     * Sends one document. Subject and text come from the EEG's mail text (or the default), with the
+     * placeholder values escaped; the document PDF is always attached. Returns true if the stored
+     * text could not be rendered for this document and the default was sent instead.
+     */
+    private boolean createAndSendMail(BillingDocument billingDocument, MailTemplateService.Prepared prepared,
+                                      List<String> rejected) {
 
         try {
             List<BillingDocumentFile> billingDocumentFiles = billingDocumentFileRepository.findByBillingDocumentId(
@@ -104,40 +89,54 @@ public class BillingDocumentMailService {
             Map<String, byte[]> attachments = new HashMap<>();
             attachments.put(fileData.getName(), fileData.getData());
 
-            Template freemarkerTemplate = getDefaultTemplate();
-            Map<String, Object> templateModel = new HashMap<>();
-            templateModel.put("recipientName", billingDocument.getRecipientName());
-            templateModel.put("billingDocumentType", BillingDocument.getDocumentTypeName(
-                    billingDocument.getBillingDocumentType()));
-            templateModel.put("clearingPeriodIdentifier", ClearingPeriodIdentifierTool.asText(billingDocument.getClearingPeriodIdentifier()));
-            templateModel.put("issuerName", billingDocument.getIssuerName());
-            templateModel.put("footerText", billingDocument.getFooterText());
-
-            byte[] logo = getDefaultLogo();
-            if (logo !=null) {
-                attachments.put(ATTACHMENT_LOGO_NAME, getDefaultLogo());
-                templateModel.put("logoName", ATTACHMENT_LOGO_NAME);
+            Map<String, String> values = MailTemplateService.values(billingDocument);
+            MailTemplateService.RenderedMail mail;
+            boolean fellBack = false;
+            try {
+                mail = mailTemplateService.render(prepared, values, true);
+            } catch (RuntimeException e) {
+                if (!prepared.customized()) {
+                    throw e;
+                }
+                // a member never gets a broken or no mail because of an EEG text
+                log.warn("Stored mail text not renderable for document {}, sending the default: {}",
+                        billingDocument.getId(), e.getMessage());
+                mail = mailTemplateService.renderDefault(values);
+                fellBack = true;
             }
 
             String to = billingDocument.getRecipientEmail();
             String cc = billingDocument.getIssuerMail();
             String from = appProperties.getNoReplyTo();
-            String issuer = billingDocument.getIssuerName();
-            String subject = BillingDocument.getDocumentTypeName(
-                    billingDocument.getBillingDocumentType()) + " " + billingDocument.getClearingPeriodIdentifier()
-                    + (issuer != null && !issuer.isBlank() ? " - " + issuer : "");
-            String htmlBody = FreeMarkerTemplateUtils.processTemplateIntoString(freemarkerTemplate, templateModel);
 
             // Rejected parts are NOT a failed send — the mail went out to
             // the valid recipients. Reporting them as FEHLER would trigger
             // manual re-sends (duplicate invoices); they surface as a
             // warning in the run protocol instead.
-            return emailService.sendEmail(
-                    from,to, cc, subject, htmlBody, attachments);
+            rejected.addAll(emailService.sendEmail(
+                    from, to, cc, mail.subject(), mail.html(), mail.inlineImages(), attachments));
+            return fellBack;
         } catch (Exception e) {
-            throw new RuntimeException("Mailversand ("+billingDocument.getRecipientEmail()+") fehlgeschlagen aufgrund: "+e.getMessage(), e);
+            // no address and no cause message here: SMTP errors name the recipient (never-log list); the cause stays
+            throw new RuntimeException("Mailversand fuer Beleg " + billingDocument.getId() + " fehlgeschlagen", e);
         }
 
+    }
+
+    /**
+     * One ERROR per failed mail with the root cause's type. An SMTP error names the recipient: its message is logged
+     * without the stack trace (which repeats it), the log formatter masks the address; any other failure (NPE, Jasper,
+     * ...) keeps the stack.
+     */
+    private static void logSendFailure(BillingDocument billingDocument, Exception e) {
+        Throwable cause = e.getCause() != null ? e.getCause() : e;
+        if (cause instanceof MessagingException || cause instanceof MailException) {
+            log.atError().addKeyValue("error.type", cause.getClass().getName())
+                    .log("Failed to send mail (billingDocumentId={}): {}", billingDocument.getId(),
+                            cause.getMessage());
+        } else {
+            log.error("Failed to send mail (billingDocumentId={})", billingDocument.getId(), cause);
+        }
     }
 
     public String sendAllBillingDocuments(UUID billingRunId) {
@@ -145,48 +144,86 @@ public class BillingDocumentMailService {
                 .findById(billingRunId)
                         .orElseThrow(() -> new EntityNotFoundException(billingRunId.toString()));
 
+        // only a final run is mailed: a preview (NEW), a running or failed run never (platform#255; before, a direct
+        // call could mail preview PDFs, the web UI offers sending for DONE runs only)
+        if (billingRun.getRunStatus() != BillingRunStatus.DONE) {
+            throw new RuntimeException("Mailversand fuer "+billingRun.getClearingPeriodIdentifier()+" ("
+                    +billingRun.getId()+") nicht moeglich. Nur eine endgueltige Abrechnung wird versendet, Status = "
+                    +billingRun.getRunStatus());
+        }
         var mailStatus = billingRun.getMailStatus();
-        if (mailStatus!=null && !mailStatus.isEmpty()) {
+        if (mailStatus!=null && !mailStatus.isEmpty() && !STATUS_FAILED.equals(mailStatus)) {
             var errorText = "Mailversand fuer "+billingRun.getClearingPeriodIdentifier()+" ("
                     +billingRun.getId()+") nicht moeglich. Status = "+mailStatus;
             throw new RuntimeException(errorText);
-        } else {
-            billingRun.setMailStatus("IN PROGRESS");
-            billingRunRepository.saveAndFlush(billingRun);
+        }
+        // two simultaneous calls both pass the check above: only the claim has one winner (known-errors #18)
+        if (billingRunRepository.claimMailRun(billingRunId, STATUS_IN_PROGRESS) == 0) {
+            throw new RuntimeException("Mailversand fuer "+billingRun.getClearingPeriodIdentifier()+" ("
+                    +billingRun.getId()+") nicht moeglich. Ein anderer Versand hat ihn gerade begonnen");
         }
 
-        //@TODO: Für EEG passendes Logo holen und verwenden (aus BillingConfig)
-        List<BillingDocument> billingDocuments = billingDocumentRepository.findByBillingRunId(billingRunId);
         StringBuilder sendProtocolStringBuilder = new StringBuilder();
         sendProtocolStringBuilder.append("Send mail start at ")
                 .append(OffsetDateTime.now())
                 .append(": ");
-        for(BillingDocument billingDocument : billingDocuments) {
-            try {
-                var rejected = createAndSendMail(billingDocument);
-                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" OK");
-                if (!rejected.isEmpty()) {
-                    // Delivered, but some address parts (e.g. an invalid cc)
-                    // were dropped — warn without flagging the send as failed.
-                    sendProtocolStringBuilder.append(" (nicht zugestellt an ungültige Adresse: ")
-                            .append(String.join(";", rejected)).append(")");
-                }
-                sendProtocolStringBuilder.append(",");
-            } catch (Exception e) {
-                log.error("Failed to send mail: {}", e.getMessage(), e);
-                // Identify the member behind the failed address — with a
-                // blank/garbage address the bare e-mail ("  FEHLER") is
-                // impossible to attribute for the tenant admin.
-                sendProtocolStringBuilder.append(billingDocument.getRecipientEmail())
-                        .append(" (MitgliedsNr ").append(Objects.toString(billingDocument.getRecipientParticipantNumber(), "-"))
-                        .append(", ").append(Objects.toString(billingDocument.getRecipientName(), "-")).append(")")
-                        .append(" FEHLER,");
+        int sent = 0;
+        boolean nothingToSend = false;
+        try {
+            List<BillingDocument> billingDocuments = billingDocumentRepository.findByBillingRunId(billingRunId);
+            nothingToSend = billingDocuments.isEmpty();
+            // the EEG's mail text is loaded once per run (also: a change during the run does not apply)
+            MailTemplateService.Prepared prepared = mailTemplateService.prepareForSend(billingRun.getTenantId());
+            boolean templateFallbackNoted = false;
+            if (prepared.failure() != null) {
+                sendProtocolStringBuilder.append(TEMPLATE_FALLBACK_NOTE);
+                templateFallbackNoted = true;
             }
+            for(BillingDocument billingDocument : billingDocuments) {
+                try {
+                    List<String> rejected = new ArrayList<>();
+                    if (createAndSendMail(billingDocument, prepared, rejected) && !templateFallbackNoted) {
+                        sendProtocolStringBuilder.append(TEMPLATE_FALLBACK_NOTE);
+                        templateFallbackNoted = true;
+                    }
+                    sent++;
+                    sendProtocolStringBuilder.append(billingDocument.getRecipientEmail()).append(" OK");
+                    if (!rejected.isEmpty()) {
+                        // Delivered, but some address parts (e.g. an invalid cc)
+                        // were dropped — warn without flagging the send as failed.
+                        sendProtocolStringBuilder.append(" (nicht zugestellt an ungültige Adresse: ")
+                                .append(String.join(";", rejected)).append(")");
+                    }
+                    sendProtocolStringBuilder.append(",");
+                } catch (Exception e) {
+                    logSendFailure(billingDocument, e);
+                    // Identify the member behind the failed address — with a
+                    // blank/garbage address the bare e-mail ("  FEHLER") is
+                    // impossible to attribute for the tenant admin.
+                    sendProtocolStringBuilder.append(billingDocument.getRecipientEmail())
+                            .append(" (MitgliedsNr ").append(Objects.toString(billingDocument.getRecipientParticipantNumber(), "-"))
+                            .append(", ").append(Objects.toString(billingDocument.getRecipientName(), "-")).append(")")
+                            .append(" FEHLER,");
+                }
+            }
+            return finishMailRun(billingRun, sent > 0 || nothingToSend, sendProtocolStringBuilder);
+        } catch (RuntimeException | Error e) {
+            sendProtocolStringBuilder.append(ABORTED_NOTE);
+            try {
+                finishMailRun(billingRun, sent > 0 || nothingToSend, sendProtocolStringBuilder);
+            } catch (RuntimeException statusNotSaved) {
+                e.addSuppressed(statusNotSaved);
+            }
+            throw e;
         }
-        billingRun.setMailStatus("SENT");
+    }
+
+    /** Writes the final status and the protocol; the run never ends "IN PROGRESS" while the database answers. */
+    private String finishMailRun(BillingRun billingRun, boolean sent, StringBuilder sendProtocolStringBuilder) {
+        billingRun.setMailStatus(sent ? STATUS_SENT : STATUS_FAILED);
         billingRun.setMailStatusDateTime(LocalDateTime.now());
-        sendProtocolStringBuilder.append("Send mail finished at ").append(OffsetDateTime.now());
-        var sendMailProtocol = sendProtocolStringBuilder.toString();
+        // not appended to the builder: a second attempt after a failed write adds its line only once
+        var sendMailProtocol = sendProtocolStringBuilder + "Send mail finished at " + OffsetDateTime.now();
         billingRun.setSendMailProtocol(sendMailProtocol);
         billingRunRepository.save(billingRun);
         return sendMailProtocol;
