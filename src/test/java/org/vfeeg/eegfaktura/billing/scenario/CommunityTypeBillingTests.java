@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,14 +37,14 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
 /**
- * platform#229: peer-to-peer (P2P) and self-supply (EVA) communities are not billed in eegfaktura. A run for such a
- * tenant (type from {@code base.billing_masterdata.eeg_area}) is refused at the start with 400 and no run row,
- * preview and final alike; the other community types bill as before.
+ * platform#229, platform#255: peer-to-peer (P2P) and self-supply (EVA) communities get a preview only. A final run
+ * for such a tenant (type from {@code base.billing_masterdata.eeg_area}) is refused at the start with 400 and no run
+ * row; a preview bills as for any community. The other community types bill as before.
  */
 class CommunityTypeBillingTests extends BillingScenarioBase {
 
-    private static final String NO_BILLING = "Für Peer-to-Peer und Eigenversorgung ist in eegfaktura keine"
-            + " Abrechnung vorgesehen.";
+    private static final String PREVIEW_ONLY = "Für Peer-to-Peer und Eigenversorgung erstellt eegfaktura nur"
+            + " eine Vorschau, keine endgültige Abrechnung.";
 
     @Autowired
     private BillingResource billingResource;
@@ -81,15 +82,15 @@ class CommunityTypeBillingTests extends BillingScenarioBase {
         return params;
     }
 
-    @ParameterizedTest(name = "{0} preview={1}")
-    @CsvSource({"P2P, true", "P2P, false", "EVA, true", "EVA, false"})
-    void p2pAndEvaAreRefusedWithoutARun(String area, boolean preview) {
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"P2P", "EVA"})
+    void aFinalRunOfP2pAndEvaIsRefusedWithoutARun(String area) {
         BillingRunFixture world = community(area);
 
-        ResponseEntity<DoBillingResults> response = billingResource.startBilling(params(world, preview));
+        ResponseEntity<DoBillingResults> response = billingResource.startBilling(params(world, false));
 
         assertThat(response.getStatusCode(), is(HttpStatus.BAD_REQUEST));
-        assertThat(response.getBody().getAbstractText(), is(NO_BILLING));
+        assertThat(response.getBody().getAbstractText(), is(PREVIEW_ONLY));
         assertThat(response.getBody().getBillingRunId(), nullValue());
         assertThat(count("billing_run where tenant_id = ?"), is(0));
         // eegfaktura-dev#56 #12: the refusal has a line of its own, not only the access line
@@ -101,21 +102,28 @@ class CommunityTypeBillingTests extends BillingScenarioBase {
         assertThat(refused.get(0).getMDCPropertyMap().get(LogFields.TENANT_ID), is(tenant));
     }
 
+    /** platform#255: P2P and EVA bill a preview like any community ("Vorlage-Rechnungen"). */
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"P2P", "EVA"})
+    void p2pAndEvaBillAPreview(String area) {
+        billsOneDocument(community(area), true);
+    }
+
     /** The request may carry the tenant in another case than the master data (upper case). */
     @Test
     void theTenantCaseOfTheRequestDoesNotMatter() {
         BillingRunFixture world = community("P2P");
-        DoBillingParams params = params(world, true);
+        DoBillingParams params = params(world, false);
         params.setTenantId(tenant.toLowerCase());
 
         ResponseEntity<DoBillingResults> response = billingResource.startBilling(params);
 
         assertThat(response.getStatusCode(), is(HttpStatus.BAD_REQUEST));
-        assertThat(response.getBody().getAbstractText(), is(NO_BILLING));
+        assertThat(response.getBody().getAbstractText(), is(PREVIEW_ONLY));
         assertThat(count("billing_run where upper(tenant_id) = ?"), is(0));
     }
 
-    /** A run from before the switch to P2P is not continued either. */
+    /** A preview run from before the switch to P2P is not finalised either. */
     @Test
     void anExistingRunOfACommunitySwitchedToP2pIsRefused() {
         BillingRunFixture world = community("LOCAL");
@@ -125,7 +133,7 @@ class CommunityTypeBillingTests extends BillingScenarioBase {
         ResponseEntity<DoBillingResults> response = billingResource.startBilling(params(world, false));
 
         assertThat(response.getStatusCode(), is(HttpStatus.BAD_REQUEST));
-        assertThat(response.getBody().getAbstractText(), is(NO_BILLING));
+        assertThat(response.getBody().getAbstractText(), is(PREVIEW_ONLY));
         assertThat(count("billing_run where tenant_id = ?"), is(1));
         assertThat(billingRunRepository.findById(earlier.getId()).orElseThrow().getRunStatus(),
                 is(BillingRunStatus.NEW));
