@@ -14,7 +14,10 @@ this changelog highlights the changes relevant for overview and operations.
   billing time like the amount) instead of the fixed „Beitrittsgebühr“; an empty text keeps „Beitrittsgebühr“.
   Tariffs get „Beitrittsgebühr“ by default, so documents change only where a community changed the text. Whether a
   member was charged still follows the item type `JOINING_FEE`, not the text: a changed text never charges the fee a
-  second time. Final documents already created keep their text.
+  second time. Final documents already created keep their text. The participant amounts count the joining fee only
+  as joining fee, also when its text starts with „Zählpunktgebühr“ (the metering point fee sum went by text alone).
+  The PDF sorts the member's items without a metering point by text, as before: a changed text can move the joining
+  fee below the membership fee.
 
 ### Contract
 - **Reads the new last column `tariff_joining_fee_text` of `base.billing_masterdata`** (eegfaktura-backend migration
