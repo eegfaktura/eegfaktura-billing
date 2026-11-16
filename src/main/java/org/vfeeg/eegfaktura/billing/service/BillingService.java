@@ -35,6 +35,7 @@ public class BillingService {
 
 
     public static final String ZAEHLPUNKTGEBUEHR_TEXT = "Zählpunktgebühr";
+    /** Text of the joining fee item when the tariff has none (the fixed text until platform#260). */
     public static final String JOINING_FEE_TEXT = "Beitrittsgebühr";
     static final String NO_ALLOCATIONS_TEXT = "Keine Energiemengen für die Abrechnung übergeben – bitte die Seite"
             + " neu laden und die Energiedaten des Zeitraums laden.";
@@ -995,13 +996,16 @@ public class BillingService {
                 && (firstEnergyBilling || joiningFeeHistory.requested().contains(participantId));
     }
 
-    /** Position „Beitrittsgebühr“: Tarifstand beim Abrechnen, kein Rabatt, eigene USt-Einstellung. */
+    /**
+     * Position der Beitrittsgebühr: Tarifstand beim Abrechnen (Betrag und Bezeichnung), kein Rabatt, eigene
+     * USt-Einstellung. Die Positionsart JOINING_FEE, nicht der Text, sagt, dass die Gebühr verrechnet ist.
+     */
     private void createJoiningFeeItem(BillingDocument invoice, List<BillingDocumentItem> invoiceItems,
                                       BillingMasterdata billingMasterdata) {
         createCustomBillingDocumentItem(
                 invoice,
                 invoiceItems,
-                JOINING_FEE_TEXT,
+                StringUtils.defaultIfBlank(billingMasterdata.getTariffJoiningFeeText(), JOINING_FEE_TEXT),
                 null,
                 billingMasterdata.getTariffParticipantFeeName(),
                 billingMasterdata.getTariffJoiningFee(),

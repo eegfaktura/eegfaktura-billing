@@ -87,6 +87,10 @@ alter table base.billing_masterdata
 alter table base.billing_masterdata
     add column if not exists eeg_area text default 'LOCAL';
 
+-- text of the joining fee on the invoice (backend 20261116090000, platform#260), last column of the view
+alter table base.billing_masterdata
+    add column if not exists tariff_joining_fee_text text default 'Beitrittsgebühr';
+
 -- ZVT-Testdaten: Verbraucher-ZP mit zeitbasiertem Tarif (Basis 12.83 ct,
 -- Tag 06:00-08:00 22.5 ct, Nacht 20:00-06:00 (Mitternachtsueberlauf) 5.5 ct,
 -- Rabatt 10%). Eigener Teilnehmer, damit Bestands-Tests unberuehrt bleiben.

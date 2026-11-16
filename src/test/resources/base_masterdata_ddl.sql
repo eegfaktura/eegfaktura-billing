@@ -81,7 +81,9 @@ create table if not exists base.billing_masterdata
     tariff_joining_fee_use_vat            boolean default false,
     tariff_joining_fee_vat_in_percent     numeric default 0,
     -- community type (base.eeg.area, platform#229), last column of the view
-    eeg_area                              text default 'LOCAL'
+    eeg_area                              text default 'LOCAL',
+    -- text of the joining fee on the invoice (backend 20261116090000, platform#260), last column of the view
+    tariff_joining_fee_text               text default 'Beitrittsgebühr'
 );
 
 -- joining fee (backend 20261028130000); also for a reused container whose table predates the columns
@@ -93,3 +95,7 @@ alter table base.billing_masterdata
 -- community type (platform#229); also for a reused container whose table predates the column
 alter table base.billing_masterdata
     add column if not exists eeg_area text default 'LOCAL';
+
+-- joining fee text (platform#260); also for a reused container whose table predates the column
+alter table base.billing_masterdata
+    add column if not exists tariff_joining_fee_text text default 'Beitrittsgebühr';
