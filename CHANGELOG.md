@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.13.0] – 2026-11-16
+
 ### Added
 - **Joining fee: the invoice shows the text of the tariff** (platform#260). The item of the joining fee takes its
   text from the member's membership fee tariff (`base.billing_masterdata.tariff_joining_fee_text`, tariff state at
