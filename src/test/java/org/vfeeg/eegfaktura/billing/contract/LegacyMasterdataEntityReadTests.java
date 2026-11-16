@@ -152,6 +152,8 @@ class LegacyMasterdataEntityReadTests {
             assertThat(row.getTariffJoiningFee(), comparesEqualTo(new BigDecimal("49.90")));
             assertThat(row.getTariffJoiningFeeUseVat(), is(true));
             assertThat(row.getTariffJoiningFeeVatInPercent(), comparesEqualTo(new BigDecimal("13")));
+            // backend 20261116090000: the text of the member's EEG tariff (the default is the backend's test)
+            assertThat(row.getTariffJoiningFeeText(), is("Einmalige Einrichtungsgebühr"));
         }
     }
 }

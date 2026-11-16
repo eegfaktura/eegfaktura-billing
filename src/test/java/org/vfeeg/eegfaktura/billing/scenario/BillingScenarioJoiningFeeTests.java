@@ -32,6 +32,60 @@ import static org.vfeeg.eegfaktura.billing.support.DocumentReaders.pdfText;
  */
 class BillingScenarioJoiningFeeTests extends JoiningFeeScenarioBase {
 
+    /**
+     * platform#260: the item and the PDF carry the text of the tariff; the item type stays JOINING_FEE, so the fee
+     * counts as billed and the next run has none, also after the text was changed in between.
+     */
+    @Test
+    void theJoiningFeeItemCarriesTheTextOfTheTariff() {
+        BillingRunFixture world = insert(world().master(consumer(1, "C1").joiningFee("50", null)
+                .joiningFeeText("Einmalige Einrichtungsgebühr"), "100"), false);
+
+        DoBillingResults first = run(world, PERIOD, false);
+
+        List<BillingDocumentItem> fee = itemsOfType(first.getBillingRunId(), JOINING_FEE);
+        assertThat(fee, hasSize(1));
+        assertThat(fee.get(0).getText(), is("Einmalige Einrichtungsgebühr"));
+        String pdf = pdfText(pdf(document(documents(first.getBillingRunId()), 1, INVOICE).getId()));
+        assertThat(pdf, containsString("Einmalige Einrichtungsgebühr"));
+        assertThat(amountOf(first, 1).getJoiningFee(), comparesEqualTo(new BigDecimal("50.00")));
+
+        jdbc.update("update base.billing_masterdata set tariff_joining_fee_text = 'Eintritt' where tenant_id = ?",
+                tenant);
+        DoBillingResults second = run(world, Q3, false);
+
+        assertThat(itemsOfType(second.getBillingRunId(), JOINING_FEE), is(empty()));
+        assertThat(joiningFeesInFinalRuns(), is(1));
+    }
+
+    /** platform#260: an empty text (the view never delivers one, a hand-written row could) keeps the former text. */
+    @Test
+    void anEmptyTextOfTheTariffKeepsTheFormerText() {
+        BillingRunFixture world = insert(world().master(consumer(1, "C1").joiningFee("50", null)
+                .joiningFeeText(" "), "100"), false);
+
+        DoBillingResults first = run(world, PERIOD, false);
+
+        List<BillingDocumentItem> fee = itemsOfType(first.getBillingRunId(), JOINING_FEE);
+        assertThat(fee, hasSize(1));
+        assertThat(fee.get(0).getText(), is("Beitrittsgebühr"));
+    }
+
+    /**
+     * platform#260 (review): a text that starts like the metering point fee („Zählpunktgebühr …“) still counts as the
+     * joining fee only, not also as a metering point fee in the participant amounts.
+     */
+    @Test
+    void aTextLikeTheMeteringPointFeeCountsAsJoiningFeeOnly() {
+        BillingRunFixture world = insert(world().master(consumer(1, "C1").joiningFee("50", null)
+                .joiningFeeText("Zählpunktgebühr einmalig"), "100"), false);
+
+        DoBillingResults first = run(world, PERIOD, false);
+
+        assertThat(amountOf(first, 1).getJoiningFee(), comparesEqualTo(new BigDecimal("50.00")));
+        assertThat(amountOf(first, 1).getMeteringPointFeeSum(), comparesEqualTo(BigDecimal.ZERO));
+    }
+
     /** AK 1: energy, joining fee 50.00 and fee 2.00 on the first final invoice; the next run has no joining fee. */
     @Test
     void consumerPaysTheJoiningFeeWithTheFirstFinalRunOnly() {

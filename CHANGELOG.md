@@ -8,6 +8,22 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Added
+- **Joining fee: the invoice shows the text of the tariff** (platform#260). The item of the joining fee takes its
+  text from the member's membership fee tariff (`base.billing_masterdata.tariff_joining_fee_text`, tariff state at
+  billing time like the amount) instead of the fixed „Beitrittsgebühr“; an empty text keeps „Beitrittsgebühr“.
+  Tariffs get „Beitrittsgebühr“ by default, so documents change only where a community changed the text. Whether a
+  member was charged still follows the item type `JOINING_FEE`, not the text: a changed text never charges the fee a
+  second time. Final documents already created keep their text. The participant amounts count the joining fee only
+  as joining fee, also when its text starts with „Zählpunktgebühr“ (the metering point fee sum went by text alone).
+  The PDF sorts the member's items without a metering point by text, as before: a changed text can move the joining
+  fee below the membership fee.
+
+### Contract
+- **Reads the new last column `tariff_joining_fee_text` of `base.billing_masterdata`** (eegfaktura-backend migration
+  `20261116090000_joining_fee_text`). **Deploy backend before billing:** without the column every query of the master
+  data fails. Test copy of the migration in `src/test/resources/legacy-base/09_…` (80 view columns).
+
 ### Changed
 - Dependabot (Docker base images): no more major updates (legacy system, replaced by v3 in the medium term; majors
   only for security reasons, decision 23.10.2026), patch and minor updates come in one weekly grouped PR, new versions

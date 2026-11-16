@@ -133,6 +133,11 @@ public final class BillingMasterdataBuilder {
         return column("tariff_joining_fee_vat_in_percent", bd(vatPercentOrNull == null ? "0" : vatPercentOrNull));
     }
 
+    /** Text of the joining fee on the invoice (platform#260); without this call the view's default „Beitrittsgebühr“. */
+    public BillingMasterdataBuilder joiningFeeText(String text) {
+        return column("tariff_joining_fee_text", text);
+    }
+
     public BillingMasterdataBuilder meteringPointFee(String amount, String text, String vatPercent) {
         return column("tariff_use_metering_point_fee", true).column("tariff_metering_point_fee", bd(amount))
                 .column("tariff_metering_point_fee_text", text).column("tariff_metering_point_vat", bd(vatPercent));

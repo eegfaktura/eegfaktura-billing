@@ -21,7 +21,7 @@ import java.util.List;
  */
 public final class LegacyBaseDatabase {
 
-    /** The minimal ordered subset of v3's {@code docker/legacy-base/01..08} that builds the view, plus the backend's ZVT, joining-fee and eeg_area migrations (2026). */
+    /** The minimal ordered subset of v3's {@code docker/legacy-base/01..08} that builds the view, plus the backend's ZVT, joining-fee, eeg_area and joining-fee-text migrations (2026). */
     public static final List<String> SCRIPTS = List.of(
             "legacy-base/01_20250603103206_activeMeterView.up.sql",
             "legacy-base/02_20250603150318_create_views.up.sql",
@@ -29,7 +29,8 @@ public final class LegacyBaseDatabase {
             "legacy-base/05_20250605091807_add_account_info_to_billing_view.up.sql",
             "legacy-base/06_20260711120000_zvt_time_tariff.up.sql",
             "legacy-base/07_20261028130000_joining_fee.up.sql",
-            "legacy-base/08_20261106090000_billing_masterdata_eeg_area.up.sql");
+            "legacy-base/08_20261106090000_billing_masterdata_eeg_area.up.sql",
+            "legacy-base/09_20261116090000_joining_fee_text.up.sql");
 
     public static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:15-alpine")

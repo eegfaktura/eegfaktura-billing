@@ -119,6 +119,8 @@ public class BillingMasterdata {
     private BigDecimal tariffJoiningFee;
     private Boolean tariffJoiningFeeUseVat;
     private BigDecimal tariffJoiningFeeVatInPercent;
+    // Bezeichnung der Beitrittsgebuehr auf der Rechnung (backend 20261116090000, platform#260)
+    private String tariffJoiningFeeText;
 
     // Typ der Gemeinschaft (base.eeg.area: LOCAL, REGIONAL, BEG, GEA, P2P, EVA), platform#229
     private String eegArea;

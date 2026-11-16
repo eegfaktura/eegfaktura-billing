@@ -81,9 +81,10 @@ public class ParticipantAmountService {
                         participantAmount.getJoiningFee().add(billingDocumentItem.getGrossValue())));
 
         // Jene Items die mit dem Text "Zaehlpunktgebuehr" beginnen, sind eben solche
-        // und werden hier aufsummiert
+        // und werden hier aufsummiert - ausser der Beitrittsgebuehr, deren Text die Gemeinschaft waehlt (platform#260)
         BigDecimal meteringPointFeeSum = billingDocumentItems.stream()
-                .filter(billingDocumentItem -> billingDocumentItem.getText().startsWith(
+                .filter(billingDocumentItem -> billingDocumentItem.getItemType() != BillingDocumentItemType.JOINING_FEE
+                        && billingDocumentItem.getText().startsWith(
                         BillingService.ZAEHLPUNKTGEBUEHR_TEXT)).map(BillingDocumentItem::getGrossValue)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
         participantAmount.setMeteringPointFeeSum(participantAmount.getMeteringPointFeeSum().add(meteringPointFeeSum));
