@@ -365,7 +365,7 @@ public class BillingService {
         // ZP-Bezeichnungen fuer die Block-Kopfzeilen im PDF (je Zaehlpunkt ein Block)
         Map<String, String> meteringPointNames = billingMasterdataList.stream()
                 .collect(Collectors.toMap(BillingMasterdata::getMeteringPointId,
-                        m -> StringUtils.defaultString(m.getMeteringEquipmentName()),
+                        BillingService::meteringPointLabel,
                         (a, b) -> a));
 
         // (1) Energiepositionen beider Belegarten zuerst: ob die Beitrittsgebuehr faellig ist, haengt
@@ -589,6 +589,22 @@ public class BillingService {
         }
 
 
+    }
+
+    /**
+     * Bezeichnung des Zaehlpunkts in der Block-Kopfzeile: Anlagenname und Anlage-Nr.
+     * Die Anlage-Nr. stand bis 1.1.0 in den Positionszeilen und fiel mit den
+     * Zaehlpunkt-Bloecken weg (Rueckmeldung 23.11.2026).
+     */
+    static String meteringPointLabel(BillingMasterdata billingMasterdata) {
+        String name = StringUtils.defaultString(billingMasterdata.getMeteringEquipmentName());
+        String equipmentNumber = billingMasterdata.getEquipmentNumber();
+        if (StringUtils.isEmpty(equipmentNumber)) {
+            return name;
+        }
+        return name.isEmpty()
+                ? "Anlage-Nr. " + equipmentNumber
+                : name + " (Anlage-Nr. " + equipmentNumber + ")";
     }
 
     private String buildItemText(BillingMasterdata billingMasterdata) {

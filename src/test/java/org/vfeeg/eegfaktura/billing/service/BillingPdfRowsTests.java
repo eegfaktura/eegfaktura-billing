@@ -2,6 +2,7 @@ package org.vfeeg.eegfaktura.billing.service;
 
 import org.junit.jupiter.api.Test;
 import org.vfeeg.eegfaktura.billing.domain.BillingDocumentItem;
+import org.vfeeg.eegfaktura.billing.domain.BillingMasterdata;
 import org.vfeeg.eegfaktura.billing.domain.MeteringPointType;
 
 import java.math.BigDecimal;
@@ -44,5 +45,24 @@ class BillingPdfRowsTests {
                 List.of(energy("AT001", "Tarif: Basis", "100"), energy("AT001", "Tarif: Tag (06:00 - 08:00)", "14.05"),
                         energy("AT002", "Tarif: Bezug", "50")), Map.of());
         assertEquals(List.of("H", "I", "I", "S", "H", "I"), rowTypes(rows));
+    }
+    // Feedback 23.11.2026: the equipment number disappeared from the documents with the metering point blocks (1.1.0).
+    @Test
+    void blockHeaderShowsEquipmentNameAndNumber() {
+        BillingPdfService service = new BillingPdfService(null, null);
+        String label = BillingService.meteringPointLabel(BillingMasterdata.builder()
+                .meteringPointId("AT001").meteringEquipmentName("Brennaustrasse").equipmentNumber("KRE01.20100110").build());
+        List<Map<String, ?>> rows = service.buildGroupedItemRows(
+                List.of(energy("AT001", "Tarif: Bezug", "114.05")), Map.of("AT001", label));
+        assertEquals("<b>Zählpunkt AT001 - Brennaustrasse (Anlage-Nr. KRE01.20100110)</b>", rows.get(0).get("text"));
+    }
+
+    @Test
+    void labelWithoutNameOrNumber() {
+        assertEquals("Anlage-Nr. KRE01", BillingService.meteringPointLabel(
+                BillingMasterdata.builder().equipmentNumber("KRE01").build()));
+        assertEquals("Brennaustrasse", BillingService.meteringPointLabel(
+                BillingMasterdata.builder().meteringEquipmentName("Brennaustrasse").equipmentNumber("").build()));
+        assertEquals("", BillingService.meteringPointLabel(BillingMasterdata.builder().build()));
     }
 }
