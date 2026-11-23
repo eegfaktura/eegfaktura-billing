@@ -46,23 +46,30 @@ class BillingPdfRowsTests {
                         energy("AT002", "Tarif: Bezug", "50")), Map.of());
         assertEquals(List.of("H", "I", "I", "S", "H", "I"), rowTypes(rows));
     }
-    // Feedback 23.11.2026: the equipment number disappeared from the documents with the metering point blocks (1.1.0).
+
+    // Feedback 23.11.2026 (platform#265): the equipment number disappeared from the documents with the blocks (1.1.0).
     @Test
     void blockHeaderShowsEquipmentNameAndNumber() {
         BillingPdfService service = new BillingPdfService(null, null);
-        String label = BillingService.meteringPointLabel(BillingMasterdata.builder()
-                .meteringPointId("AT001").meteringEquipmentName("Brennaustrasse").equipmentNumber("KRE01.20100110").build());
         List<Map<String, ?>> rows = service.buildGroupedItemRows(
-                List.of(energy("AT001", "Tarif: Bezug", "114.05")), Map.of("AT001", label));
+                List.of(energy("AT001", "Tarif: Bezug", "114.05")),
+                Map.of("AT001", meteringPoint("Brennaustrasse", "KRE01.20100110")));
         assertEquals("<b>Zählpunkt AT001 - Brennaustrasse (Anlage-Nr. KRE01.20100110)</b>", rows.get(0).get("text"));
     }
 
     @Test
-    void labelWithoutNameOrNumber() {
-        assertEquals("Anlage-Nr. KRE01", BillingService.meteringPointLabel(
-                BillingMasterdata.builder().equipmentNumber("KRE01").build()));
-        assertEquals("Brennaustrasse", BillingService.meteringPointLabel(
-                BillingMasterdata.builder().meteringEquipmentName("Brennaustrasse").equipmentNumber("").build()));
-        assertEquals("", BillingService.meteringPointLabel(BillingMasterdata.builder().build()));
+    void blockHeaderVariants() {
+        BigDecimal discount = new BigDecimal("10");
+        assertEquals("Zählpunkt AT001 - Brennaustrasse (Anlage-Nr. KRE01, Rabatt 10,00 %)",
+                BillingPdfService.blockHeader("AT001", meteringPoint("Brennaustrasse", "KRE01"), discount));
+        assertEquals("Zählpunkt AT001 (Anlage-Nr. KRE01)",
+                BillingPdfService.blockHeader("AT001", meteringPoint(" ", "KRE01"), null));
+        assertEquals("Zählpunkt AT001 - Brennaustrasse (Rabatt 10,00 %)",
+                BillingPdfService.blockHeader("AT001", meteringPoint("Brennaustrasse", " "), discount));
+        assertEquals("Zählpunkt AT001", BillingPdfService.blockHeader("AT001", null, null));
+    }
+
+    private static BillingMasterdata meteringPoint(String name, String equipmentNumber) {
+        return BillingMasterdata.builder().meteringEquipmentName(name).equipmentNumber(equipmentNumber).build();
     }
 }

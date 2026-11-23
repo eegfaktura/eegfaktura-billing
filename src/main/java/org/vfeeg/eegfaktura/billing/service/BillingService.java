@@ -362,11 +362,9 @@ public class BillingService {
         ParticipantAmount participantAmount = new ParticipantAmount();
         participantAmount.setId(UUID.fromString(firstBillingMasterdata.getParticipantId()));
 
-        // ZP-Bezeichnungen fuer die Block-Kopfzeilen im PDF (je Zaehlpunkt ein Block)
-        Map<String, String> meteringPointNames = billingMasterdataList.stream()
-                .collect(Collectors.toMap(BillingMasterdata::getMeteringPointId,
-                        BillingService::meteringPointLabel,
-                        (a, b) -> a));
+        // Stammdaten je ZP fuer die Block-Kopfzeilen im PDF (je Zaehlpunkt ein Block)
+        Map<String, BillingMasterdata> meteringPoints = billingMasterdataList.stream()
+                .collect(Collectors.toMap(BillingMasterdata::getMeteringPointId, m -> m, (a, b) -> a));
 
         // (1) Energiepositionen beider Belegarten zuerst: ob die Beitrittsgebuehr faellig ist, haengt
         // davon ab, ob das Mitglied in diesem Lauf Energie (Bezug oder Einspeisung) abgerechnet bekommt.
@@ -439,7 +437,7 @@ public class BillingService {
             if (!BigDecimalTools.isNullOrZero(invoice.getGrossAmountInEuro())) {
                 createAndAddDocumentNumber(invoice, firstBillingMasterdata, doBillingParams);
                 saveInRun(invoice, invoiceItems, billingRun);
-                billingPdfService.createAndSavePDF(invoice, invoiceItems, meteringPointNames,
+                billingPdfService.createAndSavePDF(invoice, invoiceItems, meteringPoints,
                         doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
                         doBillingParams.getBillingConfig().getFooterImageFileDataId(),
                         doBillingParams.isPreview());
@@ -454,7 +452,7 @@ public class BillingService {
             if (!BigDecimalTools.isNullOrZero(producerDocument.getGrossAmountInEuro())) {
                 createAndAddDocumentNumber(producerDocument, firstBillingMasterdata, doBillingParams);
                 saveInRun(producerDocument, creditNotesItems, billingRun);
-                billingPdfService.createAndSavePDF(producerDocument, creditNotesItems, meteringPointNames,
+                billingPdfService.createAndSavePDF(producerDocument, creditNotesItems, meteringPoints,
                         doBillingParams.getBillingConfig().getHeaderImageFileDataId(),
                         doBillingParams.getBillingConfig().getFooterImageFileDataId(), doBillingParams.isPreview());
             }
@@ -589,22 +587,6 @@ public class BillingService {
         }
 
 
-    }
-
-    /**
-     * Bezeichnung des Zaehlpunkts in der Block-Kopfzeile: Anlagenname und Anlage-Nr.
-     * Die Anlage-Nr. stand bis 1.1.0 in den Positionszeilen und fiel mit den
-     * Zaehlpunkt-Bloecken weg (Rueckmeldung 23.11.2026).
-     */
-    static String meteringPointLabel(BillingMasterdata billingMasterdata) {
-        String name = StringUtils.defaultString(billingMasterdata.getMeteringEquipmentName());
-        String equipmentNumber = billingMasterdata.getEquipmentNumber();
-        if (StringUtils.isEmpty(equipmentNumber)) {
-            return name;
-        }
-        return name.isEmpty()
-                ? "Anlage-Nr. " + equipmentNumber
-                : name + " (Anlage-Nr. " + equipmentNumber + ")";
     }
 
     private String buildItemText(BillingMasterdata billingMasterdata) {
