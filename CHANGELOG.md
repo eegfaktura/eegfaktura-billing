@@ -8,6 +8,17 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Fixed
+- **The equipment number (Anlage-Nr.) is back on the documents** created from this version on (invoice, credit
+  note, info document; vfeeg-development/eegfaktura-platform#265). Since 1.1.0 the block header of a metering point
+  showed only `Zählpunkt <nr> - <name>`, and the "Anlage-Nr." line of the position rows was filtered out with the
+  repeated name and metering point. The header now reads `Zählpunkt <nr> - <name> (Anlage-Nr. <nr>)`; with a tariff
+  discount `(Anlage-Nr. <nr>, Rabatt <x> %)` in one parenthesis; without a name `Zählpunkt <nr> (Anlage-Nr. <nr>)`.
+  Names and numbers are trimmed; blank ones are left out (a blank name no longer leaves a dangling ` - `).
+  **Changes the print image** of every document with an equipment number (decided by the project team on
+  23.11.2026). Documents already created are not regenerated; the Excel export is
+  unchanged.
+
 ## [1.13.0] – 2026-11-16
 
 ### Added

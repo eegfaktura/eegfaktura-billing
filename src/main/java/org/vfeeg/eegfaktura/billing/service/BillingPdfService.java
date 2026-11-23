@@ -49,7 +49,7 @@ public class BillingPdfService {
     }
 
     public BillingDocumentFile createAndSavePDF(final BillingDocument document, final List<BillingDocumentItem> items,
-                                                final Map<String, String> meteringPointNames,
+                                                final Map<String, BillingMasterdata> meteringPoints,
                                                 final UUID headerImageFileDataId, final UUID footerImageFileDataId,
                                                 boolean isPreview)  {
 
@@ -123,7 +123,7 @@ public class BillingPdfService {
                 , document.getAfterItemsText()));
 
         parameters.put("items", new JRMapCollectionDataSource(
-                buildGroupedItemRows(items, meteringPointNames)));
+                buildGroupedItemRows(items, meteringPoints)));
 
         byte[] pdfDataBytes;
         try {
@@ -169,7 +169,7 @@ public class BillingPdfService {
      * <b>...</b> gesetzt.
      */
     ArrayList<Map<String,?>> buildGroupedItemRows(List<BillingDocumentItem> items,
-                                                          Map<String, String> meteringPointNames) {
+                                                          Map<String, BillingMasterdata> meteringPoints) {
         ArrayList<Map<String,?>> rows = new ArrayList<>();
 
         // Bloecke: alle Items mit Zaehlpunkt, sortiert nach ZP-Nummer;
@@ -195,14 +195,8 @@ public class BillingPdfService {
                     .filter(d -> !BigDecimalTools.isNullOrZero(d))
                     .findFirst().orElse(null);
 
-            String name = meteringPointNames != null ? meteringPointNames.get(meteringPointId) : null;
-            StringBuilder header = new StringBuilder("Zählpunkt ").append(meteringPointId);
-            if (!ObjectUtils.isEmpty(name)) {
-                header.append(" - ").append(name);
-            }
-            if (discountPercent != null) {
-                header.append(" (Rabatt ").append(BigDecimalTools.makeGermanString(discountPercent, "%")).append(")");
-            }
+            String header = blockHeader(meteringPointId,
+                    meteringPoints != null ? meteringPoints.get(meteringPointId) : null, discountPercent);
             rows.add(labelOnlyRow("<b>" + escapeStyled(header.toString()) + "</b>", "H"));
 
             BigDecimal netSum = BigDecimal.ZERO;
@@ -275,6 +269,30 @@ public class BillingPdfService {
         }
         // Einfach-Tarif ohne Zusatzzeilen: Tarifname als Zeilenlabel
         return ObjectUtils.isEmpty(item.getTariffName()) ? "Energiemenge" : "Tarif: " + item.getTariffName();
+    }
+
+    /**
+     * Kopfzeile eines Zaehlpunkt-Blocks: "Zählpunkt <nr> - <Anlagenname> (Anlage-Nr. <nr>, Rabatt <x> %)".
+     * Die Anlage-Nr. stand bis 1.1.0 in den Positionszeilen (platform#265).
+     */
+    static String blockHeader(String meteringPointId, BillingMasterdata meteringPoint, BigDecimal discountPercent) {
+        StringBuilder header = new StringBuilder("Zählpunkt ").append(meteringPointId);
+        String name = meteringPoint != null ? meteringPoint.getMeteringEquipmentName() : null;
+        if (name != null && !name.isBlank()) {
+            header.append(" - ").append(name.trim());
+        }
+        List<String> details = new ArrayList<>();
+        String equipmentNumber = meteringPoint != null ? meteringPoint.getEquipmentNumber() : null;
+        if (equipmentNumber != null && !equipmentNumber.isBlank()) {
+            details.add("Anlage-Nr. " + equipmentNumber.trim());
+        }
+        if (discountPercent != null) {
+            details.add("Rabatt " + BigDecimalTools.makeGermanString(discountPercent, "%"));
+        }
+        if (!details.isEmpty()) {
+            header.append(" (").append(String.join(", ", details)).append(")");
+        }
+        return header.toString();
     }
 
     private static boolean isMeteringPointFeeItem(BillingDocumentItem item) {
