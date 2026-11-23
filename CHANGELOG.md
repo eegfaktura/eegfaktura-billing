@@ -14,8 +14,9 @@ this changelog highlights the changes relevant for overview and operations.
   showed only `Zählpunkt <nr> - <name>`, and the "Anlage-Nr." line of the position rows was filtered out with the
   repeated name and metering point. The header now reads `Zählpunkt <nr> - <name> (Anlage-Nr. <nr>)`; with a tariff
   discount `(Anlage-Nr. <nr>, Rabatt <x> %)` in one parenthesis; without a name `Zählpunkt <nr> (Anlage-Nr. <nr>)`.
-  Blank names or numbers are left out. **Changes the print image** of every document with an equipment number
-  (decided by the project team on 23.11.2026). Documents already created are not regenerated; the Excel export is
+  Names and numbers are trimmed; blank ones are left out (a blank name no longer leaves a dangling ` - `).
+  **Changes the print image** of every document with an equipment number (decided by the project team on
+  23.11.2026). Documents already created are not regenerated; the Excel export is
   unchanged.
 
 ## [1.13.0] – 2026-11-16
