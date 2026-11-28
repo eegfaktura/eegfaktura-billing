@@ -29,7 +29,10 @@ import java.util.UUID;
 @Slf4j
 public class BillingDocumentMailService {
 
-    /** Run protocol note when the EEG's mail text could not be used (concept: default + notice). */
+    /**
+     * Run protocol note when the EEG's mail text could not be used (concept: default + notice). Never change the
+     * wording: {@code BillingRunDTO.mailTemplateFallback} finds it in stored protocols (platform#280).
+     */
     static final String TEMPLATE_FALLBACK_NOTE = "HINWEIS: Die angepasste E-Mail-Vorlage konnte nicht verwendet "
             + "werden, es wurde der Standardtext versendet. ";
     /** Run protocol note when the mail run ended on an exception instead of a result. */

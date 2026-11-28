@@ -20,8 +20,8 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
 
 /**
- * {@code mailTemplateFallback} of a run: true when the protocol of its last mail run holds the note that the
- * EEG's mail text could not be used (platform#280).
+ * {@code mailTemplateFallback} of a run: true when its mails went out (SENT) and the protocol of that send holds the
+ * note that the EEG's mail text could not be used (platform#280).
  */
 @ExtendWith(MockitoExtension.class)
 class MailTemplateFallbackTests {
@@ -40,26 +40,37 @@ class MailTemplateFallbackTests {
                 billingDocumentItemRepository, billingDocumentFileRepository, fileDataRepository);
     }
 
+    // the wording of protocols stored by earlier versions (since 22.10.2026), written out on purpose
+    private static final String STORED_NOTE = "HINWEIS: Die angepasste E-Mail-Vorlage konnte nicht verwendet werden, "
+            + "es wurde der Standardtext versendet. ";
+
     @Test
-    void protocolWithTheFallbackNote() {
-        assertThat(fallback("Send mail start at 2026-11-28T10:00+01:00: "
-                + BillingDocumentMailService.TEMPLATE_FALLBACK_NOTE + "a@example.org OK, "), is(true));
+    void sentRunWithTheFallbackNote() {
+        assertThat(fallback("SENT", "Send mail start at 2026-11-28T10:00+01:00: " + STORED_NOTE
+                + "a@example.org OK, "), is(true));
     }
 
     @Test
-    void protocolWithoutTheFallbackNote() {
-        assertThat(fallback("Send mail start at 2026-11-28T10:00+01:00: a@example.org OK, "), is(false));
+    void sentRunWithoutTheFallbackNote() {
+        assertThat(fallback("SENT", "Send mail start at 2026-11-28T10:00+01:00: a@example.org OK, "), is(false));
+    }
+
+    @Test
+    void failedOrRunningSendIsNoFallback() {
+        assertThat(fallback("FAILED", "Send mail start at …: " + STORED_NOTE + "a@example.org FEHLER,"), is(false));
+        assertThat(fallback("IN PROGRESS", "Send mail start at …: " + STORED_NOTE), is(false));
     }
 
     @Test
     void runWithoutMailRun() {
-        assertThat(fallback(null), is(false));
+        assertThat(fallback(null, null), is(false));
     }
 
-    private boolean fallback(String protocol) {
+    private boolean fallback(String mailStatus, String protocol) {
         BillingRun run = new BillingRun();
         UUID id = UUID.randomUUID();
         run.setId(id);
+        run.setMailStatus(mailStatus);
         run.setSendMailProtocol(protocol);
         when(billingRunRepository.findById(id)).thenReturn(Optional.of(run));
         return service.get(id).isMailTemplateFallback();

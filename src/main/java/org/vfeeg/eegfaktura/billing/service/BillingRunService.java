@@ -1,5 +1,6 @@
 package org.vfeeg.eegfaktura.billing.service;
 
+import org.apache.commons.lang3.StringUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -164,8 +165,9 @@ public class BillingRunService {
         billingRunDTO.setSepaStatusDateTime(billingRun.getSepaStatusDateTime());
         billingRunDTO.setNumberOfInvoices(billingRun.getNumberOfInvoices());
         billingRunDTO.setNumberOfCreditNotes(billingRun.getNumberOfCreditNotes());
-        billingRunDTO.setMailTemplateFallback(billingRun.getSendMailProtocol() != null
-                && billingRun.getSendMailProtocol().contains(BillingDocumentMailService.TEMPLATE_FALLBACK_NOTE));
+        // only a sent run: the note is written before the first mail, a FAILED or running send has it too
+        billingRunDTO.setMailTemplateFallback(BillingDocumentMailService.STATUS_SENT.equals(billingRun.getMailStatus())
+                && StringUtils.contains(billingRun.getSendMailProtocol(), BillingDocumentMailService.TEMPLATE_FALLBACK_NOTE));
         return billingRunDTO;
     }
 
