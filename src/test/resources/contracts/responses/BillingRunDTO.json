@@ -13,6 +13,7 @@
     "id",
     "mailStatus",
     "mailStatusDateTime",
+    "mailTemplateFallback",
     "numberOfCreditNotes",
     "numberOfInvoices",
     "runStatus",
@@ -25,9 +26,9 @@
   "readBy": {
     "eegfaktura-web": {
       "repository": "eegfaktura-web",
-      "commit": "c37a0b7f9197dd31a16b3ab5294d2d13ff551883",
-      "date": "2026-09-27",
-      "file": "src/models/meteringpoint.model.ts:75-88 (BillingRun)",
+      "commit": "548a7d9a39bf2913f0671b597fdfb7befb8aa09c",
+      "date": "2026-11-28",
+      "file": "src/models/meteringpoint.model.ts:89-105 (BillingRun)",
       "fields": [
         "id",
         "clearingPeriodType",
@@ -40,7 +41,8 @@
         "sepaStatus",
         "sepaStatusDateTime",
         "numberOfInvoices",
-        "numberOfCreditNotes"
+        "numberOfCreditNotes",
+        "mailTemplateFallback"
       ]
     },
     "eegfaktura-v3": {

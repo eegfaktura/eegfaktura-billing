@@ -40,4 +40,7 @@ public class BillingRunDTO {
 
     private Integer numberOfCreditNotes;
 
+    /** The EEG's mail text could not be used, the last mail run sent the default text (from the protocol). */
+    private boolean mailTemplateFallback;
+
 }

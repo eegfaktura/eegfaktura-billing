@@ -164,6 +164,8 @@ public class BillingRunService {
         billingRunDTO.setSepaStatusDateTime(billingRun.getSepaStatusDateTime());
         billingRunDTO.setNumberOfInvoices(billingRun.getNumberOfInvoices());
         billingRunDTO.setNumberOfCreditNotes(billingRun.getNumberOfCreditNotes());
+        billingRunDTO.setMailTemplateFallback(billingRun.getSendMailProtocol() != null
+                && billingRun.getSendMailProtocol().contains(BillingDocumentMailService.TEMPLATE_FALLBACK_NOTE));
         return billingRunDTO;
     }
 

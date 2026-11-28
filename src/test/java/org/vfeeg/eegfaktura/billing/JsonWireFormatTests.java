@@ -48,7 +48,8 @@ class JsonWireFormatTests {
                         + "\"clearingPeriodIdentifier\":\"Abr_YQ-2026-3\",\"tenantId\":\"RC100100\",\"runStatus\":\"DONE\","
                         + "\"runStatusDateTime\":\"2026-10-23T04:29:57.815309\",\"errorSummary\":null,\"mailStatus\":null,"
                         + "\"sendMailProtocol\":null,\"mailStatusDateTime\":null,\"sepaStatus\":null,"
-                        + "\"sepaStatusDateTime\":null,\"numberOfInvoices\":5,\"numberOfCreditNotes\":null}",
+                        + "\"sepaStatusDateTime\":null,\"numberOfInvoices\":5,\"numberOfCreditNotes\":null,"
+                        + "\"mailTemplateFallback\":false}",
                 jsonMapper.writeValueAsString(run));
     }
 
