@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.14.0] – 2026-11-28
+
 ### Added
 - **Billing run: `mailTemplateFallback`** (platform#280). `true` when the mails of the run went out (mail status
   SENT) with the default text because the community's own text of the mail „Rechnung / Gutschrift“ could not be used;
