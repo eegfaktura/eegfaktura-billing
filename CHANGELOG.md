@@ -8,6 +8,17 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+### Added
+- **Billing run: `mailTemplateFallback`** (platform#280). `true` when the mails of the run went out (mail status
+  SENT) with the default text because the community's own text of the mail „Rechnung / Gutschrift“ could not be used;
+  `false` for a failed or running send. Derived from the run's mail protocol (the note `TEMPLATE_FALLBACK_NOTE` that
+  billing writes there since 1.1.0, 22.10.2026), so it also holds for runs sent since then; no schema change. eegfaktura-web shows a hint for it below the send button.
+
+### Contract
+- **New field `mailTemplateFallback` (boolean, always written) in `BillingRunDTO`**, the answer of
+  `GET /api/billingRuns/{id}` and of the run list. Additive: callers that ignore unknown fields (eegfaktura-web,
+  eegfaktura-v3) are not affected. Read by eegfaktura-web (platform#280); `responses/BillingRunDTO.json` updated.
+
 ## [1.13.1] – 2026-11-28
 
 ### Fixed

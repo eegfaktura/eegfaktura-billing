@@ -35,6 +35,9 @@ repository, file (with lines), commit and date in `source`.
   brief (konzept-abrechnungsintervall.md, platform#230); `readBy` and the `settlementState` call in
   `web/endpoints.json` come from eegfaktura-web#262, branch `feat/settlement-interval-change`, commit `634f3d6`
   (2026-11-05).
+- **Mail template fallback (2026-11-28)**: the field `mailTemplateFallback` of `responses/BillingRunDTO.json` and its
+  `readBy` come from eegfaktura-web#311, branch `fix/bugs-276-282`, commit `548a7d9` (platform#280); refresh the commit
+  after the web merge.
 
 ## Decisions the tests pin (as the code decides today)
 
