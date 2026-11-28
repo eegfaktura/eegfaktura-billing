@@ -8,6 +8,8 @@ this changelog highlights the changes relevant for overview and operations.
 
 ## [Unreleased]
 
+## [1.13.1] – 2026-11-28
+
 ### Fixed
 - **The equipment number (Anlage-Nr.) is back on the documents** created from this version on (invoice, credit
   note, info document; vfeeg-development/eegfaktura-platform#265). Since 1.1.0 the block header of a metering point
